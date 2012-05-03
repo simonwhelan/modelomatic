@@ -1,0 +1,1943 @@
+// Code for classes CTree and CNode
+/////////////////////////////////////////////
+// WARNING: This code has been heavily tampered with
+// Some of the entry and exit condition of CTree function are *NOT* tested
+
+
+// Include files
+#include "TreeList.h"
+#define TREE_DEBUG 0
+
+// Firstly describe CNode
+/////////////////////////////////////////////////
+
+// General constructor
+////////////////////////////////////////////
+CNode::CNode(int NoLinks,int *LinkList)	{ SetNode(NoLinks,LinkList); }
+CNode::CNode(int la, int lb, int lc, int ba, int bb, int bc,int IntVal) { SetNode(la,lb,lc,ba,bb,bc,IntVal); }
+CNode::CNode(int la, int lb, int IntVal) { SetNode(la,lb,IntVal); }
+CNode::CNode(vector <int> L, vector <int>B, int IntVal)	{
+	assert(L.size() == B.size());
+	switch(L.size())	{
+	case 1: SetNode(L[0],B[0],IntVal); break;
+	case 3: SetNode(L[0],L[1],L[2],B[0],B[1],B[2],IntVal); break;
+	default: Error("Unknown type of node in constructor...");
+	}
+}
+CNode::CNode(const CNode &Node)	{int i;
+	CleanNode();
+    m_NodeType = Node.m_NodeType;
+	FOR(i,(int)Node.m_viBranch.size())	{ m_viBranch.push_back(Node.m_viBranch[i]); }
+	FOR(i,(int)Node.m_viLink.size())		{ m_viLink.push_back(Node.m_viLink[i]); }
+}
+// Destructor function
+///////////////////////////////////////////
+CNode::~CNode() { CleanNode(); }
+
+// SetNode functions for bifurcating trees
+// These are appallingly verbose, but work...
+///////////////////////////////////////////////
+void CNode::SetNode(int la,int lb, int IntVal)	{	// Leaf node
+	CleanNode();
+	m_NodeType = leaf;
+	m_viLink.push_back(la);
+	m_viBranch.push_back(lb);
+	m_iInternalNodeNum = IntVal;
+}
+
+// Internal node
+void CNode::SetNode(int la, int lb, int lc, int ba, int bb, int bc, int IntVal)	{
+	CleanNode();
+    m_NodeType = branch;
+	m_viLink.push_back(la); m_viLink.push_back(lb); m_viLink.push_back(lc);
+	m_viBranch.push_back(ba); m_viBranch.push_back(bb); m_viBranch.push_back(bc);
+	m_iInternalNodeNum = IntVal;
+}
+
+// Root node
+void CNode::SetNode(int la, int lb, int ba, int bb, int IntVal) {
+	CleanNode();
+	m_NodeType = root;
+	m_viLink.push_back(la); m_viLink.push_back(lb);
+	m_viBranch.push_back(ba); m_viBranch.push_back(bb);
+	m_iInternalNodeNum = IntVal;
+}
+
+/////////////// General links creation function ////////////////////
+////////////////////////////////////////////////////////////////////
+
+void CNode::SetNode(int NoLinks, int *LinkList)	{
+	int i;
+	CleanNode();
+	// Specify leaf node
+	if(NoLinks < 1) {
+		m_NodeType = leaf;
+	} else	if(NoLinks == 2) {
+		FOR(i,NoLinks) { m_viLink.push_back(LinkList[i]); }
+		m_NodeType = root;
+	} else {	// Specify branch node
+		FOR(i,NoLinks) { m_viLink.push_back(LinkList[i]); }
+		m_NodeType = branch;
+	}
+}
+
+// Clean Node
+////////////////////////////////////////////////////////
+void CNode::CleanNode()	{
+	m_iInternalNodeNum = -1;
+	m_viBranch.clear();
+	m_viLink.clear();
+}
+
+// Stream operators for CNode
+///////////////////////////////////////////
+ostream& operator<<(ostream& os, const CNode &Node)	{
+    int i;
+	switch(Node.m_NodeType)	{
+	case branch:	os << "\nInternal node "; break;
+	case leaf:	os << "\nExternal node "; break;
+	case root: os << "\nRoot node "; break;
+	default:		os << "\n\nUnknown node type operator<<:(\n\n"; exit(-1);
+	}
+	if(Node.m_iInternalNodeNum >= 0) { os << "[ "<<Node.m_iInternalNodeNum<<" ] "; }
+    os << " \tLinks:  "; FOR(i,(int)Node.m_viLink.size()) { os << Node.m_viLink[i] << "  "; }
+    os << " \tBranches:  "; FOR(i,(int)Node.m_viBranch.size()) { os << Node.m_viBranch[i] << "  "; }
+    return os;
+}
+
+// Node related operators
+////////////////////////////////////////////////////////
+
+CNode &CNode::operator=(const CNode & Node) {
+    int i;
+	CleanNode();
+    m_NodeType = Node.m_NodeType;
+	m_iInternalNodeNum = Node.m_iInternalNodeNum;
+	FOR(i,(int)Node.m_viBranch.size())	{ m_viBranch.push_back(Node.m_viBranch[i]); }
+	FOR(i,(int)Node.m_viLink.size())		{ m_viLink.push_back(Node.m_viLink[i]); }
+	return *this;
+}
+
+// **********************************************************
+// 	Description of CTree
+// **********************************************************
+
+// Top level constructors
+CTree::CTree(string TREE, int NoSeq, bool AllowFail, CData *Data)	{ m_iRootNode = -1; m_bRooted = false; m_bValid = false; CreateTree(TREE,NoSeq,true,AllowFail,Data); }		// Basic constructor
+
+CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail)	{		// Risky constructor (may be wrong tree for data)
+	/* If tree from file then TREE[] == filename, else TREE[] == the tree */
+	int FileNoSeq = -1;
+	string store;
+	m_bValid = false; m_bRooted = false; m_iRootNode = -1;
+	// If to get from file
+	if(GetFromFile == true)	{
+		ifstream input(TREE.c_str());
+		if(input.fail())	{ cout << "\nCouldn't open treefile\n\n"; if(AllowFail) { return; } else { Error(); } }
+		getline(input,store,';'); 		store += ";\0";
+		input.close();
+		if(store[0] != '(') { // First line might include the number of sequences
+			FileNoSeq = atoi(store.c_str());
+			store = store.substr(store.find_first_of("("),(int)store.size());
+		}
+	}
+	else { store = TREE; }
+	CreateTree(store,FileNoSeq,true,AllowFail,Data);
+}
+
+int IsTreeGap(char Check)	{
+	if(Check!='('&&Check!=')'&&Check!=';'&&Check!=','&&Check!=':')		{ return 1; }
+	return 0;
+}
+
+// CTree copy constructor
+/////////////////////////////////////////////////////
+CTree::CTree(const CTree &Tree)	{
+    int i;
+	m_bValid = false;
+    m_Node = NULL; m_bReady = false ;m_iOutBra=false; m_ariBraLinks = NULL; m_bOldTree = Tree.m_bOldTree;
+	m_iNoNode = m_iNoBra = 0;
+	*this = Tree;
+}
+
+// Underlying Constructor function
+/////////////////////////////////////////////////////
+// Takes two arguements: char tree[], and int NoSeq
+// tree[] is the tree is bracket form eg. ((1,2)3,4)
+// NOTE1:  The nnumber of brackets determines whether the tree is classified as rooted
+//          or unrooted.  Brackets == NoSeq-1 => rooted, Brackets == NoSeq-2 => unrooted
+// NOTE2:  The two species case is a special case.  When two sequences are observed the tree
+//			is input in the form of a rooted tree.
+// NOTE3:  !!!TODO:!!! This code expects reversible models to transform rooted tree to unrooted tree
+// 			for efficient calculation
+// NOTE4:  This routine is wasteful of space as it takes an extra node rooted trees regardless of their shape
+// NoSeq is the number of leaf nodes in the tree
+/////////////////////////////////////////////////////
+void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CData *D) {
+    int i,j,pRight=0,pLeft=0,NextPointer=0,Parent, IntVal = -1, mem_seq, countBra;
+	size_t pos, pos_e;
+    double TempBranch[3];		// Stores branch lengths
+	int TempLabel[3];			// Stores branch labels
+    bool *CheckAlloc=NULL;		// Checks node allocation
+	string TempTree;
+	vector <string> Toks;
+	list <int> temp_l;		// Space for reorganising branch labels
+	vector <int> temp_l2;	// More space
+	// Do some checks on the string Tree
+	// 1. Check ends in ';'
+	if(Tree.find(";",(int)Tree.size()-1) == string::npos) { Tree += ";"; }
+	// Count the '(' & ')' to calculate # of sequences and remove all spaces
+	pLeft = pRight = j = 0;
+	FOR(i,(int)Tree.size() - 1) {
+		if(Tree[i] == '(') { pLeft++;} if(Tree[i] == ')') { pRight ++; }	// Count number of parentheses
+		if((Tree[i] == '(' || Tree[i] == ',') && (!isalnum(Tree[i+1]) == 0)) { j++; }	// Count hte number of species
+	}
+
+	////////////////////////////////////////////////////////////////
+	// Do some error checking and check the number of species
+	// 1. Left and Right parentheses
+	if(pRight != pLeft) {
+		cout << "\nUnequal number of pLeft(="<<pLeft<<") and pRight(="<<pRight<<") parentheses in tree:\n"<<Tree<<"\n\n";
+		if(AllowFail) { return; } else { Error(); }
+	}
+	// 2. Number of species agree
+	if(NoSeq > 0 && j != NoSeq) {
+		if(CheckVar) { Error("\nDisagreement between number of species in file header ("+int_to_string(NoSeq)+") and number of species in file ("+int_to_string(j)+")"); }
+		else {
+			// Make sure difference between input tree and space reserved
+			mem_seq = NoSeq; NoSeq = j;
+		}
+	} else { mem_seq = NoSeq = j; }
+	// 3. Number of internal nodes is correct
+	if(NoSeq == 2) { m_bRooted = false; }
+	else if(pRight!=(NoSeq-1) && NoSeq>2) {		// For unrooted trees #internal nodes = #seq - 2
+		m_bRooted = false;
+	} else if(pRight!=(NoSeq-2) && NoSeq>2) {	// For rooted trees #internal nodes = #seq - 1
+		m_bRooted = true;
+	} else {
+		cout << "\nIncorrect number of nodes for sequence number("<<NoSeq<<"):\n\n";
+	    cout << pRight << " internal nodes, represented by '(', instead of ";
+        cout << (NoSeq-2) << "\nTree:\n" << Tree;
+		cout << "\n\n";
+		if(AllowFail) { return; } Error();
+	}
+	// 4. Ends in ;
+	if(Tree[(int) ( Tree.size() -1 )] != ';') { cout << "\nNo ; at end of tree:\n"<<Tree<<"\n\n"; if(AllowFail) { return; } Error();	 }
+	///////////////////////////////////////////////////////////////////
+	// Initialise
+    m_Node = NULL; m_bReady = false; m_iOutBra=m_bOutName=false; m_bOldTree = false; m_bOutLabel = false;
+	m_ariBraLinks = NULL;
+	GetMemory(mem_seq);
+	m_viBranchLabels.assign(m_iNoBra,0);
+	m_iStartCalc = 0;
+	m_bFastCalcOK = false;
+	CheckAlloc = new bool[m_iNoNode+1]; assert(CheckAlloc != NULL);
+    for(i=0;i<m_iNoNode+1;i++) { CheckAlloc[i] = false; }
+	// If data is not NULL then do replaces so its readable as a set of numbers
+	if(D != NULL) {
+		FOR(i,D->m_iNoSeq) {
+			pos = 0;
+			while(pos < Tree.size()) {
+				pos = Tree.find(D->m_vsName[i],pos);
+				if(pos != string::npos) {
+					if(Tree[pos-1] != '(' && Tree[pos-1] != ',') { pos++; continue;  }
+					pos_e = pos + D->m_vsName[i].size();
+					if(Tree[pos_e] != ':' && Tree[pos_e] != ')' && Tree[pos_e] != ',') { pos++; continue; }
+					m_vsName.push_back(D->m_vsName[i]);
+					Tree = Tree.replace(pos,D->m_vsName[i].size(),int_to_string(i+1));
+					break;
+				}
+	}	}	}
+	// Finally check whether there are any alphabet characters in the tree
+	FOR(i,(int)Tree.size()) { if(isalpha(Tree[i])) { Error("\nError in CTree::CreateTree(): tree has names not associated with datafile...\nTree: " + Tree + "\n\n"); } }
+	TempTree = Tree;
+    if(m_iNoSeq>2)	{		// Prepare first bit of trNextPointeree if more than two species
+        // Loop to allocate nodes pLeft, pRight, Next are the old child0 child1 and parent nodes
+		// these are allocated to m_Node->link[0], [1] and [2] respectively  This is used to some effect
+		// when allocated branches and so on be careful not to screw it up
+    	if(m_bRooted) { countBra = NoSeq-1; } else { countBra = NoSeq-3; }
+    	// Note the last node is done in this routine for rooted trees and finalised in the next section
+        for(NextPointer = m_iNoSeq, i=0;i<countBra;i++)	{	// Get the non-trifurcating bits of tree
+//        	cout << "\nProcessing: " << TempTree;
+			for(j=0;j<3;j++) { TempBranch[j] = SET_BRANCH; }
+            // Find open bracket details and process
+            find_closest(&TempTree,&pLeft,&pRight,&Parent,NextPointer, TempBranch, TempLabel,&IntVal);
+			// Initialise the required nodes
+			if(pLeft < m_iNoSeq) 	{	// If pLeft is leaf then initialise
+				if(CheckAlloc[pLeft] != false)	{ cout << "\nNode " << pLeft << " multiply allocated.\nUsually caused by same sequence occuring multiple times in tree\n\n"; if(AllowFail) { return; } Error(); }
+				CheckAlloc[pLeft] = true;
+				m_Node[pLeft]->SetNode(NextPointer,pLeft,-1);
+			} else	{
+				assert(m_Node[pLeft]->m_viLink.size() > 2 && m_Node[pLeft]->m_viBranch.size() > 2);
+//				cout << "\n\tDoing Left["<<m_Node[pLeft]->m_viLink[2]<<"]: " << NextPointer;
+				m_Node[pLeft]->m_viLink[2] = NextPointer;
+				m_Node[pLeft]->m_viBranch[2] = pLeft;
+			}
+			SetB(pLeft,TempBranch[0],true,true); m_viBranchLabels[pLeft] = TempLabel[0];
+			if(pRight < m_iNoSeq)        {
+				if(CheckAlloc[pRight] != false)     { cout << "\nNode " << pRight << " multiply allocated.\nUsually caused by same sequence occuring multiple times in tree\n\n"; if(AllowFail) { return; } Error(); }
+				CheckAlloc[pRight] = true;
+				m_Node[pRight]->SetNode(NextPointer,pRight, -1);
+			} else        {
+				assert(m_Node[pRight]->m_viLink.size() > 2 && m_Node[pRight]->m_viBranch.size() > 2);
+//				cout << "\n\tDoing Right["<<m_Node[pRight]->m_viLink[2]<<"]: " << NextPointer;
+				m_Node[pRight]->m_viLink[2] = NextPointer;
+				m_Node[pRight]->m_viBranch[2] = pRight;  }
+			SetB(pRight,TempBranch[1],true,true); m_viBranchLabels[pRight] = TempLabel[1];
+			// Initialise the new Node
+			if(CheckAlloc[NextPointer] != false)	{ cout << "\nNode " << NextPointer << " multiply allocated.\nUsually caused by same sequence occuring multiple times in tree\n\n"; if(AllowFail) { return; } Error(); }
+			CheckAlloc[NextPointer] = true;
+			// Create an internal node
+//			cout << "\n\tAllocating internal node["<<NextPointer<<"]: L=" << pLeft << "; R=" << pRight << "; Par="<<Parent;
+			if(m_bRooted && i == countBra - 1) { m_Node[NextPointer]->SetNode(pLeft,pRight,pLeft,pRight,IntVal); }
+			else { m_Node[NextPointer]->SetNode(pLeft,pRight,Parent,pLeft,pRight,NextPointer,IntVal); }
+			NextPointer ++; // Move to next node
+        }
+		// For unrooted trees get the final 3 nodes of the tree
+        if(!m_bRooted)	{
+        	TempTree = TempTree.substr(1,(TempTree.find_last_of(")")-1));
+        	Toks = Tokenise(TempTree,",");
+        	if(Toks.size() != 3) { Error("When creating unrooted CTree: expected to see 3 nodes at base of tree, instead saw: " + TempTree + "\n\n"); }
+        	FOR(i,3)	{
+        		TempBranch[i] = SET_BRANCH;
+        		GetBraDetails(Toks[i],&j,&TempBranch[i],&TempLabel[i]);
+        		if(j < m_iNoSeq)	{	// If needed initialise leaf nodes
+        			if(CheckAlloc[j] != false)	{ cout << "\nNode " << j << " multiply allocated.\nUsually caused by same sequence occuring multiple times in tree\n\n"; if(AllowFail) { return; } Error(); }
+        			CheckAlloc[j] = true; m_Node[j]->SetNode(NextPointer,j, -1);
+        		}
+        		// Assign the branch lengths
+        		SetB(j,TempBranch[i],true,true); m_viBranchLabels[j] = TempLabel[i];
+        		switch(i) {
+        			case 0:	pLeft = j; break;
+        			case 1: pRight = j; break;
+        			case 2: Parent = j; break;
+        			default: cout << "\nError assigning branch lengths...\n\n"; if(AllowFail) { return; } Error();
+        	}	}
+        	m_Node[NextPointer] = new CNode(pLeft,pRight,Parent,pLeft,pRight,Parent,IntVal); // Initialise the final node
+        	if(m_Node[pLeft]->m_viLink.size() > 2)	{ m_Node[pLeft]->m_viLink[2] = NextPointer; }
+        	if(m_Node[pRight]->m_viLink.size() > 2)	{ m_Node[pRight]->m_viLink[2] = NextPointer; }
+        	if(m_Node[Parent]->m_viLink.size() > 2)	{ m_Node[Parent]->m_viLink[2] = NextPointer; }
+        } else {
+			// Do the rooted tree by adjusting the root node.
+        	m_iRootNode = NextPointer -1;
+        }
+	}	else	{	// Otherwise for two species
+		m_Node[0] = new CNode(1,0); m_Node[1] = new CNode(0,0);
+		i=1; while(isdigit(TempTree[i])) { i++; }	// Do first side
+		SetB(0,DoBranch(&TempTree,&i,&IntVal),true,true);
+		while(TempTree[i]!=':' && TempTree[i] != ';')	{ i++; }
+		if(TempTree[i] == ':') { AddB(0,DoBranch(&TempTree,&i,&IntVal),true,true); } // Get branch2
+	}
+	BuildBraLinks(CheckVar); // Get the list of branches links
+	OrderNode(-1,true);
+	m_bReady=true;	    // Tree is now ready!!!
+
+	// Do some branch by branch things
+	m_iNoOptBra = m_iNoBra;
+	DEL_MEM(CheckAlloc);
+	ValidateTree();
+	m_bValid = true;
+
+	// Remove branch labels if not used
+	for(i=1;i<(int)m_viBranchLabels.size();i++) { if(m_viBranchLabels[i] != m_viBranchLabels[0]) { break; } }
+	if(i == m_viBranchLabels.size()) { m_viBranchLabels.clear(); }
+
+	// Sort branch labels so sensibly labelled
+	temp_l.assign(m_viBranchLabels.begin(),m_viBranchLabels.end());
+	temp_l.sort(); temp_l.unique();
+	temp_l2.assign(temp_l.begin(),temp_l.end());
+	FOR(i,(int)m_viBranchLabels.size()) { FOR(j,(int)temp_l2.size()) { if(temp_l2[j] == m_viBranchLabels[i]) { m_viBranchLabels[i] = j; break; } } }
+	m_iNoBraLabels = (int)temp_l2.size();
+}
+
+void CTree::BuildBraLinks(bool Verify)	{
+	int i,j,k;
+	int *BranCount;
+	// Initialise
+	GET_MEM(BranCount,int,m_iNoBra);
+	FOR(i,m_iNoBra) {
+		BranCount[i] = 0;
+		m_ariBraLinks[i][0] = m_ariBraLinks[i][1] = -1;
+	}
+	// Get assignments
+	FOR(i,m_iNoNode)	{
+		FOR(j,(int)m_Node[i]->m_viBranch.size())	{
+			k = m_Node[i]->m_viBranch[j];
+			if(k == -1) { continue; }
+			assert(k < m_iNoBra && k >= 0);
+			if(m_ariBraLinks[k][0] == -1)	{ m_ariBraLinks[k][0] = i; BranCount[k]++;}
+			else							{ m_ariBraLinks[k][1] = i; BranCount[k]++;}
+	}	}
+	// Verify assignments
+	if(Verify == true) { FOR(i,m_iNoBra) {
+		if(BranCount[i] != 2) { cout << "\nError in BranCount["<<i<<"]: " << BranCount[i] << flush; cout << "\nTree: " << *this << flush; }
+		assert(BranCount[i] == 2); } }
+	// Clear memory
+	DEL_MEM(BranCount);
+}
+
+void CTree::BuildBranches(int NT, int NF)	{
+	int i,Node;
+	// If first call then sort it out
+	if(NT == -1 && NF == -1)	{
+		Node = (2*m_iNoSeq) - 3;
+		// Go down the tree and do branches
+		FOR(i,(int)m_Node[Node]->m_viLink.size()) { BuildBranches(m_Node[Node]->m_viLink[i],Node); }
+		return;
+	}
+	// PostOrder Tree-Traversal
+	FOR(i,(int)m_Node[NT]->m_viLink.size())	{
+		if(m_Node[NT]->m_viLink[i] == NF || m_Node[NT]->m_viLink[i] == -1) { m_Node[NT]->m_viBranch[i] = NT; continue; }
+		BuildBranches(m_Node[NT]->m_viLink[i],NT);
+	}
+	FOR(i,(int)m_Node[NF]->m_viLink.size())	{
+		if(m_Node[NF]->m_viLink[i] == NT) { m_Node[NF]->m_viBranch[i] = NT; break; }
+	}
+
+}
+
+// Find branch linking nodes i and j; returns -1 if doesn't exist
+int CTree::FindBra(int N_i, int N_j)	{
+    int i;
+	FOR(i,m_iNoBra)	{
+		if( (m_ariBraLinks[i][0] == N_i && m_ariBraLinks[i][1] == N_j) ||
+			(m_ariBraLinks[i][0] == N_j && m_ariBraLinks[i][1] == N_i) )	{ return i; }
+	}
+	return -1;
+}
+
+// Create a set of labels for branches corresponding to their numbers
+void CTree::CreateBranchLabels(bool Force) {
+	int i;
+	if(!Force) { FOR(i,(int)m_viBranchLabels.size()) { if(m_viBranchLabels[i] != m_viBranchLabels[0])  { Error("\nTrying to CTree::CreateBranchLabels when they already exist\n\n"); } } }
+	if(m_viBranchLabels.empty()) { m_viBranchLabels.assign(m_iNoBra,0); }
+	FOR(i,(int)m_viBranchLabels.size()) { m_viBranchLabels[i] = i; }
+	m_iNoBraLabels = m_viBranchLabels.size();
+}
+
+// Blank constructor
+///////////////////////////////////////////////////
+CTree::CTree(CData *D) {
+	int i;
+    m_Node = NULL; m_bReady = false ;m_iOutBra=0; m_ariBraLinks = NULL;
+	m_iNoNode = m_iNoBra = m_iNoOptBra = m_iNoSeq = m_iStartCalc = 0;
+	m_bOutName = false; m_bOldTree = false; m_bOutLabel = false; m_bRooted = false; m_iRootNode = -1;
+	if(D != NULL) {
+		FOR(i,D->m_iNoSeq) {
+			m_vsName.push_back(D->m_vsName[i]);
+	}	}
+}
+
+// Destructor function
+///////////////////////////////////////////////////
+CTree::~CTree() {
+	if(m_bReady == true) { CleanTree(); }
+}
+
+// Allocate the memory
+void CTree::GetMemory(int NoSeq)	{
+	string Name;
+	assert(m_bReady == false);
+	CPar *Par = NULL;
+	// Adding an extra node to all trees because tree may be rooted
+	int i;
+	assert(m_Node == NULL && m_ariBraLinks == NULL && m_vpBra.empty());
+    if(m_bRooted) { m_iNoNode = (2*NoSeq)-1; m_iNoBra = (2*NoSeq)-2; m_iNoSeq = NoSeq; }
+    else { m_iNoNode = (2*NoSeq)-2; m_iNoBra = (2*NoSeq)-3; m_iNoSeq = NoSeq; }
+	GET_MEM(m_ariBraLinks,int*,m_iNoBra);
+    for(i=0;i<m_iNoBra;i++) {
+		// Do the branch lengths
+		Name = "Branch[" + int_to_string(i) + "]";
+		Par = new CPar(Name,1.0,true,0,MAX_BRANCH,REPLACE);
+		Par->SetAsBranch();
+		m_vpBra.push_back(Par); Par = NULL;
+		// Do the branch links
+		GET_MEM(m_ariBraLinks[i],int,2);
+		m_ariBraLinks[i][0] = m_ariBraLinks[i][1] = -1;
+	}
+	// Set up nodes
+    m_Node = new CNode*[m_iNoNode]; assert(m_Node != NULL);
+    for(i=0;i<m_iNoNode;i++) { m_Node[i] = NULL; m_Node[i] = new CNode; assert(m_Node[i] != NULL); }
+	Par = NULL;
+}
+
+// Clean tree function
+void CTree::CleanTree() {
+	int i;
+    if(m_Node != NULL)	{
+		for(i=0;i<m_iNoNode;i++) { if(m_Node[i] != NULL) { delete m_Node[i]; }}
+		delete [] m_Node;
+		m_Node = NULL;
+	}
+	if(m_ariBraLinks != NULL) {
+	    for(i=0;i<m_iNoBra;i++) { delete [] m_ariBraLinks[i]; }
+	    delete [] m_ariBraLinks;
+		m_ariBraLinks = NULL;
+    }
+	if(!m_vpBra.empty()) {
+		FOR(i,(int)m_vpBra.size()) { delete m_vpBra[i]; m_vpBra[i] = NULL; }
+		m_vpBra.clear();
+	}
+	m_bReady = false; m_iOutBra = m_bOutName = false; m_bFastCalcOK = false; m_bOutLabel = false;
+}
+
+// Validate tree function
+/////////////////////////////////////////////////
+// 1. Checks all nodes have appropriate forwards and backwards relationships
+// 2. Checks that all branches are linked where they think they are
+bool CTree::ValidateTree(bool AllowExit)	{
+#if TREE_DEBUG
+	int Node,Link,i;
+	FOR(Node,NoNode())	{
+//		cout << "\nValidate: Node["<<Node<<"], link " << flush;
+		FOR(Link,NoLinks(Node))	{
+//			cout << "\t[" << Link << "] = " << NodeLink(Node,Link) << flush;
+			if(NodeLink(Node,Link) != -1) {
+				// Check the node looks back
+				FOR(i,NoLinks(NodeLink(Node,Link)))	{ if(NodeLink(NodeLink(Node,Link),i) == Node) { break; } }
+				if(i == NoLinks(NodeLink(Node,Link))) { OutDetail(cout,true); if(AllowExit) { Error("\nTree links invalid...\n\n"); } return false; }
+			}
+			if(NodeBra(Node,Link) != -1)	{
+				// Check the branches and nodes match
+				FOR(i,2) { if(m_ariBraLinks[NodeBra(Node,Link)][i] == Node || m_ariBraLinks[NodeBra(Node,Link)][i] == -1) { break; }
+				if(i == 2) { OutDetail(cout,true); if(AllowExit) { Error("\nTree branches invalid...\n\n"); } return false; } }
+	}	}	}
+#endif
+	return true;
+}
+
+//////////////////////////////////////////////////////////////////////
+// Access functions
+//////////////////////////////////////////////////////////////////////
+vector <double> CTree::Branches()	{
+	int i;
+	vector <double> Br;
+	FOR(i,NoBra()) { Br.push_back(B(i)); }
+	return Br;
+}
+double CTree::B(int Branch)	{
+	assert(InRange(Branch,0,(int)m_vpBra.size()));
+	return m_vpBra[Branch]->Val();
+}
+double CTree::SetB(int Branch, double Value, bool Update, bool Rescale)	{
+	assert(InRange(Branch,-1,(int)m_vpBra.size()));
+	m_vpBra[Branch]->SetVal(Value,Update,Rescale);
+	return B(Branch);
+}
+double CTree::MulB(int Branch, double Value, bool Update, bool Rescale) {
+	assert(InRange(Branch,0,(int)m_vpBra.size()));
+	return SetB(Branch,Value * B(Branch), Update, Rescale); ;
+}
+double CTree::AddB(int Branch, double Value, bool Update, bool Rescale) {
+	assert(InRange(Branch,0,(int)m_vpBra.size()));
+	return SetB(Branch, Value + B(Branch), Update, Rescale);
+}
+double *CTree::OptimiserB(int Branch) { return m_vpBra[Branch]->OptimiserValue(); }
+
+double CTree::QuadB(int Branch)	{
+	int i,j,NoBra = 1;
+	double  TotalBra = B(Branch);	// Gets branch length (and checks the branch is valid
+	FOR(i,2)	{
+		FOR(j,(int)m_Node[m_ariBraLinks[Branch][i]]->m_viLink.size())	{
+			if(NodeBra(m_ariBraLinks[Branch][i],j) == -1 || NodeLink(m_ariBraLinks[Branch][i],j) == -1) { return -BIG_NUMBER; }
+			if(NodeBra(m_ariBraLinks[Branch][i],j) == Branch) { continue; }
+			NoBra++;
+			TotalBra += B(m_Node[m_ariBraLinks[Branch][i]]->m_viBranch[j]);
+	}	}
+	return TotalBra / (double) NoBra;
+}
+
+void CTree::ReplaceNodeLink(int N,vector <int> L)	{
+	assert(InRange(N,0,NoNode()));
+	m_Node[N]->m_viLink  = L;
+	m_bFastCalcOK = false;
+}
+void CTree::ReplaceNodeLinkElement(int N, int Element, int Val)	{
+	assert(InRange(N,0,NoNode()));
+	assert(InRange(Element,0,NoLinks(N)));
+	m_Node[N]->m_viLink[Element] = Val;
+	m_bFastCalcOK = false;
+}
+void CTree::ReplaceNodeBra(int N,vector <int> B)	{
+	assert(InRange(N,0,NoNode()));
+	m_Node[N]->m_viBranch = B;
+	m_bFastCalcOK = false;
+}
+void CTree::ReplaceNodeBraElement(int N, int Element, int Val)	{
+	assert(InRange(N,0,NoNode()));
+	assert(InRange(Element,0,NoLinks(N)) && NoLinks(N) == m_Node[N]->m_viBranch.size());
+	m_Node[N]->m_viBranch[Element] = Val;
+	m_bFastCalcOK = false;
+}
+
+// Tree operator function
+////////////////////////////////////////////////
+
+void CTree::operator=(const CTree & Tree)	{
+    int i;
+	if(this == NULL) { Error("\nTrying to copy to a null tree...\n"); }
+	if(!Tree.m_bReady || &Tree == this) { return; }
+	CleanTree();				// Clear memory
+	m_bRooted = Tree.m_bRooted; m_iRootNode = Tree.m_iRootNode;
+    GetMemory(Tree.m_iNoSeq);	// New memory
+    // Transfer data
+    for(i=0;i<m_iNoBra;i++)  {
+		m_vpBra[i]->SetVal(Tree.m_vpBra[i]->Val(),true,true);
+		m_ariBraLinks[i][0] = Tree.m_ariBraLinks[i][0];
+		m_ariBraLinks[i][1] = Tree.m_ariBraLinks[i][1];
+	}
+	m_vsName = Tree.m_vsName;
+	// Some values regarding models and optimisation
+	m_bOutName = Tree.m_bOutName;
+	m_bOutLabel = Tree.m_bOutLabel;
+	m_iOutBra = Tree.m_iOutBra;
+	m_iNoOptBra = Tree.m_iNoOptBra;
+	m_viBranchLabels = Tree.m_viBranchLabels; m_iNoBraLabels = Tree.m_iNoBraLabels;
+    for(i=0;i<m_iNoNode;i++) { *m_Node[i] = *Tree.m_Node[i]; }
+	m_iStartCalc = Tree.m_iStartCalc;
+	m_bReady = true; m_bOldTree = Tree.m_bOldTree; m_bFastCalcOK = false;
+}
+
+// Find closest function
+///////////////////////////////////////////////////////////
+// Find closest two nodes together in a string
+// Arguements:
+// 	tree = The string to get info from
+// 	child1, child2 and parent are the linked nodes
+// 	next_pointer = node for information to be allocated to
+//////////////////////////////////////////////////////////////////
+void CTree::find_closest(string * tree, int *c1, int *c2, int *p,int n_p, double bra[],int label[], int *IntVal) {
+	int x,x2,y;
+	string resolve, sub;
+	x = tree->find_first_of("("); x2 = tree->find("(",x+1); y = tree->find_first_of(")") + 1;
+	// Find the matching parentheses
+	while(y > x2)	{
+		x = x2; x2 = tree->find("(",x+1);
+		if(x2 == string::npos) { x2 = (int)tree->size();}
+	}
+    // Get the stuff to resolve and replace it in the tree
+	resolve = tree->substr(x,y-x);
+	tree->replace(x,y-x,int_to_string(n_p +1));
+	// Get the required values
+	x2 = resolve.find_first_of(",");
+	// 1. Do left hand side
+	GetBraDetails(resolve.substr(resolve.find_first_of("(")+1,x2-1),c1,&bra[0],&label[0]);
+	// 2. Do right hand side
+	GetBraDetails(resolve.substr(x2+1),c2,&bra[1],&label[1]);
+//	cout << "\nc1 = " << *c1 << ", c2 = " << *c2 << ", m_iNoNode: " << m_iNoNode;
+//	cout << "\nNew tree: " << *tree;
+    // Reset for next part of loop
+    *p=n_p;
+	assert(InRange(*c1,0,m_iNoNode) && InRange(*c2,0,m_iNoNode));
+}
+
+// Function for getting branch details from a string of form Number:length#label
+// Assumes bra and node are correctly initialised
+void CTree::GetBraDetails(string s, int *node, double *bra, int *label)	{
+	int c,d,i,j;
+	string sub;
+	*label = 0; *bra = SET_BRANCH;
+	// Organise '(' and ')' in strings; strictly one of each allowed
+	i = s.find("("); j = s.find(")");
+	if(i!= string::npos) { s.replace(i,1,""); } i = s.find("("); if(j!= string::npos) { s.replace(j,1,""); }
+	i = s.find("("); j = s.find(")");
+	if(i != string::npos || j != string::npos) { Error("\nCTree::GetBraDetails(...)\nTrying to resolve string with more than one parenthesis: " + s + " \n"); }
+//	cout << "\nGetBraDetails: " << s;
+	i = s.find(":"); if(i==string::npos) { i = s.size(); }
+	j = s.find(":"); if(j==string::npos) { j = s.size(); }
+	*node = atoi(s.substr(0,min(i,j)).c_str()) - TREE_START;
+	for(c=min(i,j);c<(int)s.size();c++) {
+		if(s[c] == ':') {
+			for(d=c+1;d<(int)s.size();d++)  {
+				if(!(isdigit(s[d]) || s[d] == '.')) { break; } }
+			*bra = atof(s.substr(c+1,d-c-1).c_str());
+		} else if (s[c] == '#') {
+			for(d=c+1;d<(int)s.size();d++)  { if(!(isdigit(s[d]) || s[d] == '.')) { break; } }
+			*label = atoi(s.substr(c+1,d-c-1).c_str());
+		}
+	}
+//	cout << "\nNode: " << *node << " bra: " << *bra << " label: " << *label;
+}
+
+double CTree::DoBranch(string *resolve,int *pos, int *IntVal)	{
+	int i = *pos,j;
+	double ret_val = SET_BRANCH;
+	// If there is obviously no branch return
+	if(i+1 >= (int)resolve->size()) { return ret_val; }
+	if(resolve->at(i) ==':') {
+		i++;
+		ret_val=atof(resolve->c_str()+i);
+		// Skips the digits involved for this
+		while((resolve->at(i)=='-')||(isdigit(resolve->at(i))) ||(resolve->at(i)=='.')||(resolve->at(i)=='e')) { i++;}
+	}
+	// Get the IntVal if it exists
+	// Requirement is that it falls between ')' and branch length's ':'
+	if(resolve->at(i) ==')' && resolve->at(i+1) != ':' && i+1 < (int)resolve->size()) {
+		j = i; i++;
+		while(resolve->at(i) != ':' && resolve->at(i) != ',' && resolve->at(i) != ')' && resolve->at(i) != '(' && resolve->at(i) != ';') { i++; }
+		if(resolve->at(i)==':' || resolve->at(i) == ';') { *IntVal = atoi(resolve->c_str()+j+1); }
+		i = j;
+	}
+	*pos = i;
+	if(ret_val < 0) { ret_val = 0; }
+	return ret_val;
+}
+
+// Removes a node from a tree that has already had one of its links removed
+int CTree::RemoveBraNode(int N)	{
+	int i,j, count;
+	double BVal;
+	vector <int> Link, Bra;
+	// Initialise and check entry conditions
+	assert(N >= NoSeq());
+	count = 0;
+	FOR(i,NoLinks(N)) {
+		if(NodeLink(N,i) == -1) { count++; continue; }
+		Link.push_back(NodeLink(N,i)); Bra.push_back(NodeBra(N,i));
+		ReplaceNodeLinkElement(N,i,-1); ReplaceNodeBraElement(N,i,-1);
+	}
+	assert(count == 1 && Link.size() == 2 && Bra.size() == 2);
+	// Do the branch lengths
+	BVal = B(Bra[0])+B(Bra[1]);
+	FOR(i,2) { SetB(Bra[i],BVal,true,true); }
+	// Now remove the nodes
+	FOR(i,2) {
+		FOR(j,NoLinks(Link[i])) { if(NodeLink(Link[i],j) == N) { break; } }
+		assert(j != NoLinks(Link[i]));
+		ReplaceNodeLinkElement(Link[i],j,Link[FlipBin(i)]);
+		ReplaceNodeBraElement(Link[i],j,Bra[0]);
+		m_ariBraLinks[Bra[0]][i] = Link[i];
+	}
+	OrderNode(Link[0]); OrderNode(Link[1]);
+	m_ariBraLinks[Bra[1]][0] = m_ariBraLinks[Bra[1]][1] = -1;
+	return Bra[0];
+}
+
+// Cuts a branch
+//  returns the branch on priority subtree where they used to be attached -- i.e. the blank node
+// -- Subtrees are maintained; Link specifies which one is given priority
+int CTree::CutBranch(int B, int Link)	{
+	int i,j,N,F, RetVal = -1;
+	// Remove facing nodes
+	FOR(i,2) {
+		N = BraLink(B,i);	// Get node to
+		F = BraLink(B,FlipBin(i));
+		FOR(j,NoLinks(N)) { if(NodeLink(N,j) == F) { break; } }
+		assert(j!=NoLinks(N));
+		m_Node[N]->m_viLink[j] = -1; m_Node[N]->m_viBranch[j] = -1;
+		if(i != Link) { RetVal = RemoveBraNode(N); }
+		else { OrderNode(N); }
+	}
+	// Clean up the branch
+	m_ariBraLinks[B][0] = m_ariBraLinks[B][1] = -1;
+	return RetVal;
+}
+
+////////////////////////////////////////////////////////////
+// Get the list of SPR rearrangements that fall between
+// radius MinDist and MaxDist from original points in tree
+//   * Doesn't perform any scoring with the function
+void CTree::GetSPRList(vector <CTree *> *TreeList, int MinDist, int MaxDist)	{
+	int i,Br, Link,Seq2Add,OriBr,count = 0,N;
+	vector <int> RepeatList,vI, LeafMap;
+	CTree T;
+	T = *this;
+
+	// The SPR routines
+	///////////////////////////////////////////////////
+	FOR(Br,T.NoBra())	{			// Loop through all branches in the tree
+		FOR(Link,2)	{				// Loop though links in the branch
+			if(T.BraLink(Br,Link) >= T.NoSeq()) {	// If its a subtree then perform SPR
+				assert(InRange(Br,0,T.NoBra()) && InRange(Link,0,2) && !T.IsCutTree());
+				if(T.BraLink(Br,Link) < T.NoSeq()) { cout << "\nTree details: "; T.OutDetail(); Error("\nDoing SPR on a single sequence -- Don't be daft..."); }
+				// Get a sequence to use as a leaf
+				T.GetBraSets(T.BraLink(Br,FlipBin(Link)),T.BraLink(Br,Link),&vI);
+				// Only when the subtree has at least 3 sequences is SPR considered
+				if(vI.size() < 3) { T = *this; continue; }
+				// Find where calculations should start
+				sort(vI.begin(),vI.end());
+				FOR(i,T.NoSeq()) { if(!IsIn(i,vI)) { Seq2Add = i; break; } }
+				// Prepare LeafMap
+				LeafMap.clear();
+				FOR(i,T.NoSeq()) { LeafMap.push_back(i); } LeafMap[Seq2Add] = -1;
+				// Set the start calc
+				T.SetStartCalc(vI[0]);
+				// Now cut the branch and prepare the subtree
+				OriBr = T.CutBranch(Br,Link);
+				// Finally make sure the node to add has correct structure for adding sequences
+				// 1. Find spare branches and prepare the node to be added
+				vI.clear();
+				FOR(i,T.NoNode())	{ if(T.NodeLink(i,0) == -1) { N = i; break; } } // Find node
+				FOR(i,T.NoBra())	{ if(T.BraLink(i,0) == -1)	 { vI.push_back(i); } } // Find branches
+				assert(vI.size() >= 2);
+				T.ReplaceNodeLinkElement(Seq2Add,0,N);	T.ReplaceNodeBraElement(Seq2Add,0,vI[0]);
+				T.ReplaceBraLink(vI[0],0,Seq2Add);		T.ReplaceBraLink(vI[0],1,N);
+				T.ReplaceNodeLinkElement(N,0,Seq2Add);	T.ReplaceNodeBraElement(N,0,vI[0]);
+				T.ReplaceNodeBraElement(N,1,vI[1]);		T.ReplaceBraLink(vI[1],0,N);
+				BuildBraSA(&T,Seq2Add,TreeList,OriBr,(Br*2)+Link,MinDist,MaxDist);
+			} else {			// If its a single sequence then do addition if DoAll == true
+				Seq2Add = T.BraLink(Br,Link);
+				T.RemoveLeafNode(Seq2Add);
+				T.GetStart();
+				OriBr = Br;
+				BuildBraSA(&T,Seq2Add,TreeList,OriBr,-1,MinDist,MaxDist);
+			}
+			// Restore the old tree
+			T = *this;
+	}	}
+}
+
+void CTree::BuildBraSA(CTree *T, int SAdd, vector <CTree*> *TList, int OriBr, int SPRID,int MinDist,int MaxDist)	{
+	int Nod;
+	string tree;
+	// If required get tree start
+	if(SPRID == -1) { T->GetStart(); }
+	// Check entry conditions (slightly weaker than the AddSeq check...)
+	if(T->NodeType(SAdd) == root) { Error("\nFunction Tree::BuildBraSA(...) not suitable for rooted trees\n\n"); }
+	assert(!T->NodeNull(SAdd) && SAdd < T->NoSeq());
+	assert(T->NodeType(SAdd) == leaf && T->NoLinks(SAdd) != 0);
+	Nod = T->NodeLink(SAdd,0);
+	assert(T->NodeType(Nod) == branch && T->NoLinks(Nod) == 3);
+	assert(T->NodeLink(Nod,1) == -1 && T->NodeLink(Nod,2) == -1);
+	// Run the stepwise addition
+	Branch_SA(T,SAdd,TList,-1,T->StartCalc(),-1,OriBr,SPRID,MinDist,MaxDist);
+}
+
+void CTree::Branch_SA(CTree *T, int Seq, vector <CTree*> *TList, int First, int NTo, int NFr, int OriBr, int SPRID,int MinDist, int MaxDist)	{
+	int i;
+	// Always perform the calculations in the first place
+	if(T->NodeType(NTo) == leaf)	{ // Do the leaf calculations (Should only be the first calc)
+		if(NFr == -1) { // Its the starting node
+			DoSA(T,Seq,TList,First,NTo,T->NodeLink(NTo,0),T->NodeBra(NTo,0),true,OriBr,SPRID,MinDist,MaxDist);
+		} else { // For other nodes
+			DoSA(T,Seq,TList,First,NFr,NTo,T->NodeBra(NTo,0),true,OriBr,SPRID,MinDist,MaxDist);
+		}
+	} else { // Do the internal calculations
+		FOR(i,T->NoLinks(NTo))	{ if(T->NodeLink(NTo,i) == NFr || T->NodeLink(NTo,i) == -1) { break; } }
+		assert(i != T->NoLinks(NTo));
+		// If the node from isn't a leaf node do the internal calculation (i.e. avoids first node)
+		if(T->NodeType(NodeLink(NTo,i)) != leaf)	{
+			DoSA(T,Seq,TList,First,NTo,NFr, T->NodeBra(NTo,i),false,OriBr,SPRID,MinDist,MaxDist);
+	}	}
+	// Do the looping
+	First = 0;
+	FOR(i,T->NoLinks(NTo))	{
+		if(T->NodeLink(NTo,i) == NFr || T->NodeLink(NTo,i) == -1) { continue; }
+		Branch_SA(T,Seq,TList,First,T->NodeLink(NTo,i),NTo,OriBr,SPRID,MinDist,MaxDist);
+		First = 1;
+}	}
+
+void CTree::DoSA(CTree *T, int Seq, vector <CTree*> *TList, int First, int NTo, int NFr, int Br, bool IsExtBra, int OriBr, int SPRID, int MinDist, int MaxDist)	{
+	int i, BraDist = BranchDist(Br,OriBr);
+	if(BraDist < MinDist || BraDist > MaxDist) { return; }
+	static CTree Triplet("(1:0.1,2:0.1,3:0.1);",3);
+	vector <int> L;
+	CTree *NewT = NULL; NewT = new CTree;
+	if(SPRID == -1)	{ // Do seq add
+		*NewT = *T;
+		NewT->AddSeq(Seq,Br);
+	} else {
+		*NewT = *this;
+		if(OriBr == Br) { return; }
+		L.push_back(NTo); L.push_back(NFr); L.push_back(Seq);
+		NewT->PerformSPR(SPRID/2,SPRID%2,Br,Triplet,L);
+	}
+	if(MinDist <= 1)	{
+		FOR(i,(int)TList->size()) {
+			if(IsSameTree(TList->at(i),NewT)) { break; }
+		}
+		if(i == (int)TList->size()) { TList->push_back(NewT); }
+	} else { TList->push_back(NewT); }
+	NewT = NULL;
+}
+
+////////////////////////////////////////////////////////////
+// Perform an SPR
+// --------------
+//  OriB = Branch to be cut
+//  OriL = Original branch link
+//  IBr  = Branch where the subtree is to be inserted
+void CTree::PerformSPR(int OriB, int OriL, int IBr,CTree Triplet, vector <int> LeafList)	{
+	int i,j,SubNode, Spare,N,NewBr,BreakB;
+	double Val;
+	// 1. Get the SubNode and SpareNode
+	Spare = BraLink(OriB,FlipBin(OriL)); SubNode = BraLink(OriB,OriL);
+	assert(LeafList.size() >= 2 && IsIn(BraLink(IBr,0),LeafList) && IsIn(BraLink(IBr,1),LeafList) && BraLink(IBr,0) != BraLink(IBr,1));
+	// 2. Fiddle with branches to make sure the triplet branches are correctly assigned
+	if(LeafList[0] != BraLink(IBr,0)) {
+		assert(LeafList[0] == BraLink(IBr,1));
+		Val = Triplet.B(0); Triplet.SetB(0,Triplet.B(1),true,true); Triplet.SetB(1,Val,true,true);
+	}
+	assert(NodeType(Spare) == branch && NodeType(SubNode) == branch);
+	// 3. Cut the branch and get the spare node
+	BreakB = CutBranch(OriB,OriL);
+	// 4. Find spare branch
+	FOR(i,NoBra()) { if(BraLink(i,0) == -1) { NewBr = i; break; } }
+	// 5. Do some checking
+	assert(Sum(&m_Node[Spare]->m_viLink) == -3); assert(BraLink(NewBr,0) == -1 && BraLink(NewBr,1));
+	j=0; FOR(i,3) { if(NodeLink(SubNode,i) == -1) { j++; } } assert(j==1 && NodeLink(SubNode,2) == -1);
+	// 6. Connect the SpareNode to the subnode
+	ReplaceNodeLinkElement(SubNode,2,Spare); ReplaceNodeBraElement(SubNode,2,NewBr);
+	ReplaceNodeLinkElement(Spare,0,SubNode); ReplaceNodeBraElement(Spare,0,NewBr);
+	ReplaceBraLink(NewBr,0,SubNode); ReplaceBraLink(NewBr,1,Spare);
+	SetB(NewBr,Triplet.B(2),true,true);
+	OrderNode(SubNode,true); OrderNode(Spare);
+	// 7. Break the branch where the subtree is to be added. Branch is kept
+	SubNode = BraLink(IBr,0); N = BraLink(IBr,1);	// Node numbers
+	FOR(i,NoLinks(SubNode)) { if(NodeLink(SubNode,i) == N) { break; } } assert(i!=NoLinks(SubNode));
+	NewBr = NodeBra(SubNode,i);	// Get the branch details
+	SetB(NewBr,Triplet.B(0),true,true);	// Set branch length
+	if(BraLink(NewBr,0) == N) { ReplaceBraLink(NewBr,0,Spare); } else { ReplaceBraLink(NewBr,1,Spare); }
+	ReplaceNodeLinkElement(SubNode,i,Spare);
+	ReplaceNodeLinkElement(Spare,1,SubNode); ReplaceNodeBraElement(Spare,1,NewBr);
+	// 8. Find spare branch
+	FOR(i,NoBra()) { if(BraLink(i,0) == -1) { NewBr = i; break; } }
+	// 9. Finish up by correctly fiddling with node N; Last spare branch introduced (NewBr)
+	FOR(i,NoLinks(N)) { if(NodeLink(N,i) == SubNode) { break; } } assert(i!=NoLinks(N));
+	ReplaceNodeLinkElement(N,i,Spare); ReplaceNodeBraElement(N,i,NewBr);
+	ReplaceNodeLinkElement(Spare,2,N); ReplaceNodeBraElement(Spare,2,NewBr);
+	ReplaceBraLink(NewBr,0,N); ReplaceBraLink(NewBr,1,Spare);
+	SetB(NewBr,Triplet.B(1),true,true);
+	// 10. Finish up by checking things
+	OrderNode(); ValidateTree();
+	Triplet.OutBra();
+}
+
+// Cut Sequence function: removes a sequence from the tree
+///////////////////////////////////////////////////////////////
+// Needs to store:
+//	2 x branch numbers (leading to leaf node; trivial + spare branch)
+//	1 x node number (node removed from tree)
+// This will be held in the node (which is ready for addition to tree)
+//
+// Return value:
+//	Spare node number
+//
+// Assumptions:
+// The branch leading to a leaf node has the # of the leaf node
+
+int CTree::RemoveLeafNode(int RemNode)	{
+	/* Removes a Node from the tree
+			returns 0 if all okay, else 1	*/
+	int i,j,k,m,links[2],base_node;double total;
+	// Error checking for value passed
+	if(m_iNoSeq < 3) {
+		cout << "\nAttempted to remove a sequence when only two are left";
+		return 1;
+	}
+	if(RemNode >= m_iNoSeq)		{
+		cout << "\nAttempted to remove an internal node";
+		return 1;
+	}
+	// Section to remove the corresponding section from the tree
+	// Deal with when removing a sequence from a three species tree
+	if(m_iNoSeq == 3)	{
+		if(RemNode == 0)		{ m_Node[0] = m_Node[2]; total = B(1) + B(2); }
+		else if(RemNode == 1)	{ m_Node[1] = m_Node[2]; total = B(0) + B(2); }
+		else	{ total = B(0) + B(1); }
+		m_Node[0]->m_viLink[0] = 1; m_Node[0]->m_viBranch[0] = 0;
+		m_Node[1]->m_viLink[1] = 0; m_Node[0]->m_viBranch[0] = 0;
+		m_ariBraLinks[0][0] = 0; m_ariBraLinks[0][1] = 1;
+		SetB(0,total,true,true);
+		m_iNoSeq = 2;
+		m_bFastCalcOK = false;
+		return 0;
+	}
+	// Remove a sequence from the tree
+	// Get base_node and links
+	base_node = m_Node[RemNode]->m_viLink[0];
+	assert(m_Node[base_node]->m_NodeType == branch);	j=0;
+	for(total=0.0,i=0;i<3;i++)	{
+		if(m_Node[base_node]->m_viLink[i] == RemNode) { continue; }
+		links[j++] = m_Node[base_node]->m_viLink[i];
+		if(j==2) { // Set the disconnected branch link to null
+			FOR(m,2) {
+				if(m_ariBraLinks[ m_Node[base_node]->m_viBranch[i] ][m] != links[1]) { m_ariBraLinks[ m_Node[base_node]->m_viBranch[i] ][m] = -1; }
+			}	}
+		total += B(m_Node[base_node]->m_viBranch[i]);
+	}
+	if(links[0] > links[1]) { i = links[0]; links[0] = links[1]; links[1] = i; }
+	// Reassign the correct links and so on
+	// Important do not change iOption(sequence node removed) or base_node(node removed)
+	k = 0;  // the altered nodes will point to
+	for(k=-1,i=0;i<2;i++)	{
+		if(m_Node[links[i]]->m_NodeType == branch)	{
+			for(j=0;j<3;j++) {
+				if(m_Node[links[i]]->m_viLink[j] == base_node)	{	// Do rearrangements
+					if(i == 0)	{
+						m_Node[links[0]]->m_viLink[j] = links[1];
+						k = m_Node[links[0]]->m_viBranch[j];
+						SetB(k,total,true,true);
+						FOR(m,2)	{ // Reassign branch links
+							if(m_ariBraLinks[k][m] == base_node) { m_ariBraLinks[k][m] = links[1]; break; }
+					}	}
+					else		{
+						assert(k>=0);
+						m_Node[links[1]]->m_viLink[j] = links[0];
+						m_Node[links[1]]->m_viBranch[j] = k;
+		}	}	}	}
+		else	{
+			if(i==0) {
+				m_Node[links[0]]->m_viLink[0] = links[1];
+				k = m_Node[links[0]]->m_viBranch[0];
+				SetB(k,total,true,true);
+				FOR(m,2)	{ // Reassign branch links
+					if(m_ariBraLinks[k][m] == base_node) { m_ariBraLinks[k][m] = links[1]; break; }
+			}	}
+			else	{
+				m_Node[links[1]]->m_viLink[0] = links[0];
+				// This shouldn't have to be here...
+				SetB(m_Node[links[1]]->m_viBranch[0],total,true,true);
+				m_Node[links[1]]->m_viBranch[0] = k;
+	}	}	}
+	// Tidy up the basenode
+	FOR(i,3)	{
+		if(m_Node[base_node]->m_viLink[i] == RemNode) { continue; }
+		if(m_Node[base_node]->m_viLink[i] == links[0]) { // This is the branch thats removed
+			m_Node[base_node]->m_viBranch[i] = -1;
+		}
+		m_Node[base_node]->m_viLink[i] = -1;
+	}
+	OrderNode();
+	BuildBraLinks(false);
+	m_bFastCalcOK = false;
+	ValidateTree();
+	return 0;
+}
+
+// AddSeq
+// ------
+// For a sequence to be added it requires a bit of tree structure associated with it:
+// 1) two nodes: one associated with the sequence and one internal
+// 2) two branches: linking leaf and internal node, and a spare.
+// BranchProp = relative position in branch (from low to high node nums)
+// This must be prepared before passing to the function
+//
+// Returns -1 if the branch is the same as one of the ones in the cut section
+int CTree::AddSeq(int SNum,int Bra, double Prop)	{
+	int i,j,braN, braB, leafB,inN1, inN2,okay1, okay2;;
+	double Len = (1.0 - Prop) * B(Bra);
+	// Check entry conditions w.r.t. tree and initialise some variables
+	assert(SNum < m_iNoSeq && m_Node[SNum] != NULL && SNum < m_iNoNode);
+	assert(m_Node[SNum]->m_NodeType == leaf && (!m_Node[SNum]->m_viLink.empty()) && (!m_Node[SNum]->m_viBranch.empty()));
+	braN = m_Node[SNum]->m_viLink[0]; leafB = m_Node[SNum]->m_viBranch[0];
+	assert(braN < m_iNoNode && m_Node[braN]->m_NodeType == branch && m_Node[braN]->m_viLink.size() == 3 && m_Node[braN]->m_viBranch.size() == 3);
+	braB = m_Node[braN]->m_viBranch[1];
+	assert(m_Node[braN]->m_viLink[0] == SNum && m_Node[braN]->m_viLink[1] == -1 && m_Node[braN]->m_viLink[2] == -1);
+	assert(m_Node[braN]->m_viBranch[0] == leafB && m_Node[braN]->m_viBranch[1] != -1 && m_Node[braN]->m_viBranch[2] == -1);
+	inN1 = m_ariBraLinks[Bra][0]; inN2 = m_ariBraLinks[Bra][1];
+	assert(IsNode(inN1) && IsNode(inN2));
+	if(inN1 > inN2)  { i = inN1; m_ariBraLinks[Bra][0] = inN1 = inN2; m_ariBraLinks[Bra][1] = inN2 = i; }
+
+	// Adjust some branch lengths
+	MulB(Bra,Prop,true,true);
+	SetB(braB,Len,true,true);
+	// Adjust the BraN
+	m_Node[braN]->m_viLink[1] = inN2; m_Node[braN]->m_viLink[2] = inN1;
+	m_Node[braN]->m_viBranch[2] = Bra;
+	// Adjust inN1
+	FOR(i,(int)m_Node[inN1]->m_viLink.size()) { if(m_Node[inN1]->m_viLink[i] == inN2) { break; } } assert(i!=m_Node[inN1]->m_viLink.size());
+	m_Node[inN1]->m_viLink[i] = braN;
+	FOR(j,2) { if(m_ariBraLinks[Bra][j] != inN1) { break; } } assert(j!=2);
+	m_ariBraLinks[Bra][j] = braN;
+	// Adjust inN2
+	FOR(i,(int)m_Node[inN2]->m_viLink.size()) { if(m_Node[inN2]->m_viLink[i] == inN1) { break; } } assert(i!=m_Node[inN2]->m_viLink.size());
+	m_Node[inN2]->m_viLink[i] = braN;
+	m_Node[inN2]->m_viBranch[i] = braB;
+	FOR(j,2) { if(m_ariBraLinks[braB][j] != braN) { break; } } assert(j!=2);
+	m_ariBraLinks[braB][j] = inN2;
+	// Check node have been assigned correctly
+	okay1 = okay2 = 0;
+	assert(m_ariBraLinks[leafB][0] == SNum && m_ariBraLinks[leafB][1] == braN);
+	assert(m_ariBraLinks[Bra][0] == inN1 && m_ariBraLinks[Bra][1] == braN);
+	okay1 = 0; FOR(i,2) { if(m_ariBraLinks[braB][i] == inN2) { okay1++; } else if(m_ariBraLinks[braB][i] == braN) { okay1++; } }
+	assert(okay1 == 2);
+	okay1 = okay2 = 0;
+	FOR(i,3) { 		assert(IsNode(m_Node[braN]->m_viLink[i]) && IsBra(m_Node[braN]->m_viBranch[i])); }
+	FOR(i,(int)m_Node[inN1]->m_viLink.size())	{
+		if(m_Node[inN1]->m_viLink[i] == braN) { okay1++; }
+		assert(IsNode(m_Node[inN1]->m_viLink[i]) && IsBra(m_Node[inN1]->m_viBranch[i]));
+	}
+	FOR(i,(int)m_Node[inN2]->m_viLink.size())	{
+		if(m_Node[inN2]->m_viLink[i] == braN) { okay2++; }
+		assert(IsNode(m_Node[inN2]->m_viBranch[i]) && IsBra(m_Node[inN2]->m_viBranch[i]));
+
+	}
+	assert(okay1 = 1 && okay2 == 1);
+	OrderNode();
+	m_bFastCalcOK = false;
+	ValidateTree();
+	return 1;
+}
+
+bool CTree::IsNode(int Node) {
+	if(Node >= 0 && Node < m_iNoNode) { return true; }
+	return false;
+}
+
+bool CTree::IsBra(int Bra)	{
+	if(Bra >= 0 && Bra < m_iNoBra) { return true; }
+	return false;
+}
+
+bool CTree::GoodBra(int Bra)	{
+	int i;
+	FOR(i,2)	{
+		if(m_ariBraLinks[Bra][i] == -1) { return false; }
+		if(GoodNode(m_ariBraLinks[Bra][i]) == false) { return false; }
+	}
+	return true;
+}
+
+bool CTree::GoodNode(int Node)	{
+	int NodNum = Node;
+	if(Node < m_iNoSeq) { NodNum = m_Node[Node]->m_viLink[0]; }
+	if(m_Node[NodNum]->m_viLink[2] == -1) { return false; }
+	return true;
+}
+
+int CTree::NoLeafLink(int N)	{
+	int i,count = 0;
+	FOR(i,NoLinks(N)) { if(NodeLink(N,i) < m_iNoSeq) { count++; } }
+	return count;
+}
+
+bool CTree::IsCutTree()	{
+	int i;
+	FOR(i,m_iNoBra)	{
+		if(m_ariBraLinks[i][0] == -1 || m_ariBraLinks[i][1] == -1) { return true; }
+	}
+	return false;
+}
+
+int CTree::GetStart(bool replace)	{
+	int i;
+	FOR(i,m_iNoSeq) {
+		if(m_Node[m_Node[i]->m_viLink[0]]->m_viLink[2]!=-1) { break; }
+	}
+	assert(i != m_iNoSeq);
+	if(replace == true) { m_iStartCalc = i; }
+	return i;
+}
+
+double CTree::GetTreeLength(bool first, int NTo, int NFr)	{
+	int i,NodeNum;
+	static double length = 0;
+	// Initialise function
+	if(first == true) {
+		length = 0;
+		return GetTreeLength(false,GetStart(false),-1);
+	}
+	assert(NTo >= 0 && NTo < m_iNoNode);
+	if(m_Node[NTo]->m_NodeType == branch) { NodeNum = 3; } else { NodeNum = 1; }
+	FOR(i,NodeNum)	{
+		if(m_Node[NTo]->m_viLink[i] == NFr) { continue; }
+		length += B(m_Node[NTo]->m_viBranch[i]);
+		GetTreeLength(false,m_Node[NTo]->m_viLink[i],NTo);
+	}
+	return length;
+}
+
+int CTree::BranchSets(int BranchNum, vector <int> *Left, vector <int> *Right)	{
+	vector <int> temp, temp2;
+	assert(Left != NULL && Right != NULL && BranchNum < m_iNoBra);
+	BuildBraLinks(false);
+	GetBraSets(m_ariBraLinks[BranchNum][0], m_ariBraLinks[BranchNum][1],Left, true);
+	GetBraSets(m_ariBraLinks[BranchNum][1], m_ariBraLinks[BranchNum][0],Right, true);
+	// Sort the nodes
+	if((int)Left->size() > 1) { Sort(Left); }   else if(Left->empty()) { return -1; } else if(Left->at(0) == -1) { return -1; }
+	if((int)Right->size() > 1) { Sort(Right); } else if(Right->empty()) { return -1; } else if(Right->at(0) == -1) { return -1; }
+	// Ensure the one with sequence 0 in is in the left
+	if(Left->at(0) != 0) { temp = *Left; *Left = *Right; *Right = temp; }
+	if(Left->size() > Right->size()) { return (int)Left->size(); }
+	temp.clear(); temp2.clear();
+	return (int) Right->size();
+}
+
+void CTree::GetBraSets(int NTo, int NFr, vector <int> *List, bool First)	{
+	int i;
+	if(NTo == -1) { return; }	// Avoid empty links in the tree
+	if(First == true) { List->clear(); if(NTo < m_iNoSeq) { List->push_back(NTo); } }
+	FOR(i,(int)m_Node[NTo]->m_viLink.size())	{
+		// If already seen then continue
+		if(m_Node[NTo]->m_viLink[i] == NFr || m_Node[NTo]->m_viLink[i] == -1) { continue; }
+		// If an internal node then descend
+		else if(m_Node[NTo]->m_viLink[i] >= m_iNoSeq)	{ GetBraSets(m_Node[NTo]->m_viLink[i],NTo,List,false); }
+		// If an external node then store
+		else { List->push_back(m_Node[NTo]->m_viLink[i]); }
+}	}
+
+// Order the links in a node
+void CTree::OrderNode(int NodeNum, bool DoBraToo)	{
+	int i,j,k,tempL,tempB, Valj, Valk;
+	for(i=m_iNoSeq; i<m_iNoNode; i++)	{
+		if(NodeNum == i || NodeNum == -1)	{
+			// Sort nodes links and branches
+			assert(m_Node[i]->m_viLink.size() == m_Node[i]->m_viBranch.size());
+			FOR(j,(int)m_Node[i]->m_viLink.size())	{
+				for(k=j;k<(int)m_Node[i]->m_viLink.size();k++)	{
+					Valj = m_Node[i]->m_viLink[j]; Valk = m_Node[i]->m_viLink[k];
+					if(Valj == -1)  { Valj = BIG_NUMBER; }
+					if(Valk == -1)  { Valk = BIG_NUMBER; }
+					if(Valj> Valk) {
+						tempL = m_Node[i]->m_viLink[j]; tempB = m_Node[i]->m_viBranch[j];
+						m_Node[i]->m_viLink[j] = m_Node[i]->m_viLink[k]; m_Node[i]->m_viBranch[j] = m_Node[i]->m_viBranch[k];
+						m_Node[i]->m_viLink[k] = tempL; m_Node[i]->m_viBranch[k] = tempB;
+			}	}	}
+			if(m_Node[i]->m_viLink.size() == 3)	{
+				if(m_Node[i]->m_viLink[1] == -1 && m_Node[i]->m_viLink[2] == -1)	{
+					if(m_Node[i]->m_viBranch[2] > m_Node[i]->m_viBranch[1]) {
+						tempB = m_Node[i]->m_viBranch[1];
+						m_Node[i]->m_viBranch[1] = m_Node[i]->m_viBranch[2];
+						m_Node[i]->m_viBranch[2] = tempB;
+	}	}	}	}	}
+	if(DoBraToo == true) {	// If need to do branches
+		FOR(i,m_iNoBra)	{
+			if( ( m_ariBraLinks[i][0] > m_ariBraLinks[i][1] && m_ariBraLinks[i][1] != -1) || m_ariBraLinks[i][0] == -1)	{
+				j = m_ariBraLinks[i][0];
+				m_ariBraLinks[i][0] = m_ariBraLinks[i][1];
+				m_ariBraLinks[i][1] = j;
+}	}	}	}
+
+///////////////////////////////////////////////////////////////////
+// Tree rooting and unrooting options
+void CTree::Unroot()	{
+	if(!IsRooted()) { return; }
+	if(!InRange(m_iRootNode,0,m_iNoNode)) { Error("\nTrying to CTree::Unroot when tree not ready\n\n"); }
+	assert(m_Node[m_iRootNode]->m_NodeType == root);
+	int i,j, branch = NodeBra(m_iRootNode,0), pLeft = NodeLink(m_iRootNode,0), pRight = NodeLink(m_iRootNode,1);
+	// Fix left node
+	FOR(i,NoLinks(pLeft)) {
+		if(NodeLink(pLeft,i) == m_iRootNode) {
+			ReplaceNodeLinkElement(pLeft,i,pRight);
+			ReplaceNodeBraElement(pLeft,i,branch);
+			break;
+	}	}
+	assert(i != NoLinks(pLeft));
+	// Fix right node
+	FOR(i,NoLinks(pRight)) {
+		if(NodeLink(pRight,i) == m_iRootNode) {
+			ReplaceNodeLinkElement(pRight,i,pLeft);
+			ReplaceNodeBraElement(pRight,i,branch);
+			break;
+	}	}
+	assert(i != NoLinks(pRight));
+	// Finish up the other stuff
+	m_Node[m_iRootNode]->CleanNode();
+	delete m_Node[m_iRootNode]; m_iNoNode --;
+	m_iStartCalc = 0;
+	m_iRootNode = -1; m_bRooted = false;
+}
+
+///////////////////////////////////////////////////////////////////
+// Function to calculate Robinson-Foulds distance between trees
+int CTree::GetRFDist(CTree &Tree)	{
+	int i,j, Dist;
+	vector <vector <int> > L1, L2;
+	vector <int> L,R;
+	// Check some entry conditions
+	if(NoSeq() != Tree.NoSeq()) { return -1; }
+	// Get this trees sets
+	FOR(i,NoBra()) { BranchSets(i,&L,&R); L1.push_back(L); Tree.BranchSets(i,&L,&R); L2.push_back(L); }
+	// Get the distance
+	Dist = NoBra();
+	FOR(i,NoBra()) {
+		FOR(j,NoBra()) { if(Compare(&L1[i],&L2[j]) == true) { Dist--; break; } }
+	}
+	return Dist;
+}
+
+
+// ofstream operator for tree
+/////////////////////////////////////////////////////
+// NOTE: The code for this section is hideous
+// 	 and badly described.  Can't be bothered
+// 	 to debug however 'cause speed not issue
+// 	 and it works
+/////////////////////////////////////////////////////
+
+ostream& operator<<(ostream& os, CTree &Tree)		{
+	Tree.ValidateTree();
+	os << "(";
+	if(Tree.IsCutTree())	{
+		if(Tree.NoLinks(Tree.StartCalc()) == 0) { Error("Trying to start calc from bad node\n"); }
+		Tree.OutNode(-1,Tree.m_Node[Tree.StartCalc()]->m_viLink[0],os);
+	} else					{
+		if(Tree.m_bRooted) { Tree.OutNode(-1,Tree.m_iRootNode,os); }
+		else { Tree.OutNode(-1,Tree.m_Node[0]->m_viLink[0],os); }
+		}
+	os << ");";
+	return os;
+}
+
+ostream& CTree::OutNode(int FromNode, int ToNode, ostream &os)	{
+	int i, count;
+#if TREE_DEBUG
+	static vector <bool> OK;
+	if(FromNode == -1) { OK.clear(); OK.assign(NoNode(),false); }
+	if(OK[ToNode] == true) { cout << "\nTree error: "; OutDetail(cout); exit(-1); }
+	OK[ToNode] = true;
+#endif
+	// If an internal node
+	if(m_Node[ToNode]->m_NodeType == branch)	{
+		// First visit to node gives an open parenthesis
+		if(FromNode != -1) { os << "("; }	// Ensures trifurcation at root
+		// Organise node visits
+		count = 0; FOR(i,3)	{
+			if(m_Node[ToNode]->m_viLink[i] == FromNode || m_Node[ToNode]->m_viLink[i] == -1) { continue; }
+			if(count == 2) { os << ","; }	// For first node put in the extra ','
+			OutNode(ToNode,m_Node[ToNode]->m_viLink[i],os);
+			if(count == 0) { os << ","; }
+			count++;
+		}
+		// The return visit gives the closing parenthesis and, if required, the branch length
+		if(FromNode != -1) { os << ")"; }	// Ensures trifurcation at root
+		if(FromNode != -1) { OutBranch(ToNode,FromNode,os); }
+	}	else if(m_Node[ToNode]->m_NodeType == leaf)	{	// If an external node
+		if(ToNode < m_iNoSeq && m_vsName.size() == m_iNoSeq) { if(m_bOutName) { os << m_vsName[ToNode]; } else { os << ToNode+1; } } else { os << ToNode + 1; }
+		OutBranch(ToNode,NodeLink(ToNode,0),os);
+		if(FromNode == -1) {
+			if(NodeLink(ToNode,0) < m_iNoSeq && m_vsName.size() == m_iNoSeq) { if(m_bOutName) { os << "," << m_vsName[NodeLink(ToNode,0)]; } else { os << "," << NodeLink(ToNode,0); } }
+			else { os << "," << NodeLink(ToNode,0) + 1; }
+			if(m_iOutBra==1) { os << ":0.0"; }
+		}
+	} else if(m_Node[ToNode]->m_NodeType == root) {
+		// First visit to node gives an open parenthesis
+		if(FromNode != -1) { os << "("; }	// Ensures trifurcation at root
+		// Organise node visits
+		count = 0; FOR(i,2)	{
+			if(m_Node[ToNode]->m_viLink[i] == FromNode || m_Node[ToNode]->m_viLink[i] == -1) { continue; }
+			if(count == 2) { os << ","; }	// For first node put in the extra ','
+			OutNode(ToNode,m_Node[ToNode]->m_viLink[i],os);
+			if(count == 0) { os << ","; }
+			count++;
+		}
+		// The return visit gives the closing parenthesis and, if required, the branch length
+		if(FromNode != -1) { os << ")"; }	// Ensures trifurcation at root
+		if(FromNode != -1) { OutBranch(ToNode,FromNode,os); }
+	}
+	return os;
+}
+ostream& CTree::OutBranch(int ToNode, int FromNode, ostream &os)	{
+	int i;
+	switch(m_iOutBra)	{
+		case 0: break;	// No branch
+		case 1:	// Simple branch length
+			if(m_iNoSeq == 2 && ToNode == 1) { os << ":0.0"; break; }
+			FOR(i,(int)m_Node[ToNode]->m_viLink.size()) { if(m_Node[ToNode]->m_viLink[i] == FromNode) { break; } }
+			assert(i != m_Node[ToNode]->m_viLink.size());
+			os << ":" << B(m_Node[ToNode]->m_viBranch[i]);
+			if(m_bOutLabel && BranchLabels()) { os << "#" << m_viBranchLabels[m_Node[ToNode]->m_viBranch[i]]; }
+			break;
+		case 2: // Branch label
+			FOR(i,(int)m_Node[ToNode]->m_viLink.size()) { if(m_Node[ToNode]->m_viLink[i] == FromNode) { break; } }
+			assert(i != m_Node[ToNode]->m_viLink.size());
+			os << ":b" << m_Node[ToNode]->m_viBranch[i];
+			if(m_bOutLabel && BranchLabels()) { os << "#" << m_viBranchLabels[m_Node[ToNode]->m_viBranch[i]]; }
+			break;
+		default:
+			Error("Unknown request for m_iOutBra...\n\n");
+	};
+	return os;
+}
+
+bool CTree::OutDetail(ostream &os, bool ForceExit)	{
+	int i;
+	os << "\nTree has " << m_iNoNode << " nodes and " << m_iNoBra << " branches";
+	os << "\nCalculations start at Node: " << m_iStartCalc;
+	os << "\nNodes: ";
+	FOR(i,m_iNoNode) { os << "\n\tNode["<<i<<"]: " << *m_Node[i]; }
+	os << "\nBranch: ";
+	FOR(i,m_iNoBra) { os << "\n\tBranch["<<i<<"] links ("  << m_ariBraLinks[i][0] << ":" << m_ariBraLinks[i][1] << "): " << m_vpBra[i]->Val(); }
+	if(ForceExit) { exit(-1); }
+	os << "\nTree: " << *this;
+	return true;
+}
+
+// Create a consistent way outputting trees
+vector <int> CTree::ConstOut()	{
+	int i,j;
+	vector <int> List;
+	FOR(i,m_iNoSeq)	{ FOR(j,i)	{ List.push_back(NodeDist(i,j)); }	}
+	assert(List.size() == (((m_iNoSeq * m_iNoSeq) - m_iNoSeq) / 2));
+	return List;
+}
+
+int CTree::NodeDist(int Node1, int Node2, int NodeFrom)	{
+	int i;
+	static int dist;
+	static bool Fix;
+	if(NodeFrom == -1) {
+		if(Node1 == Node2) { return 0; }
+		Fix = false; dist = 0;
+	}
+	FOR(i,(int)m_Node[Node1]->m_viLink.size())	{
+		if(m_Node[Node1]->m_viLink[i] == NodeFrom || m_Node[Node1]->m_viLink[i] == -1) { continue; }
+		dist++;
+		if(Node2 == m_Node[Node1]->m_viLink[i]) { Fix=true; return dist; }
+		NodeDist(m_Node[Node1]->m_viLink[i],Node2,Node1);
+		if(Fix == true)  { return dist; }
+	}
+	return --dist;
+}
+
+int CTree::BranchDist(int B1, int B2, bool AllowZero)	{
+	int i,j;
+	int mindist = BIG_NUMBER, dist;
+	if((B1 < 0 || B1 > NoBra()) || (B2 < 0 || B2 > NoBra())) { return SPR_LOWBOUND; };
+	FOR(i,2) {
+		if(BraLink(B1,i) == -1) { continue; }
+		FOR(j,2) {
+			if(BraLink(B2,j) == -1) { continue; }
+			dist = NodeDist(BraLink(B1,i),BraLink(B2,j));
+			if(dist < mindist) { mindist = dist; }
+	}	}
+	if(mindist == BIG_NUMBER) { return -1; }
+	return mindist;
+}
+
+void CTree::AssignNodeType(int N, ENodeType Type)	{
+	assert(InRange(N,0,NoNode()));
+	switch(Type)	{
+	case branch:
+		assert(NoLinks(N) == 3);
+		m_Node[N]->m_NodeType = branch;
+		break;
+	case leaf:
+		assert(NoLinks(N) == 1);
+		m_Node[N]->m_NodeType = leaf;
+		break;
+	case root:
+		assert(NoLinks(N) == 2);
+		m_Node[N]->m_NodeType = root;
+		break;
+	default:;
+		Error("Trying to assign a node to unknown type of ENodeType\n");
+	}
+}
+
+/////////////////// Tree based pairwise distance functions //////////////////////////
+// Get only the distances between the leaf nodes
+vector <double> CTree::GetTreePW() {
+	int i,seq;
+	vector <double> dist(m_iNoSeq*m_iNoSeq,0);
+	vector <double> pdist(m_iNoSeq,0);
+	// Get the distances using recursive function
+	FOR(seq,m_iNoSeq) {
+		PWDistSub(seq,-1,&pdist);
+		FOR(i,m_iNoSeq) { dist[(seq*m_iNoSeq) + i] = pdist[i]; }
+	}
+	return dist;
+}
+
+// Get distances between leaf and internal node distances
+vector <double> CTree::GetAllTreePW()	{
+	int i,j;
+	bool LabelledNodes = false;
+	vector <double> dists, retdist;
+	dists.resize(m_iNoNode); retdist.resize(m_iNoNode*m_iNoNode);
+
+	FOR(i,m_iNoNode) {
+		// Get simple pairwise distances
+		// Get node to tip distances
+		if(i < m_iNoSeq) { j = i; } else {
+			FOR(j,m_iNoNode) { if(m_Node[j]->m_iInternalNodeNum == i+1) { LabelledNodes = true; break; } }
+			if(j == m_iNoNode) { j = i; if(LabelledNodes == true) { cout << "\nWarning: Tree::GetAllTreePW() some nodes labelled whilst some are not..."; } }
+		}
+		PWDistSub(j,-1,&dists,true);
+		FOR(j,m_iNoNode) { retdist[(i*m_iNoNode)+j] = dists[j]; }
+	}
+//	cout << "\nThe node calculations are:"; FOR(i,m_iNoNode) { cout << "\nNode["<<i<<"]:"; FOR(j,m_iNoNode) { cout << "\t" << retdist[(i*m_iNoNode)+j]; } }
+	return  retdist;
+}
+
+void CTree::PWDistSub(int NodeTo, int NodeFrom,vector <double> *d, bool DoInternalNodes) {
+	int i;
+	static double dist;
+	// Initialise if first node
+	if(NodeFrom == -1) {
+		dist = 0.0;
+		assert((DoInternalNodes == false && d->size() == m_iNoSeq) || (DoInternalNodes == true && d->size() == m_iNoNode));
+		FOR(i,(int)d->size()) { d->at(i) = -1; }
+	}
+	// If a terminal node then store the distance
+	if(NodeTo < m_iNoSeq) { d->at(NodeTo) = dist; } else if(DoInternalNodes == true) { d->at(NodeTo) = dist; }
+	// recurse down tree
+	FOR(i,(int)m_Node[NodeTo]->m_viLink.size()) {
+		if(m_Node[NodeTo]->m_viLink[i] == NodeFrom || m_Node[NodeTo]->m_viLink[i] == -1) { continue; }
+		dist += B(m_Node[NodeTo]->m_viBranch[i]);
+		PWDistSub(m_Node[NodeTo]->m_viLink[i],NodeTo,d,DoInternalNodes);
+		dist -= B(m_Node[NodeTo]->m_viBranch[i]);
+	}
+}
+
+// Recursive function that collects the nodes of exactly NodeDepth, will also include leaf nodes if less than NodeDepth if GetLess == true
+vector <int> CTree::GetNodesOfDepth(int InitNode, int NodeDepth, bool GetLess, vector <int> *NodesFrom, vector <int> *NodeCov, vector <double> *ExtBra,int NodeFr, bool First)	{
+	static vector <int> vNodes;
+	static int CurDepth;
+	int i;
+	// Check entry conditions
+	assert(InRange(InitNode,0,m_iNoNode) && InRange(NodeFr,-1,m_iNoNode) && (NodeDepth > 0));
+	// Initialise if required
+	if(First == true) { vNodes.clear(); CurDepth = 0; if(NodesFrom != NULL) { NodesFrom->clear(); } if( NodeCov != NULL) { NodeCov->clear(); } }
+	// Get the nodes if the node depth is reached
+	if(CurDepth == NodeDepth)	{
+		vNodes.push_back(InitNode);
+		if(NodesFrom != NULL) { NodesFrom->push_back(NodeFr); }
+		// Find Branch
+		if(ExtBra != NULL)	{
+			FOR(i,m_iNoBra) {
+				if( (m_ariBraLinks[i][0] == InitNode && m_ariBraLinks[i][1] == NodeFr) || (m_ariBraLinks[i][0] == NodeFr && m_ariBraLinks[i][1] == InitNode) )	{
+					ExtBra->push_back(m_vpBra[i]->Val()); break;
+			}	}
+			if(i == m_iNoBra) { Error("\nCannot find branch in GetNodesOfDepth...\n"); }
+		}
+		return vNodes;
+	}
+	// Get the covered nodes
+	if(NodeCov != NULL) {
+		if(!IsIn(InitNode,*NodeCov) && InitNode >= m_iNoSeq) { NodeCov->push_back(InitNode); }
+	}
+	// Check for leaf nodes
+	if(InitNode < m_iNoSeq)		{
+		if(GetLess == true) {
+			vNodes.push_back(InitNode);
+			if(NodesFrom != NULL) { NodesFrom->push_back(NodeFr); }
+			// Find Branch
+			if(ExtBra != NULL)	{
+				FOR(i,m_iNoBra) {
+					if( (m_ariBraLinks[i][0] == InitNode && m_ariBraLinks[i][1] == NodeFr) || (m_ariBraLinks[i][0] == NodeFr && m_ariBraLinks[i][1] == InitNode) )	{
+						ExtBra->push_back(m_vpBra[i]->Val()); break;
+				}	}
+				if(i == m_iNoBra) { Error("\nCannot find branch in GetNodesOfDepth...\n"); }
+		}	}
+		return vNodes;
+	}
+	// Otherwise descend the tree by looping through the nodes
+	CurDepth++;
+	FOR(i,(int)m_Node[InitNode]->m_viLink.size()) {
+		if(m_Node[InitNode]->m_viLink[i] == NodeFr || m_Node[InitNode]->m_viLink[i] == -1) { continue; }
+		GetNodesOfDepth(m_Node[InitNode]->m_viLink[i],NodeDepth,GetLess,NodesFrom,NodeCov,ExtBra,InitNode,false);
+	}
+	CurDepth--;
+	return vNodes;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// Centre-Point algorithms for SNAP
+
+// Branch centre point
+vector <int> CTree::BranchCP(int CP, int Depth, vector <int> *NodeRem, vector <int> *NodeCovered, vector <double> *ExtBra)	{
+	int i,j;
+	vector <int> Nodes, temp, RetNode, NC;
+	NodeRem->clear(); if(NodeCovered != NULL) { NodeCovered->clear(); }
+	// Clean in preparation of new subtree
+	FOR(i,2) {
+		j = 0; if(i==0) { j = 1; }
+		Nodes = GetNodesOfDepth(m_ariBraLinks[CP][i],Depth,true,&temp,&NC,ExtBra,m_ariBraLinks[CP][j]);
+		assert(Nodes.size() == temp.size());
+		// Store the nodes for the leafmap and the nodes from for calculating partial likelihoods
+		FOR(j,(int)Nodes.size()) { RetNode.push_back(Nodes[j]); NodeRem->push_back(temp[j]); }
+		if(NodeCovered != NULL) { FOR(j,(int)NC.size()) { if(!IsIn(NC[i],*NodeCovered)) { NodeCovered->push_back(NC[j]); } } }
+	}
+	return RetNode;
+}
+// Node centre point
+vector <int> CTree::NodeCP(int Node, int Depth, vector <int> *NodeRem, vector <int> *NodeCovered, vector <double> *ExtBra)	{
+	vector <int> Nodes, NodeFr, NC;
+	// Clean the node lists
+	NodeRem->clear(); if(NodeCovered != NULL) { NodeCovered->clear(); }
+	// Clean in preparation of new subtree
+	Nodes = GetNodesOfDepth(Node,Depth,true,NodeRem,NodeCovered,ExtBra);
+	assert(Nodes.size() == NodeRem->size());
+	return Nodes;
+}
+
+// Tree replacement function
+void CTree::ReplaceTreeCP(CTree *NT,vector <int> LeafMap,vector <int> NCover, bool VerifyBranchLinks)	{
+	int i,j,nf, nt;
+	vector <int> New2Old, Bran, NewL, NewB, NodeIntVals;
+	CNode *pNode = NULL;
+	assert(LeafMap.size() + NCover.size() == NT->m_iNoNode);
+	New2Old = LeafMap;
+#if TREE_DEBUG
+	int count
+	// Check entry conditions
+	FOR(i,LeafMap.size())	{ // Check all leaves map to one and only one NCover
+		count = 0;
+		FOR(j,NoLinks(LeafMap[i])) { if(IsIn(NodeLink(LeafMap[i],j),NCover)) { count ++; } }
+		assert(count == 1);
+		if(count != 1) { cout << "\nCTree::ReplaceTreeCP -- Error in LeafList " << LeafMap[i] << "; count = " << count << "..."; OutDetail(); exit(-1); }
+	}
+	FOR(i,NCover.size())	{ // Check all nodes covered link only to other nodes covered and leafmaps
+		count = 0;
+		FOR(j,NoLinks(NCover[i])) { if(IsIn(NodeLink(NCover[i],j),NCover) || IsIn(NodeLink(NCover[i],j),LeafMap)) { count ++; } }
+		assert(count == NoLinks(NCover[i]));
+		if(count != NoLinks(NCover[i])) { cout << "\nCTree::ReplaceTreeCP -- Error in NCover " << NCover[i] << "..."; OutDetail(); exit(-1); }
+	}
+#endif
+	FOR(i,(int)NCover.size()) {
+		// Get branches
+		FOR(j,(int)m_Node[NCover[i]]->m_viBranch.size()) {
+			if(!IsIn(m_Node[NCover[i]]->m_viBranch[j],Bran)) { Bran.push_back(m_Node[NCover[i]]->m_viBranch[j]); }
+		}
+		// Get Node nums and delete them
+		New2Old.push_back(NCover[i]); NodeIntVals.push_back(m_Node[NCover[i]]->m_iInternalNodeNum);
+		delete m_Node[NCover[i]]; m_Node[NCover[i]] = NULL;
+	}
+	sort(Bran.begin(),Bran.end());
+	assert(Bran.size() == NT->m_iNoBra);
+	// Apply the nodes
+	FOR(nf,NT->m_iNoNode) {
+		nt = New2Old[nf];		// Set NodeTo;
+		// Do leaf nodes
+		if(nf<NT->m_iNoSeq) {
+			// find the link that goes towards another covered node
+			FOR(i,(int)m_Node[nt]->m_viLink.size()) { if(IsIn(m_Node[nt]->m_viLink[i],New2Old)) { break; } }
+			assert(i != m_Node[nt]->m_viLink.size() && NT->m_Node[nf]->m_viLink.size() == 1);
+			// Set the link
+			m_Node[nt]->m_viLink[i] = New2Old[NT->m_Node[nf]->m_viLink[0]];
+			// Set the branch
+			m_Node[nt]->m_viBranch[i] = Bran[NT->m_Node[nf]->m_viBranch[0]];
+		} else {		// Do internal nodes
+			NewL.clear(); NewB.clear();
+			// Sort out the links
+			FOR(i,(int)NT->m_Node[nf]->m_viLink.size()) {
+				NewL.push_back(New2Old[NT->m_Node[nf]->m_viLink[i]]);
+				NewB.push_back(Bran[NT->m_Node[nf]->m_viBranch[i]]);
+			}
+			// Create the new node
+			assert(InRange( (int) (nf - NT->m_iNoSeq) ,(int) 0,(int) NodeIntVals.size()));
+			m_Node[nt] = new CNode(NewL,NewB,NodeIntVals[nf - NT->m_iNoSeq]);
+			// Apply the branch lengths
+			FOR(i,(int)m_Node[nt]->m_viBranch.size()) {
+				SetB(m_Node[nt]->m_viBranch[i],NT->B(NT->m_Node[nf]->m_viBranch[i]),true,true);
+	}	}	}
+	BuildBraLinks(VerifyBranchLinks);
+	OrderNode();
+	m_bFastCalcOK = false;
+	ValidateTree();
+}
+
+// This function calculates the tree pairwise distances and compares them to the
+//  observed pairwise distances.
+// The measure per sequence is the Root Mean Squared Deviation (RMSD) between these two
+//  sets of distances for everything to and from the branch
+// This is a bit hacky and a measure based around partitions (e.g. SplitsTree style) would
+//  be preferable.
+vector <double> CTree::MeasureSeqStability(vector <double> PWDist) {
+	int i,j,k;
+	vector <double> TreeDist, RMSD;
+	double count;
+	TreeDist = GetTreePW();
+	RMSD.resize(m_iNoSeq);
+	FOR(i,m_iNoSeq) {		// Loop through sequences
+		count = 0; k=0;
+		FOR(j,m_iNoSeq) {	// Get the RMSD
+			if(TreeDist[(i*m_iNoSeq)+j] < DBL_EPSILON || PWDist[(i*m_iNoSeq)+j] < DBL_EPSILON) { continue; }	// Only count measurable distances
+			k++;
+			count += 1/(PWDist[(i*m_iNoSeq)+j]*PWDist[(i*m_iNoSeq)+j]) * pow(TreeDist[(i*m_iNoSeq)+j] - PWDist[(i*m_iNoSeq)+j],2);
+		}
+		RMSD[i] = sqrt( count / (double) k );
+	}
+	return RMSD;
+}
+
+// This function calculates the tree pairwise distances and compares them to the
+//  observed pairwise distances.
+// The measure per sequence is the Root Mean Squared Deviation (RMSD) between these two
+//  sets of distances for everything to and from the branch
+vector <double> CTree::MeasureBraStability(vector <double> PWDist)	{
+	int Br,i,j,k;
+	vector <double> TreeDist, RMSD(m_iNoBra,0);
+	vector <int> LSet,RSet;
+	double count;
+	TreeDist = GetTreePW();
+//	cout << "\nPWDist: "; MatOut(m_iNoSeq,PWDist);
+//	cout << "\nTreeDist: "; MatOut(m_iNoSeq,TreeDist);
+	FOR(Br,m_iNoBra) {		// Loop through branches
+		count = 0; k=0;
+//		cout << "\n-------------------------------------------------\nDoing branch[" << Br<<"]: ";
+		if(BranchSets(Br,&LSet,&RSet) == -1) { RMSD[Br] = 0.0; continue; }
+//		cout << "\nLeft:  \t" << LSet << "\nRight: \t" << RSet;
+		FOR(i,(int)LSet.size()) {
+			FOR(j,(int)RSet.size())	{
+//				cout << "\n\tD["<<LSet[i]<<"]["<<RSet[j]<<"]: ";
+				if(TreeDist[(LSet[i]*m_iNoSeq)+RSet[j]] < DBL_EPSILON || PWDist[(LSet[i]*m_iNoSeq)+RSet[j]] < DBL_EPSILON) { continue; }
+				k++;
+				count += 1/(PWDist[(LSet[i]*m_iNoSeq)+RSet[j]]*PWDist[(LSet[i]*m_iNoSeq)+RSet[j]]) * pow(TreeDist[(LSet[i]*m_iNoSeq)+RSet[j]] - PWDist[(LSet[i]*m_iNoSeq)+RSet[j]],2);
+			}
+		}
+		RMSD[Br] = sqrt(count / (double) k);
+	}
+//	cout << "\nDone\nRMSD: " << RMSD;
+	return RMSD;
+}
+// This function calculates the tree pairwise distances and compares them to the
+//  observed pairwise distances.
+// The measure per sequence is the Root Mean Squared Deviation (RMSD) between these two
+//  sets of distances for everything to and from the branch
+vector <double> CTree::MeasureNodeStability(vector <double> PWDist)	{
+	int i,j, count;
+	vector <double> BrScore = MeasureBraStability(PWDist), NodeScore(m_iNoNode - m_iNoSeq,0);
+	FOR(i,m_iNoNode -m_iNoSeq)	{
+		count = 0;
+		FOR(j,NoLinks(i+m_iNoSeq))	{
+			if(NodeLink(i+m_iNoSeq,j) >= 0) {
+				NodeScore[i] += BrScore[NodeBra(i+m_iNoSeq,j)]; count ++; }
+		}
+		NodeScore[i] /= (double) count;
+	}
+	return NodeScore;
+
+}
+// Get the RMSD for a tree
+double CTree::RMSD(vector <double> PWDist) { return GetRMSD(PWDist,GetTreePW()); }
+
+// Get the overall RMSD score for a tree
+///////////////////////////////////////////////////////////////////////////////
+// Gets the base pairwise distances for a tree without the subtree (defined by LeafMap & NCover)
+// branches counted.
+vector <double> CTree::GetPartialTreeDist(vector <int> LeafMap, vector <vector <int> > NBelow)	{
+	int Leaf,Leaf2,i,j;
+	vector <double> TreeDist(m_iNoSeq*m_iNoSeq,0);
+	vector <double> dist(m_iNoSeq,0);
+	// Check entry conditons
+	assert(NBelow.size() == LeafMap.size());
+	// Do the calculations
+	FOR(Leaf,(int)LeafMap.size())	{	// Loop through the leaves and get the pairwise distances
+		if(NBelow[Leaf].size() == 1) { continue; }
+		PWDistSub(LeafMap[Leaf],-1,&dist);	// Distances between LeafMap nodes and the true leaves
+		assert(dist.size() == m_iNoSeq);
+		// Loop through the Nodes Below and fill in the partial distances
+		FOR(i,(int)NBelow[Leaf].size()) {	// This node
+			FOR(Leaf2,(int)LeafMap.size()) {
+				if( (NBelow[Leaf].size() == 1 && NBelow[Leaf2].size() == 1) || Leaf==Leaf2) { continue; }
+				FOR(j,(int)NBelow[Leaf2].size())	{
+					TreeDist[(m_iNoSeq*NBelow[Leaf][i]) + NBelow[Leaf2][j]] += dist[NBelow[Leaf][i]];
+					TreeDist[(m_iNoSeq*NBelow[Leaf2][j]) + NBelow[Leaf][i]] += dist[NBelow[Leaf][i]];
+		}	}	}
+		// Now do the other distances that don't span the subtree
+		FOR(i,(int)NBelow[Leaf].size())	{
+			PWDistSub(NBelow[Leaf][i],-1,&dist);
+			FOR(j,i)	{
+				TreeDist[(m_iNoSeq*NBelow[Leaf][i])+NBelow[Leaf][j]] += dist[NBelow[Leaf][j]];
+				TreeDist[(m_iNoSeq*NBelow[Leaf][j])+NBelow[Leaf][i]] += dist[NBelow[Leaf][j]];
+	}	}	}
+	return TreeDist;
+}
+
+//////////////////////////////////////////////////////////////
+// Get full pairwise distances from a subtree and a set of
+// partial RMSDs taken from GetPartialTreeDist(...) above
+vector <double> CTree::GetSubTreePW(vector <int> LeafMap, vector <vector <int> > NBelow, vector <double> Dist)	{
+	int Leaf,Leaf2,i,j,OriNoSeq = 0;
+	vector <double> SubDist = GetTreePW();	// The pairwise distances for the subtree
+	// Count the number of sequences
+	FOR(i,(int)NBelow.size()) { OriNoSeq += (int)NBelow[i].size(); }
+	// Check entry conditions
+	assert(LeafMap.size() == NBelow.size()); assert(Dist.size() == OriNoSeq * OriNoSeq);
+	// Do the distances
+	FOR(Leaf,(int)LeafMap.size())	{
+		FOR(i,(int)NBelow[Leaf].size())	{
+			FOR(Leaf2,Leaf)	{
+				FOR(j,(int)NBelow[Leaf2].size()) {
+					Dist[(NBelow[Leaf][i] * OriNoSeq)+NBelow[Leaf2][j]] += SubDist[(Leaf*m_iNoSeq)+Leaf2];
+					Dist[(NBelow[Leaf2][j] * OriNoSeq)+NBelow[Leaf][i]] += SubDist[(Leaf*m_iNoSeq)+Leaf2];
+	}	}	}	}
+	return Dist;
+}
+
+// Measures RMSD for a subtree.
+// Variables:	PWDist			= pairwise distances
+//				NBelow			= Nodes below each of the leaf nodes in the sub tree
+//				BaseTreeDist	= Part done RMSD. Added to the calculated RMSD
+double CTree::SubTreeRMSD(vector<int> LeafMap, vector <vector <int> > NBelow, vector <double> PWDist, vector <double> SubPWDist)	{
+	return GetRMSD(PWDist,GetSubTreePW(LeafMap,NBelow,SubPWDist));
+}
+
+int CTree::BestStartCalc()	{
+	int i, BestBra = -1;
+	double temp = -1.0, BScore = -1.0;
+	// Find the most efficient place to perform the calculation
+	FOR(i,NoBra()) { 	temp = QuadB(i); if(temp > BScore) { BScore = temp; BestBra = i; } }
+	assert(InRange(BestBra,0,NoBra()));
+	m_iStartCalc = BestBra;
+	m_bFastCalcOK = false;
+	return m_iStartCalc;
+}
+
+///////////////////////////////////////////////////////////////////////
+// Routines to build subtrees
+
+void CTree::BuildOriSubTree(CTree *T, vector <bool> NodesBool)	{
+	int i;
+	vector <int> NC;						// Values for passing to another BuildOriSubTree routine
+	assert(NodesBool.size() == NoNode() + NoSeq());
+	FOR(i,(int)NodesBool.size())	{ if(NodesBool[i] == true) { NC.push_back(i); } }
+	BuildOriSubTree(T,NC);
+}
+
+void CTree::BuildOriSubTree(CTree *T, vector <int> NC)	{
+	int i,j, NodCount, NPoint;
+	vector <int> NCover,LeafMap,NFrom;			// The values that NC shall be changed to
+	// Break up NC into the correct numbers
+	FOR(i,(int)NC.size())	{
+		if(NC[i] < NoSeq()) { LeafMap.push_back(NC[i]); NFrom.push_back(NodeLink(NC[i],0)); continue; }	// Do leaf nodes
+		// Find out whether the node is a leaf node or an internal node
+		NodCount = 0; NPoint = -1;
+		FOR(j,NoLinks(NC[i])) {
+			if(IsIn(NodeLink(NC[i],j),NC)) {
+				NodCount++; NPoint = NodeLink(NC[i],j);
+				if(NodCount > 1) { break; }
+		}	}
+		// NodCount == 1 means that it is a leaf node
+		if(NodCount == 1) { LeafMap.push_back(NC[i]); NFrom.push_back(NPoint); }
+		// NodCount > 1 means its a covered node
+		else if(NodCount > 1) { NCover.push_back(NC[i]); }
+		// NodCount == 0 is an error
+		else { Error("Error when constructing subtree in CTree::BuildOriSubTree(...)\n"); }
+	}
+	assert(LeafMap.size() == NFrom.size());
+	BuildOriSubTree(T,LeafMap,NCover,NFrom);
+}
+
+void CTree::BuildOriSubTree(CTree *RetTree, vector <int> LeafMap, vector <int> NCover, vector <int> NFrom)	{
+	int i,j,k,Node,NoSeq = (int)LeafMap.size();
+	vector <int> Link, Branch; Link.assign(3,-1); Branch.assign(3,-1);
+	vector <double> BVal; BVal.assign(3,-1.0);
+	bool flag;
+	assert(!LeafMap.empty() && LeafMap.size() == NCover.size() + 2);
+	// Do only Nodes
+	RetTree->GetMemory(NoSeq);
+	FOR(i,NoSeq)	{	// LeafNodes (easy)
+		// Find the parent node
+		FOR(Node,(int)NCover.size()) { if(NCover[Node] == NFrom[i]) { break; } }
+		assert(Node != NCover.size());
+		// Create the child node
+		RetTree->m_Node[i]->SetNode(Node + NoSeq,i,-1);
+	}
+	FOR(i,(int)NCover.size())	{	// Branch nodes
+		FOR(j,3)	{	// Get each of the three links
+			// Find the real tree node
+			Node = m_Node[NCover[i]]->m_viLink[j];
+			// Map back to the subtree nodes
+			flag = false; FOR(k,NoSeq) { if(LeafMap[k] == Node) { flag = true; break; } }
+			if(k == NoSeq) {
+				FOR(k,(int)NCover.size()) { if(NCover[k] == Node) { k += NoSeq; flag = true; break; } }
+			}
+			assert(flag == true);
+			Link[j] = k;
+		}
+		Sort(&Link);
+		RetTree->m_Node[i+NoSeq]->SetNode(Link[0],Link[1],Link[2],-1,-1,-1,-1);
+	}
+	// Now build the branches and their links
+	RetTree->BuildBranches();
+	RetTree->BuildBraLinks();
+	// Now copy branches lengths from original tree to RetTree
+	Link.clear(); Link = LeafMap; FOR(i,(int)NCover.size()) { Link.push_back(NCover[i]); }
+	FOR(i,(int)RetTree->m_vpBra.size())	{
+		RetTree->SetB(i,B(FindBra(Link[RetTree->m_ariBraLinks[i][0]],Link[RetTree->m_ariBraLinks[i][1]])),true);
+	}
+	RetTree->m_bReady = true;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Function used for investigating knots in the tree
+vector <vector <int> > CTree::GetKnotClusters(vector <bool> INC, int ChangeRad)	{
+	int i,j,k;
+	vector <vector <int> > Clusters;
+	vector <int> v_C,v_Blank;
+	assert(INC.size() == NoNode());
+
+	// Get original clusters
+	for(i=NoSeq();i<NoNode();i++)	{
+		if(INC[i] == false) { continue; }
+		v_Blank = GetNodesOfDepth(i,ChangeRad,true,NULL,&v_C,NULL);
+		FOR(j,(int)v_Blank.size()) { v_C.push_back(v_Blank[j]); }
+//			Nodes = GetNodesOfDepth(m_ariBraLinks[CP][i],Depth,true,&temp,&NC,ExtBra,m_ariBraLinks[CP][j]);
+		// See whether the nodes need a new cluster
+		FOR(j,(int)Clusters.size()) {
+			FOR(k,(int)v_C.size()) {
+				if(IsIn(v_C[k],Clusters[j])) { // Is in cluster so store
+					FOR(k,(int)v_C.size()) { if(!IsIn(v_C[k],Clusters[j])) { Clusters[j].push_back(v_C[k]); } }
+					k = -1; break;
+			}	}
+			if(k == -1) { break; }
+		}
+		if(k != -1) { Clusters.push_back(v_C); }
+		v_C.clear();
+	}
+//	cout << "\nFinished with " << Clusters.size() << " clusters";
+//	FOR(i,Clusters.size()) { Sort(&Clusters[i]); cout << "\nCluster["<<i<<"] size = " << Clusters[i].size()<< ": " << Clusters[i]; }
+//	exit(-1);
+	return Clusters;
+}
+
+//////////////// Function applying names to a tree ///////////////////
+void CTree::SetNames(vector <string > NewNames,bool Overwrite) {
+	if(!Names().empty() && Overwrite == false) { Error("\nTrying to overwrite names when not permitted in CTree::SetNames(...)\n"); }
+	if(NewNames.size() != m_iNoSeq) { Error("\nTrying to write " + int_to_string(NewNames.size()) + " NewNames to a tree with " + int_to_string(m_iNoSeq) + " sequences in CTree::SetNames\n"); }
+	m_vsName = NewNames;
+}
+
+/* ******************************************************************************
+//////////////////////////////////////////////////////////////////////////////
+// TreeList object implementation
+//////////////////////////////////////////////////////////////////////////////
+   ****************************************************************************** */
+CTreeList::CTreeList(int NoSp)	{
+	int i;
+	m_Trees.clear();
+	switch(NoSp) {
+	case 4:
+		m_iNoTree = 3;
+		FOR(i,3)  {
+			CTree Tree(Sp4Tree[i],4);
+			m_Trees.push_back(Tree);
+		}
+		break;
+	case 5:
+		m_iNoTree = 15;
+		FOR(i,15)  {
+			CTree Tree(Sp5Tree[i],5);
+			m_Trees.push_back(Tree);
+		}
+		break;
+	case 6:
+		m_iNoTree = 105;
+		FOR(i,105)  {
+			CTree Tree(Sp6Tree[i],6);
+			m_Trees.push_back(Tree);
+		}
+		break;
+	default: Error("TreeList only accepts 4,5 or 6 species\n\n");
+	};
+}
+
+bool IsSameTree(CTree *T1, CTree *T2)	{
+	assert(!T1->IsCutTree() && !T2->IsCutTree());
+	int i,j;
+	vector < vector <int> > L1;
+	vector <int> L2,R2;
+	// Do the obvious checks first!
+	if(T1->NoSeq() != T2->NoSeq()) { return false; }
+	// Get branch sets for T1
+	FOR(i,T1->NoBra())	{
+		L2.clear(); R2.clear();
+		T1->BranchSets(i,&L2,&R2);
+		L1.push_back(L2);
+	}
+	// Now compare these branch sets to those of T2
+	FOR(i,T2->NoBra()) {
+		L2.clear(); R2.clear(); T2->BranchSets(i,&L2,&R2); // Get branch sets for Tree 2
+		// See if they match T1
+		FOR(j,T1->NoBra()) { if(Compare(&L1[j],&L2)) { break; } }
+		if(j == T1->NoBra()) { return false; }
+	}
+	// If these conditions are all met, then they're the same tree
+	return true;
+}
+
+
