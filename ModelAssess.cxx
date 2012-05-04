@@ -86,7 +86,7 @@ int main(int argc, char *argv[])	{
 		Tree = *PhyDat.pTree();
 		cout << " taken from file successfully" << flush;
 	}
-	cout << "\nStart topology: " << Tree;
+	cout << "\nStart topology: " << Tree << "\n";
 
 	// Set output
 	PhyDat.SetOut(argv[3]);
@@ -100,9 +100,13 @@ int main(int argc, char *argv[])	{
 	// Do the models
 	vector <SModelDetails> Models;
 	GetRYModels(PhyDat.pData(),&Tree,&Models,GeneticCode);
+        cout<<"\rRY Done\n"<<flush;
 	GetNTModels(PhyDat.pData(),&Tree,&Models,GeneticCode);
+        cout<<"\rNT Done\n"<<flush;
 	GetAAModels(PhyDat.pData(),&Tree,&Models,GeneticCode);
+        cout<<"\rAA Done\n"<<flush;
 	GetCODModels(PhyDat.pData(),&Tree,&Models,GeneticCode);
+        cout<<"\rCodon Done\n"<<flush;
 
 	cout << "\nModel Information\n---\nModel#\tName\tDataType\tTreeLength\tlnL\tNoPar\tlnL";
 	FOR(i,(int)Models.size()) {
@@ -134,6 +138,7 @@ void GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	RY_Model.NoPar = 1;
 	RY_Model.AIC = GetAIC(RY_Model.lnL,RY_Model.NoPar);
 	Models->push_back(RY_Model);
+        cout<<"."<<flush;
 	// 2. RY+dG
 	RY.MakeGammaModel(0,4);
 	RY.lnL();
@@ -143,6 +148,7 @@ void GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	RY_Model.NoPar = 2;
 	RY_Model.AIC = GetAIC(RY_Model.lnL,RY_Model.NoPar);
 	Models->push_back(RY_Model);
+        cout<<"."<<flush;
 }
 
 void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode)	{
@@ -153,6 +159,7 @@ void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	Models->push_back(DoModelRun(Model,0));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,0));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete JC;
 	// 2. FEL
@@ -160,6 +167,7 @@ void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	Models->push_back(DoModelRun(Model,3));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,4));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete FEL;
 	// 3. K2P
@@ -167,6 +175,7 @@ void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	Models->push_back(DoModelRun(Model,1));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,2));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete K2P;
 	// 4. HKY
@@ -174,6 +183,7 @@ void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	Models->push_back(DoModelRun(Model,4));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,5));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete HKY;
 	// 5. GTR
@@ -181,6 +191,7 @@ void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	Models->push_back(DoModelRun(Model,8));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,9));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete REV;
 }
@@ -198,6 +209,7 @@ void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	Models->push_back(DoModelRun(Model,0,AA2Cod_Adj));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,1,AA2Cod_Adj));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete EQU;
 	// 2. EQU+F
@@ -205,6 +217,7 @@ void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	Models->push_back(DoModelRun(Model,19,AA2Cod_Adj));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,20,AA2Cod_Adj));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete EQU;
 	// 3. WAG
@@ -212,6 +225,7 @@ void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	Models->push_back(DoModelRun(Model,0,AA2Cod_Adj));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,1,AA2Cod_Adj));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete EMP;
 	// 3. WAG+F
@@ -219,6 +233,7 @@ void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	Models->push_back(DoModelRun(Model,19,AA2Cod_Adj));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,20,AA2Cod_Adj));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete EMP;
 
@@ -238,6 +253,7 @@ void GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int G
 	Models->push_back(DoModelRun(Model,2));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,3));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete M0;
 	// 1. F1X4
@@ -246,6 +262,7 @@ void GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int G
 	Models->push_back(DoModelRun(Model,6));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,7));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete M0;
 	// 1. F3X4
@@ -254,6 +271,7 @@ void GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int G
 	Models->push_back(DoModelRun(Model,11));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,12));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete M0;
 	// 1. F64
@@ -262,6 +280,7 @@ void GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int G
 	Models->push_back(DoModelRun(Model,2 + NoF64));
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,3 +NoF64));
+        cout<<"."<<flush;
 	Model = NULL;
 	delete M0;
 
