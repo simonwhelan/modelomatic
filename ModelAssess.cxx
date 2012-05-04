@@ -56,7 +56,7 @@ int main(int argc, char *argv[])	{
 
 	// Get information
 	if(argc != 4) {
-		Error("ModelAssess <data_file> <tree_file> <output_file> <genetic_code>");
+		Error("ModelAssess <data_file> <tree_file> <output_file>");
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Create the data structures
