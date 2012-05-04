@@ -158,7 +158,7 @@ void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	CJC *JC; JC = new CJC(Data,Tree); Model = JC;
 	Models->push_back(DoModelRun(Model,0));
 	Model->MakeGammaModel(0,4);
-	Models->push_back(DoModelRun(Model,0));
+	Models->push_back(DoModelRun(Model,1));
         cout<<"."<<flush;
 	Model = NULL;
 	delete JC;
