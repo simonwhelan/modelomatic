@@ -1266,7 +1266,7 @@ bool CBaseProcess::Make_PT(int Branch, bool RedoRate)	{
 	if(RedoRate) { m_vpQMat[QMat4Bra(Branch)]->ScaleQ(m_pRate->Val()); }
 	if(m_bModelPerBranch) {
 #if DEVELOPER_VERSION == 0
-		cout << "\nPer branch models are for developers only
+		cout << "\nPer branch models are for developers only";
 #endif
 		cout << "\nI need to do calculations per branch...";
 	}
