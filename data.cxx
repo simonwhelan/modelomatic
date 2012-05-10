@@ -816,8 +816,12 @@ void CData::Translate(int GenCode)	{
 		FOR(site,m_iTrueSize/3)	{
 			Codon = "";
 			FOR(i,3) { Codon += m_vsTrueSeq[seq][(site*3)+i]; }
-			if(!InRange(GenCodes[GenCode][FindState(COD,Codon)],0,64)) { Error("\nUnrecognised codon: " + Codon + " for data..."); }
-			vSeq[seq] += State(AA,GenCodes[GenCode][FindState(COD,Codon)]);
+			if(FindState(COD,Codon) == 64) {
+				vSeq[seq] += '-';
+			} else {
+				if(!InRange(GenCodes[GenCode][FindState(COD,Codon)],0,63)) { Error("\nUnrecognised codon: " + Codon + " for data..."); }
+				vSeq[seq] += State(AA,GenCodes[GenCode][FindState(COD,Codon)]);
+			}
 	}	}
 	// Clean the data
 	Clean();
@@ -1093,9 +1097,11 @@ double CData::GetAminoToCodonlnLScale(int GeneticCode)	{
 	assert((int)COD_Data.m_vFreq.size() == 64 && (int)AA_Data.m_vFreq.size() == 20);
 	FOR(i,AA_Data.m_iNoSeq) {
 		FOR(j,AA_Data.m_iTrueSize) {
-			if(COD_Data.m_ariSeq[i][m_ariPatMap[j]] == COD_Data.m_iChar) { continue; } // Skip gaps
-//			cout << "\n["<<i<<"]["<<j<<"]: " <<  COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] << " / " << AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]] << " = " << COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]];
-//			cout << " --> " << log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]]);
+			if(AA_Data.m_ariSeq[i][m_ariPatMap[j]] == AA_Data.m_iChar) { continue; } // Skip gaps
+			// cout << "\n["<<i<<"]["<<j<<"]: " <<  COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] << " / " << AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]];
+			// cout << " = " << COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] << " / " << AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]];
+			// cout << " = " << COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]];
+			// cout << " --> " << log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]]);
 			RetValue += log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]]);
 		}
 	}
