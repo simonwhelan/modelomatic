@@ -56,7 +56,7 @@ int main(int argc, char *argv[])	{
 
 	// Get information
 	if(argc != 4) {
-		Error("ModelAssess <data_file> <tree_file> <output_file>");
+		Error("ModelAssess <data_file> <tree_file> <output_file>\n");
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Create the data structures
@@ -108,9 +108,13 @@ int main(int argc, char *argv[])	{
 	GetCODModels(PhyDat.pData(),&Tree,&Models,GeneticCode);
         cout<<"\rCodon Done\n"<<flush;
 
-	cout << "\nModel Information\n---\nModel#\tName\tDataType\tTreeLength\tlnL\tNoPar\tlnL";
+	double minAIC = Models[0].AIC;
+	for (i=1; i<(int)Models.size(); i++) {
+		if (Models[i].AIC < minAIC) { minAIC = Models[i].AIC; };
+	}
+	cout << "\nModel Information\n---\nModel#\tName\tDataType\tTreeLength\tlnL\tNoPar\tAIC\tDeltaAIC";
 	FOR(i,(int)Models.size()) {
-		cout << "\nModel["<<i<<"]\t" << Models[i].Name << "\t" << Models[i].DataType << "\t" << Models[i].TreeLength << "\t" << Models[i].lnL << "\t" << Models[i].NoPar << "\t" << Models[i].AIC;
+		cout << "\nModel["<<i<<"]\t" << Models[i].Name << "\t" << Models[i].DataType << "\t" << Models[i].TreeLength << "\t" << Models[i].lnL << "\t" << Models[i].NoPar << "\t" << Models[i].AIC << "\t" << Models[i].AIC - minAIC;
 
 	}
 
