@@ -1097,12 +1097,12 @@ double CData::GetAminoToCodonlnLScale(int GeneticCode)	{
 	assert((int)COD_Data.m_vFreq.size() == 64 && (int)AA_Data.m_vFreq.size() == 20);
 	FOR(i,AA_Data.m_iNoSeq) {
 		FOR(j,AA_Data.m_iTrueSize) {
-			if(AA_Data.m_ariSeq[i][m_ariPatMap[j]] == AA_Data.m_iChar) { continue; } // Skip gaps
-			// cout << "\n["<<i<<"]["<<j<<"]: " <<  COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] << " / " << AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]];
-			// cout << " = " << COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] << " / " << AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]];
-			// cout << " = " << COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]];
-			// cout << " --> " << log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]]);
-			RetValue += log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][m_ariPatMap[j]]]);
+			if(AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]] == AA_Data.m_iChar) { continue; } // Skip gaps
+			 // cout << "\n["<<i<<"]["<<j<<"]: " <<  COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] << " / " << AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]];
+			 // cout << " = " << COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]] << " / " << AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]];
+			 // cout << " = " << COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]];
+			 // cout << " --> " << log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]]);
+			RetValue += log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]]);
 		}
 	}
 	return RetValue;
