@@ -261,7 +261,6 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 		}
 		if(isalpha(Tree[i])) { Error("\nError in CTree::CreateTree(): tree has names not associated with datafile...\nTree: " + Tree + "\n\n"); } 
 	}
-
 	TempTree = Tree;
     if(m_iNoSeq>2)	{		// Prepare first bit of trNextPointeree if more than two species
         // Loop to allocate nodes pLeft, pRight, Next are the old child0 child1 and parent nodes
