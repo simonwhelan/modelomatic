@@ -819,7 +819,7 @@ void CData::Translate(int GenCode)	{
 			if(FindState(COD,Codon) == 64) {
 				vSeq[seq] += '-';
 			} else {
-				if(!InRange(GenCodes[GenCode][FindState(COD,Codon)],0,63)) { Error("\nUnrecognised codon: " + Codon + " for data..."); }
+				if(!InRange(GenCodes[GenCode][FindState(COD,Codon)],0,64)) { Error("\nUnrecognised codon: " + Codon + " for data..."); }
 				vSeq[seq] += State(AA,GenCodes[GenCode][FindState(COD,Codon)]);
 			}
 	}	}
