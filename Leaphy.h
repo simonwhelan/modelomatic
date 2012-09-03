@@ -92,6 +92,7 @@ enum LazyType { fullopt, lazy, randomtree };		// The type of optimisation done w
 #define DESP_THRESHOLD 2		// Number of PSA attempts using ML before doing random rearrangements
 #define PARS_DESP_THRESHOLD 5	// Number of PSA attempts using MP before doing random rearrangements
 // The approximations used in the software
+#define QUICK_NUMERICAL_DERIVATE 1				// [0] Takes 3 points for derivative; [1] Takes 2 points for derivative in CBaseModel::GetNumDerivative function
 #define ALLOW_ANALYTICAL_BRANCH_DERIVATIVES 1	// Whether analytic derivatives for branches are allowed
 #define THOROUGH_LINE_SEARCH 5	// Number of thorough line searches to perform during beginning of optimisation
 #define NUM_FAST_BRA_OPT 5		// Number of fast branch optimisations performed

@@ -123,13 +123,14 @@ CNode &CNode::operator=(const CNode & Node) {
 // **********************************************************
 
 // Top level constructors
-CTree::CTree(string TREE, int NoSeq, bool AllowFail, CData *Data)	{ m_iRootNode = -1; m_bRooted = false; m_bValid = false; CreateTree(TREE,NoSeq,true,AllowFail,Data); }		// Basic constructor
+CTree::CTree(string TREE, int NoSeq, bool AllowFail, CData *Data)	{ m_iRootNode = -1; m_bRooted = false; m_bValid = false; m_ariBraLinks = NULL; CreateTree(TREE,NoSeq,true,AllowFail,Data); }		// Basic constructor
 
 CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail)	{		// Risky constructor (may be wrong tree for data)
 	/* If tree from file then TREE[] == filename, else TREE[] == the tree */
 	int FileNoSeq = -1;
 	string store;
 	m_bValid = false; m_bRooted = false; m_iRootNode = -1;
+	m_ariBraLinks = NULL;
 	// If to get from file
 	if(GetFromFile == true)	{
 		ifstream input(TREE.c_str());
@@ -223,6 +224,7 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 	}
 	// 4. Ends in ;
 	if(Tree[(int) ( Tree.size() -1 )] != ';') { cout << "\nNo ; at end of tree:\n"<<Tree<<"\n\n"; if(AllowFail) { return; } Error();	 }
+
 	///////////////////////////////////////////////////////////////////
 	// Initialise
     m_Node = NULL; m_bReady = false; m_iOutBra=m_bOutName=false; m_bOldTree = false; m_bOutLabel = false;
@@ -233,6 +235,7 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 	m_bFastCalcOK = false;
 	CheckAlloc = new bool[m_iNoNode+1]; assert(CheckAlloc != NULL);
     for(i=0;i<m_iNoNode+1;i++) { CheckAlloc[i] = false; }
+
 	// If data is not NULL then do replaces so its readable as a set of numbers
 	if(D != NULL) {
 		FOR(i,D->m_iNoSeq) {
@@ -248,8 +251,17 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 					break;
 				}
 	}	}	}
-	// Finally check whether there are any alphabet characters in the tree
-	FOR(i,(int)Tree.size()) { if(isalpha(Tree[i])) { Error("\nError in CTree::CreateTree(): tree has names not associated with datafile...\nTree: " + Tree + "\n\n"); } }
+	FOR(i,(int)Tree.size()) {
+		// Check it's a proper branch length
+		if(Tree[i] == ':') {
+			i++;
+			for(i;i<(int)Tree.size();i++) { 
+				if(Tree[i] == ',' || Tree[i] == ')') { break; } 
+			}
+		}
+		if(isalpha(Tree[i])) { Error("\nError in CTree::CreateTree(): tree has names not associated with datafile...\nTree: " + Tree + "\n\n"); } 
+	}
+
 	TempTree = Tree;
     if(m_iNoSeq>2)	{		// Prepare first bit of trNextPointeree if more than two species
         // Loop to allocate nodes pLeft, pRight, Next are the old child0 child1 and parent nodes
@@ -258,7 +270,7 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
     	if(m_bRooted) { countBra = NoSeq-1; } else { countBra = NoSeq-3; }
     	// Note the last node is done in this routine for rooted trees and finalised in the next section
         for(NextPointer = m_iNoSeq, i=0;i<countBra;i++)	{	// Get the non-trifurcating bits of tree
-//        	cout << "\nProcessing: " << TempTree;
+//        	cout << "\nProcessing: " << TempTree << flush;
 			for(j=0;j<3;j++) { TempBranch[j] = SET_BRANCH; }
             // Find open bracket details and process
             find_closest(&TempTree,&pLeft,&pRight,&Parent,NextPointer, TempBranch, TempLabel,&IntVal);
@@ -288,11 +300,12 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 			if(CheckAlloc[NextPointer] != false)	{ cout << "\nNode " << NextPointer << " multiply allocated.\nUsually caused by same sequence occuring multiple times in tree\n\n"; if(AllowFail) { return; } Error(); }
 			CheckAlloc[NextPointer] = true;
 			// Create an internal node
-//			cout << "\n\tAllocating internal node["<<NextPointer<<"]: L=" << pLeft << "; R=" << pRight << "; Par="<<Parent;
+//			cout << "\n\tAllocating internal node["<<NextPointer<<"]: L=" << pLeft << "; R=" << pRight << "; Par="<<Parent << flush;
 			if(m_bRooted && i == countBra - 1) { m_Node[NextPointer]->SetNode(pLeft,pRight,pLeft,pRight,IntVal); }
 			else { m_Node[NextPointer]->SetNode(pLeft,pRight,Parent,pLeft,pRight,NextPointer,IntVal); }
 			NextPointer ++; // Move to next node
         }
+
 		// For unrooted trees get the final 3 nodes of the tree
         if(!m_bRooted)	{
         	TempTree = TempTree.substr(1,(TempTree.find_last_of(")")-1));
@@ -313,10 +326,12 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
         			case 2: Parent = j; break;
         			default: cout << "\nError assigning branch lengths...\n\n"; if(AllowFail) { return; } Error();
         	}	}
+//        	cout << "\nFinal node being added: " << NextPointer << flush;
         	m_Node[NextPointer] = new CNode(pLeft,pRight,Parent,pLeft,pRight,Parent,IntVal); // Initialise the final node
         	if(m_Node[pLeft]->m_viLink.size() > 2)	{ m_Node[pLeft]->m_viLink[2] = NextPointer; }
         	if(m_Node[pRight]->m_viLink.size() > 2)	{ m_Node[pRight]->m_viLink[2] = NextPointer; }
         	if(m_Node[Parent]->m_viLink.size() > 2)	{ m_Node[Parent]->m_viLink[2] = NextPointer; }
+//        	cout << "\nDone!" << flush;
         } else {
 			// Do the rooted tree by adjusting the root node.
         	m_iRootNode = NextPointer -1;
@@ -329,6 +344,7 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 		if(TempTree[i] == ':') { AddB(0,DoBranch(&TempTree,&i,&IntVal),true,true); } // Get branch2
 	}
 	BuildBraLinks(CheckVar); // Get the list of branches links
+
 	OrderNode(-1,true);
 	m_bReady=true;	    // Tree is now ready!!!
 
@@ -355,6 +371,9 @@ void CTree::BuildBraLinks(bool Verify)	{
 	int *BranCount;
 	// Initialise
 	GET_MEM(BranCount,int,m_iNoBra);
+	if(m_ariBraLinks != NULL) { FOR(i,m_iNoBra) { delete m_ariBraLinks[i]; } delete [] m_ariBraLinks; m_ariBraLinks = NULL; }
+	m_ariBraLinks = new int*[m_iNoBra];
+	FOR(i,m_iNoBra) { m_ariBraLinks[i] = new int[2]; }
 	FOR(i,m_iNoBra) {
 		BranCount[i] = 0;
 		m_ariBraLinks[i][0] = m_ariBraLinks[i][1] = -1;
@@ -369,9 +388,11 @@ void CTree::BuildBraLinks(bool Verify)	{
 			else							{ m_ariBraLinks[k][1] = i; BranCount[k]++;}
 	}	}
 	// Verify assignments
-	if(Verify == true) { FOR(i,m_iNoBra) {
-		if(BranCount[i] != 2) { cout << "\nError in BranCount["<<i<<"]: " << BranCount[i] << flush; cout << "\nTree: " << *this << flush; }
-		assert(BranCount[i] == 2); } }
+	if(Verify == true) {
+		FOR(i,m_iNoBra) {
+			if(BranCount[i] != 2) { cout << "\nError in BranCount["<<i<<"]: " << BranCount[i] << flush; cout << "\nTree: " << *this << flush; }
+			assert(BranCount[i] == 2);
+	} }
 	// Clear memory
 	DEL_MEM(BranCount);
 }
@@ -515,6 +536,10 @@ vector <double> CTree::Branches()	{
 	FOR(i,NoBra()) { Br.push_back(B(i)); }
 	return Br;
 }
+double CTree::TreeLength() {
+	vector <double> Temp = Branches();
+	return Sum(&Temp);
+}
 double CTree::B(int Branch)	{
 	assert(InRange(Branch,0,(int)m_vpBra.size()));
 	return m_vpBra[Branch]->Val();
@@ -649,7 +674,7 @@ void CTree::GetBraDetails(string s, int *node, double *bra, int *label)	{
 	for(c=min(i,j);c<(int)s.size();c++) {
 		if(s[c] == ':') {
 			for(d=c+1;d<(int)s.size();d++)  {
-				if(!(isdigit(s[d]) || s[d] == '.')) { break; } }
+				if(!(isdigit(s[d]) || s[d] == '.' || toupper(s[d]) == 'E' || s[d] == '-')) { break; } }
 			*bra = atof(s.substr(c+1,d-c-1).c_str());
 		} else if (s[c] == '#') {
 			for(d=c+1;d<(int)s.size();d++)  { if(!(isdigit(s[d]) || s[d] == '.')) { break; } }
@@ -1202,10 +1227,16 @@ void CTree::OrderNode(int NodeNum, bool DoBraToo)	{
 ///////////////////////////////////////////////////////////////////
 // Tree rooting and unrooting options
 void CTree::Unroot()	{
+	int iRoot,iRootBranch;
 	if(!IsRooted()) { return; }
 	if(!InRange(m_iRootNode,0,m_iNoNode)) { Error("\nTrying to CTree::Unroot when tree not ready\n\n"); }
 	assert(m_Node[m_iRootNode]->m_NodeType == root);
 	int i,j, branch = NodeBra(m_iRootNode,0), pLeft = NodeLink(m_iRootNode,0), pRight = NodeLink(m_iRootNode,1);
+	int braLeft = NodeBra(m_iRootNode,0), braRight = NodeBra(m_iRootNode,1);
+	CNode ** ppNodeStore;
+	// Correct the branch length and remove the right hand branch
+	m_vpBra[pLeft]->SetVal(m_vpBra[braLeft]->Val() + m_vpBra[braRight]->Val(), true, true);
+	m_vpBra.erase(m_vpBra.begin() + pRight);
 	// Fix left node
 	FOR(i,NoLinks(pLeft)) {
 		if(NodeLink(pLeft,i) == m_iRootNode) {
@@ -1222,11 +1253,18 @@ void CTree::Unroot()	{
 			break;
 	}	}
 	assert(i != NoLinks(pRight));
+	// Now remove the redundant node
+	ppNodeStore = new CNode*[m_iNoNode - 1];
+	j = 0; FOR(i,m_iNoNode) {					// Removes the node
+		if(i==m_iRootNode) { continue; }
+		ppNodeStore[j++] = m_Node[i];
+	}
+	delete m_Node[m_iRootNode];
+	delete [] m_Node; m_Node = new CNode*[m_iNoNode - 1];
+	FOR(i,m_iNoNode-1) { m_Node[i] = ppNodeStore[i]; } delete [] ppNodeStore;
 	// Finish up the other stuff
-	m_Node[m_iRootNode]->CleanNode();
-	delete m_Node[m_iRootNode]; m_iNoNode --;
-	m_iStartCalc = 0;
-	m_iRootNode = -1; m_bRooted = false;
+	m_iRootNode = -1; m_bRooted = false; m_iNoNode--; m_iNoBra--;
+	BuildBraLinks(true); // Get the list of branches links
 }
 
 ///////////////////////////////////////////////////////////////////

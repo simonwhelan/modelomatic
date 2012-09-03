@@ -104,7 +104,7 @@ public:
 	int PrepareSPR(int Branch, int LinkNum, int *OriBr, LazyType DoLazy = lazy);		// Prepares model for SPR calculations; returns spare node for computations
 
 	// Process handling functions
-	void MakeGammaModel(int ProcessNum, int NoCat);				// Takes m_vpProc[ProcessNum] and turns it into a gamma distributed rate model
+	void MakeGammaModel(int ProcessNum, int NoCat, double InitAlpha = INITIAL_GAMMA);	// Takes m_vpProc[ProcessNum] and turns it into a gamma distributed rate model
 	void MakeInvariantSitesModel(int ProcessNum);				// Adds an invariant sites class to the model
 	void MakeGarbageCollectorModel(int ProcessNum);				// Adds a site class to the model with infinite rate (serves to collect poorly characterised columns).
 	void LockModel() { m_bLockModel = true; }					// Lock all parameters in a model so they're not optimised

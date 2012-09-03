@@ -547,6 +547,7 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 	return Grads;
 }
 
+
 double CBaseModel::GetNumDerivative(double *x, double Old_lnL)	{
 	double grad = 0.0, OldPar = *x, UseDX = max(DX,*x * DX), new_lnL, new_par;
 	bool UpBound = false, LowBound = false;
@@ -1663,7 +1664,7 @@ double CBaseModel::DoBralnL(int B, int NF,int NT)	{
 ////////////////////////////////////////////////////////////////
 
 // Adds a gamma distribution to a model
-void CBaseModel::MakeGammaModel(int PNum, int NoCat)	{
+void CBaseModel::MakeGammaModel(int PNum, int NoCat, double InitAlpha)	{
 	int i;
 	CGammaPar *GP;
 	CBaseProcess *NewProc = NULL;
@@ -1671,7 +1672,7 @@ void CBaseModel::MakeGammaModel(int PNum, int NoCat)	{
 	assert(PNum < (int)m_vpProc.size());
 	assert(m_vpProc[PNum]->IsGamma() == false); // Check the process hasn't already been made into a gamma model
 	// Get the gamma distribution parameter
-	GP = new CGammaPar("Alpha",m_vpProc[PNum]->Char(),m_ModelRate);
+	GP = new CGammaPar("Alpha",m_vpProc[PNum]->Char(),m_ModelRate, InitAlpha);
 	GP->AddRateToGamma(m_vpProc[PNum]);
 	// Add pseudoprocesses for rate
 	FOR(i,NoCat-1)	{

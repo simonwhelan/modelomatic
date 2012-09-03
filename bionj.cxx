@@ -152,14 +152,14 @@ string DoBioNJ(vector <double> PWdists, vector <string> Names, bool DoNumbers)	{
 		Concatenate(chain1, *a, trees, 0);     /* branch-lengths according */
 		strcpy(chain1,"");                     /* to the NEWSWICK format   */
 		strcat(chain1,":");
-		sprintf(chain1+strlen(chain1),"%f",la);
+		sprintf(chain1+strlen(chain1),"%f",max(la,0));
 		strcat(chain1,",");
 		Concatenate(chain1,*a, trees, 1);
 		trees[*a].tail->suiv=trees[*b].head;
 		trees[*a].tail=trees[*b].tail;
 		strcpy(chain1,"");
 		strcat(chain1,":");
-		sprintf(chain1+strlen(chain1),"%f",lb);
+		sprintf(chain1+strlen(chain1),"%f",max(lb,0));
 		strcat(chain1,")");
 		Concatenate(chain1, *a, trees, 1);
 		delta[*b][0]=1.0;                     /* make the b line empty     */
@@ -574,7 +574,7 @@ double  Finish_branch_length(int i, int j, int k, double  **delta)
   double  length;
   length=0.5*(Distance(i,j,delta) + Distance(i,k,delta)
 	      -Distance(j,k,delta));
-  return(length);
+  return length;
 }
 
 
@@ -608,13 +608,12 @@ string Finish(double  **delta, int n, POINTERS *trees)	{
       if(!Emptied(l, delta)) { last[i]=l; i++; }
       l++;
   }
-
   length=Finish_branch_length(last[0],last[1],last[2],delta);
-  out << "(" << Print_output(last[0],trees) << ":" << length << ",";
+  out << "(" << Print_output(last[0],trees) << ":" << max(0,length) << ",";
   length=Finish_branch_length(last[1],last[0],last[2],delta);
-  out << Print_output(last[1],trees) << ":" << length << ",";   // fprintf(output,":"); fprintf(output,"%f,",length);
+  out << Print_output(last[1],trees) << ":" << max(0,length) << ",";   // fprintf(output,":"); fprintf(output,"%f,",length);
   length=Finish_branch_length(last[2],last[1],last[0],delta);
-  out << Print_output(last[2],trees) << ":" << length << ");";
+  out << Print_output(last[2],trees) << ":" << max(0,length) << ");";
   FOR(i,3) {
       bidon=trees[last[i]].head;
       ele=bidon;

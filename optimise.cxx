@@ -1434,8 +1434,24 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 	if(test < 0.99) { alamin = FLT_EPSILON/test; } else { alamin = 100 * FLT_EPSILON; }
     // Start main loop
     for(;;)	{
-		// Add the value
-		FOR(i,n) { *x[i] = pold[i] + alam * p[i]; }
+    	// Hard debug code...
+/*
+    	cout << "\nOrips:"; FOR(i,n) { cout << "\t" << pold[i]; }
+    	cout << "\nSteps:"; FOR(i,n) { cout << "\t" << alam*p[i]; }
+    	FOR(i,n) {
+    		double left, middle, right;
+    		*x[i] = pold[i] - 0.01;
+    		left = -Model->lnL();
+    		*x[i] = pold[i];
+    		middle = -Model->lnL();
+    		*x[i] = pold[i] + 0.01;
+  			right = -Model->lnL();
+    		cout << "\nPar["<<i<<"] = " << pold[i] << " += " << p[i] <<": " << left << " (" << middle << ") " << right;
+    		if(middle < left && middle < right) { cout << " +++"; }
+    		*x[i] = pold[i];
+    	}
+*/		// Add the value
+		FOR(i,n) { *x[i] = pold[i] + (alam * p[i]); }
 		// Perform calculation
 		*f = -Model->lnL(); v2 = v1; v1 = *f; a2 = a1; a1 = alam;
 #if DEBUG_MULD_OPT > 1
@@ -1650,7 +1666,11 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 			cout << "\n\t["<<its<<"] " <<fold << " -> " << fp; //  << " cf. " << Model->lnL() << flush;
 			if(its == 0) { cout << "\n\t\t" << its << ": "; }
 			else if (its % 60 == 0) { cout << ": " << fp << "\n\t\t"<<its<<": "; }
-			if(fold < fp - FULL_LIK_ACC) { Error(" ... Error... likelihood decreased in value???");}
+			if(fold < fp - FULL_LIK_ACC) {
+//				cout.precision(12);
+//				cout << "\ndiff ("<<fold << "-" << fp << "): " << fabs(fold-fp) << ";";
+				Error(" ... Error... likelihood decreased in value???");
+			}
 			cout << "." << flush;
 		}
 #if DEBUG_MULD_OPT > 0
@@ -1690,6 +1710,9 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 #if DEBUG_MULD_OPT > 1
 		cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< INTO LINESEARCH: exp: " << -fp << "; lnL: " << Model->lnL() << "  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
 #endif
+
+//		cout << "\nInto lnsrch " <<fold << " -> " << fp  << " --> real_lnL: " << -Model->lnL(true) << " (diff=" << abs(Model->lnL(true) + fp) << ")";
+
 		alpha = lnsrch(x,fp,g,xi,pold,&fret,Do_GS,Model); fp = fret;
 
 #if DEBUG_MULD_OPT > 1
@@ -1794,6 +1817,8 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 #endif
 			return -fp;
 		}	}
+
+//		cout << "\nThe last 5 likelihoods: "; FOR(i,5) { cout << "\t" << Last5[i]; }
 		// Set warning if gradients and steps are not decreasing.
 		// This is an assumption for using the hessian
 		// Reset the hessian when this occurs

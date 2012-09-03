@@ -162,7 +162,7 @@ string GetDataLine(ifstream *in);
 
 // Functions taken from PAML relating to gamma distributed rates
 #define PointGamma(prob,alpha,beta) PointChi2(prob,2.0*(alpha))/(2.0*(beta))
-#define MODEL_INITIAL_GAMMA 0.05
+#define MODEL_INITIAL_GAMMA 0.25
 double PointChi2(double prob, double v);
 double LnGamma(double alpha);
 double IncompleteGamma(double x, double alpha, double ln_gamma_alpha);

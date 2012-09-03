@@ -554,7 +554,6 @@ CCodonEqm::CCodonEqm(ECodonEqm CE, int GenCode, std::vector<CQPar*> *ProcPar, CD
 		break;
 	case F64: // Or equivalent for other genetic codes...
 		Frqs = NormaliseVector(D->m_vFreq);
-		cout << "\nFrqs: " << Frqs;
 		FOR(i,(int)Frqs.size()) {
 			if(GenCodes[GenCode][i] == -1 && D->m_iChar == 64) { if(Frqs[i] > DBL_EPSILON) { Error("\nSequences have stop codon " + State(COD,i) + " in for that genetic code...\n"); } continue; }
 			Name = "Freq(" + D->m_sABET.substr(i*3,3) +"])";
@@ -2892,6 +2891,34 @@ void CCodonProcess::AddMultiChangeZeros(int GenCode)	{
 	int i,j,pos_i,pos_j,k,count;
 	string a,b;
 	pos_i = 0;
+
+	FOR(i,64)		{
+		if(GenCodes[GenCode][i] == -1 ) { if(m_pData->m_DataType != COD_RED) { pos_i++; } continue; }
+		pos_j = pos_i + 1;
+		for(j=i+1;j<64;j++)	{
+			if(GenCodes[GenCode][j] == -1 ) { if(m_pData->m_DataType != COD_RED) { pos_j++; } continue; }
+			a = m_sABET.substr(pos_i*3,3);
+			b = m_sABET.substr(pos_j*3,3);
+			assert(a.size() == b.size());
+			count = 0; FOR(k,3) { if(a[k] != b[k]) { count++; } }
+			if(count > 1) { Par->AddQij(pos_i,pos_j); pos_j++; continue; }
+			if(m_pData->m_DataType == COD && (GenCodes[GenCode][i] == -1 || GenCodes[GenCode][j] == -1)) { Par->AddQij(pos_i,pos_j); pos_j++; continue; }
+			pos_j++;
+		}
+		assert(pos_j == m_iChar);
+		pos_i++;
+	}
+	assert(pos_i == m_iChar);
+	m_vpPar.push_back(Par);
+	Par = NULL;
+}
+
+// Old
+/* void CCodonProcess::AddMultiChangeZeros(int GenCode)	{
+	CQPar *Par = new CQPar("CodonZero",m_iChar,0.0,false,0,0,REPLACE);
+	int i,j,pos_i,pos_j,k,count;
+	string a,b;
+	pos_i = 0;
 	FOR(i,m_iChar)		{
 		pos_j = 0;
 		if(m_pData->m_DataType == COD_RED && GenCodes[GenCode][i] == -1 ) { continue; }
@@ -2910,7 +2937,7 @@ void CCodonProcess::AddMultiChangeZeros(int GenCode)	{
 	m_vpPar.push_back(Par);
 	Par = NULL;
 }
-
+*/
 ////////////////// Functions to calculate various rates ///////////////////////////////////////////////////////////
 double CCodonProcess::ObsNonsynRate() {
 	int i,j,pos_i, pos_j;

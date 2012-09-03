@@ -444,13 +444,13 @@ void CPhyloDat::SetStartTree(string s)	{
 //	cout << "\nWorking with string: " << s;
 	m_bDoSA = false; m_bDoBioNJ = false;
 	// Do automatic stuff
-	if(s.find("SA") != string::npos)	{ m_bDoSA = true; }
-	else if(s.find("bionj") != string::npos)	{ m_bDoBioNJ = true; }
-	else if(s.find("all") != string::npos)	{ m_bDoSA = m_bDoBioNJ = true; }
+	if(s.find("SA") != string::npos && s.size() == 2)	{ m_bDoSA = true; }
+	else if(s.find("bionj") != string::npos && s.size() == 5)	{ m_bDoBioNJ = true; }
+	else if(s.find("all") != string::npos && s.size() == 3)	{ m_bDoSA = m_bDoBioNJ = true; }
 	// Do the file
-	else if(s.find("file=") != string::npos && (m_pData != NULL || !m_vpMultiDat.empty()))	{		pos = s.find("file=") + 5;
+	else if(s.find("file=") != string::npos && (m_pData != NULL || !m_vpMultiDat.empty()))	{
+		pos = s.find("file=") + 5;
 		file = s.substr(pos);
-//		cout << "\nWorking with file: " << file;
 		T = new CTree(file,true,m_pData,true);
 		if(T->Valid()) { m_sTreeFile = file; m_pTree = T; } else { m_bDoSA = m_bDoBioNJ = true; delete T; }
 		// Do the multiple data set stuff if required

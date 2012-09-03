@@ -21,20 +21,21 @@
 
 
 struct SModelDetails {
-	string Name;
-	double lnL;
-	double TreeLength;
-	double NoPar;
-	double AIC;
-	EDataType DataType;
+	string Name;				// Model name
+	double OrilnL;				// Unadjusted model likelihood
+	double lnL;					// Adjusted likelihood
+	double TreeLength;			// Tree length
+	double NoPar;				// Number of parameters
+	double AIC;					// Normalised AIC
+	EDataType DataType;			// Data type
 };
 
 SModelDetails DoModelRun(CBaseModel *M, int NoPar, double Adj = 0.0);
 
-void GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode);
-void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode);
-void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode);
-void GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode);
+void GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+void GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 
 double GetAIC(double lnL, int NoPar) { return 2*(NoPar-lnL); }
 #endif /* MODELASSESS_H_ */

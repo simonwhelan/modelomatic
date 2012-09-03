@@ -103,6 +103,7 @@ public:
 	vector <double> Branches();					// Returns a vector of the branch lengths
 	double B(int Branch);						// Returns the value of branch length
 	double *OptimiserB(int Branch);				// Returns the pointer to the value to be used in optimisation
+	double TreeLength();						// Returns the tree length;
 	CPar *pBra(int B)		{ return m_vpBra[B]; }		// Returns the parameter for a branch
 	bool OptB(int Branch)	{ return m_vpBra[Branch]->Opt(); }								// Returns whether the branch is optimised or not (also u
 	double BScale(int B)	{ return m_vpBra[B]->Scaler(); }							// Returns the scaling factor for a branch=
