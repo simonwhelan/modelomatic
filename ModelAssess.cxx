@@ -245,10 +245,10 @@ void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	CData AmA = *Data; AmA.Translate(GeneticCode);
 	CBaseModel *Model;
 	CEMP *EMP;
-        int n_models=3;
-        string model_names[] = {"JTT","WAG","LG"};
-        double* smat[] = {(double*)dJTTVal,(double*)dWAGVal,(double*)dLGVal};
-        double* freq[] = {(double*)dJTTFreq,(double*)dWAGFreq,(double*)dLGFreq};
+        int n_models=13;
+        string model_names[] = {"JTT","WAG","LG","DAY","mtREV","mtMam","mtArt","rtREV","cpREV","BLOSUM62","VT","HIVb","HIVw"};
+        double* smat[] = {(double*)dJTTVal,(double*)dWAGVal,(double*)dLGVal,(double*)dDAYVal,(double*)dmtREVVal,(double*)dmtMAMVal,(double*)dmtArtVal,(double*)drtREVVal,(double*)dcpREVVal,(double*)dBLOSUM62Val,(double*)dVTVal,(double*)dHIVbVal,(double*)dHIVwVal};
+        double* freq[] = {(double*)dJTTFreq,(double*)dWAGFreq,(double*)dLGFreq,(double*)dDAYFreq,(double*)dmtREVFreq,(double*)dmtMAMFreq,(double*)dmtArtFreq,(double*)drtREVFreq,(double*)dcpREVFreq,(double*)dBLOSUM62Freq,(double*)dVTFreq,(double*)dHIVbFreq,(double*)dHIVwFreq};
 
 	// Get the correction
 	double AA2Cod_Adj = Data->GetAminoToCodonlnLScale(GeneticCode);

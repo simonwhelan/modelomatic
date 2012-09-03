@@ -1,4 +1,4 @@
-CXX     = g++
+CXX     = icpc
 CFLAGS  = -DISUNIX -O3
 LDFLAGS = 
 SRCS=ModelAssess.cxx bionj.cxx       data.cxx        impsamp.cxx     interface.cxx   model.cxx       new_process.cxx optimise.cxx    parsimony.cxx   process.cxx     tools.cxx       tree.cxx        treelist.cxx
