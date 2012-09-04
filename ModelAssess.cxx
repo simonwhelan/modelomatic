@@ -11,6 +11,7 @@
 	/////////////////////////////////////////////////////////////////////// */
 
 #include "./ModelAssess.h"
+#include <time.h>
 
 #if FUNC_COUNTERS == 1
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter, SPR_Log_Counter;
@@ -73,7 +74,10 @@ int main(int argc, char *argv[])	{
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Get tree
 	CTree Tree;
+        clock_t start,end;
 	cout << "\nCreating start tree ... " << flush;
+        
+        start = clock();
 	if(!strcmp(argv[2],"bionj")) {
 		// Create a bionj starting tree
 		CEQU EQU_PW(&AA_Data,NULL);
@@ -91,6 +95,9 @@ int main(int argc, char *argv[])	{
 		Tree = *PhyDat.pTree();
 		cout << " taken from file successfully" << flush;
 	}
+        end = clock();
+        cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
+        start=clock();
 
 	// Set output
 	PhyDat.SetOut(argv[3]);
@@ -122,13 +129,25 @@ int main(int argc, char *argv[])	{
 	ofstream out("model.output");
 	vector <SModelDetails> Models;
 	GetRYModels(&RY_Data,&Tree,&Models,GeneticCode, out);
-        cout<<"\rRY Done\n"<<flush;
+        cout<<"\rRY Done ";
+        end = clock();
+        cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
+        start=clock();
 	GetNTModels(&NT_Data,&Tree,&Models,GeneticCode, out);
-        cout<<"\rNT Done\n"<<flush;
+        cout<<"\rNT Done ";
+        end = clock();
+        cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
+        start=clock();
 	GetAAModels(&AA_Data,&Tree,&Models,GeneticCode, out);
-        cout<<"\rAA Done\n"<<flush;
+        cout<<"\rAA Done ";
+        end = clock();
+        cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
+        start=clock();
 	GetCODModels(&COD_Data,&Tree,&Models,GeneticCode, out);
-        cout<<"\rCodon Done\n"<<flush;
+        cout<<"\rCodon Done ";
+        end = clock();
+        cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
+        start=clock();
     out.close();
 
     ofstream output(argv[3]);
