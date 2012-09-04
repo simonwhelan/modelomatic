@@ -12,7 +12,7 @@
 
 #include "./ModelAssess.h"
 #include <time.h>
-
+#include "ini/cpp/INIReader.h"
 #if FUNC_COUNTERS == 1
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter, SPR_Log_Counter;
 #endif
@@ -38,7 +38,44 @@ bool WarningMulD;
 // File specific global variables
 int DebugOutput = 0;
 
+int n_models=13;
+string model_names[] = {"JTT","WAG","LG","DAY","mtREV","mtMam","mtArt","rtREV","cpREV","BLOSUM62","VT","HIVb","HIVw"};
+double* smat[] = {(double*)dJTTVal,(double*)dWAGVal,(double*)dLGVal,(double*)dDAYVal,(double*)dmtREVVal,(double*)dmtMAMVal,(double*)dmtArtVal,(double*)drtREVVal,(double*)dcpREVVal,(double*)dBLOSUM62Val,(double*)dVTVal,(double*)dHIVbVal,(double*)dHIVwVal};
+double* freq[] = {(double*)dJTTFreq,(double*)dWAGFreq,(double*)dLGFreq,(double*)dDAYFreq,(double*)dmtREVFreq,(double*)dmtMAMFreq,(double*)dmtArtFreq,(double*)drtREVFreq,(double*)dcpREVFreq,(double*)dBLOSUM62Freq,(double*)dVTFreq,(double*)dHIVbFreq,(double*)dHIVwFreq};
+
+std::map <string,double**> aa_model_map;
+
+
+
 int main(int argc, char *argv[])	{
+
+        //set up aa_model_map
+        //
+
+        for (int i=0; i < n_models; i++){
+                double* vals[] = {smat[i],freq[i]};
+                aa_model_map[model_names[i]]=vals;
+        }
+
+        //read conf
+        string confFile="modelassess.ini";
+        ifstream ifile("modelassess.ini");
+        if (ifile){
+                INIReader reader(confFile);
+                if (reader.ParseError() < 0) {
+                        std::cout << "Can't read " << confFile << "\n" ;
+                        return 1;
+                }
+                for (int i=0; i < n_models; i++){
+                        if (!reader.GetBoolean("Amino Acid",model_names[i],true)){
+                                aa_model_map.erase(model_names[i]);
+                                cout << "Skipping " << model_names[i] << "\n";
+                        }
+                }
+        }
+
+
+
 	string InTree = "file=";
 	int GeneticCode = 0;
 
@@ -266,12 +303,7 @@ void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	CData AmA = *Data; AmA.Translate(GeneticCode);
 	CBaseModel *Model;
 	CEMP *EMP;
-        int n_models=13;
-        string model_names[] = {"JTT","WAG","LG","DAY","mtREV","mtMam","mtArt","rtREV","cpREV","BLOSUM62","VT","HIVb","HIVw"};
-        double* smat[] = {(double*)dJTTVal,(double*)dWAGVal,(double*)dLGVal,(double*)dDAYVal,(double*)dmtREVVal,(double*)dmtMAMVal,(double*)dmtArtVal,(double*)drtREVVal,(double*)dcpREVVal,(double*)dBLOSUM62Val,(double*)dVTVal,(double*)dHIVbVal,(double*)dHIVwVal};
-        double* freq[] = {(double*)dJTTFreq,(double*)dWAGFreq,(double*)dLGFreq,(double*)dDAYFreq,(double*)dmtREVFreq,(double*)dmtMAMFreq,(double*)dmtArtFreq,(double*)drtREVFreq,(double*)dcpREVFreq,(double*)dBLOSUM62Freq,(double*)dVTFreq,(double*)dHIVbFreq,(double*)dHIVwFreq};
-
-	// Get the correction
+     	// Get the correction
 	double AA2Cod_Adj = Data->GetAminoToCodonlnLScale(GeneticCode);
 	// 1. EQU
 	CEQU *EQU; EQU = new CEQU(&AmA,Tree,false); Model = EQU;
@@ -294,9 +326,12 @@ void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
         cout<<"."<<flush;
 	Model = NULL;
 	delete EQU;
-        for (int i=0; i < n_models; i++){
+        for(std::map<string,double**>::iterator iter = aa_model_map.begin(); iter != aa_model_map.end(); ++iter){
+                string name=iter->first;
+                double* mySMat=iter->second[0];
+                double* myFreq=iter->second[1];
                 //model frequencies
-                EMP = new CEMP(&AmA,Tree,model_names[i],false,smat[i],freq[i]); Model = EMP;
+                EMP = new CEMP(&AmA,Tree,name,false,mySMat,myFreq); Model = EMP;
                 Models->push_back(DoModelRun(Model,0,AA2Cod_Adj));
                 if(os != cout) { os << *EMP<< endl << flush; }	// Output model details
                 Model->MakeGammaModel(0,4,Alpha);
@@ -306,7 +341,7 @@ void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
                 Model = NULL;
                 delete EMP;
                 //+F
-                EMP = new CEMP(&AmA,Tree,model_names[i],true,smat[i],freq[i]); Model = EMP;
+                EMP = new CEMP(&AmA,Tree,name,true,mySMat,myFreq); Model = EMP;
                 if(os != cout) { os << *EMP<< endl << flush; }	// Output model details
                 Models->push_back(DoModelRun(Model,19,AA2Cod_Adj));
                 if(os != cout) { os << *EMP<< endl << flush; }	// Output model details
