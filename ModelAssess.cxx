@@ -65,15 +65,22 @@ int main(int argc, char *argv[])	{
 
         //read conf
         string confFile="modelassess.ini";
-        ifstream ifile("modelassess.ini");
-        if (ifile){
+        char const* home_c = getenv("HOME");
+        string homedir = (home_c == NULL) ? std::string() : std::string(home_c);
+        string dotConfFile=homedir.append("/.modelassess.ini");
                 INIReader reader(confFile);
-                if (reader.ParseError() < 0) {
-                        std::cout << "Can't read " << confFile << "\n" ;
+                INIReader dotReader(dotConfFile);
+                if (reader.ParseError() > 0) {
+                        std::cout << "Error parsing " << confFile << "\n" ;
+                        return 1;
+                }
+                if (dotReader.ParseError() > 0) {
+                        std::cout << "Error parsing " << dotConfFile << "\n" ;
                         return 1;
                 }
                 for (int i=0; i < n_models; i++){
-                        if (!reader.GetBoolean("Amino Acid",model_names[i],true)){
+                        //default true, ini in cwd takes priority
+                        if (!reader.GetBoolean("Amino Acid",model_names[i],dotReader.GetBoolean("Amino Acid",model_names[i],true))){
                                 aa_model_map.erase(model_names[i]);
                                 cout << "Skipping " << model_names[i] << "\n";
                         }
@@ -81,14 +88,13 @@ int main(int argc, char *argv[])	{
                 std::set <string> new_codon_model_set;
                 std::set<string>::iterator it;
                 for( it = codon_model_set.begin(); it != codon_model_set.end(); it++ ) {
-                        if (reader.GetBoolean("Codon",*it,true)){
+                        if (reader.GetBoolean("Codon",*it,dotReader.GetBoolean("Codon",*it,true))){
                                 new_codon_model_set.insert(*it);
                         }else {
                                 cout << "Skipping " << *it << "\n";
                         }
                 }
                 codon_model_set=new_codon_model_set;
-        }
 
 
 
