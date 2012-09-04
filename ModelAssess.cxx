@@ -80,9 +80,11 @@ int main(int argc, char *argv[])	{
         start = clock();
 	if(!strcmp(argv[2],"bionj")) {
 		// Create a bionj starting tree
-		CEQU EQU_PW(&AA_Data,NULL);
+                CData tmp_AA_Data = *PhyDat.pData();
+                tmp_AA_Data.Translate();
+		CEQU EQU_PW(&tmp_AA_Data,NULL);
 		PWDists = GetPW(&EQU_PW,NULL,true);  // Get pairwise distances
-		CTree T_bionj(DoBioNJ(PWDists,PhyDat.pData()->m_vsName,true),AA_Data.m_iNoSeq);
+		CTree T_bionj(DoBioNJ(PWDists,PhyDat.pData()->m_vsName,true),tmp_AA_Data.m_iNoSeq);
 		cout << " estimated using bionj" << flush;
 		Tree = T_bionj;
 
