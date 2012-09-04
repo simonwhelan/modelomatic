@@ -13,6 +13,7 @@
 #include "./ModelAssess.h"
 #include <time.h>
 #include "ini/cpp/INIReader.h"
+#include <set>
 #if FUNC_COUNTERS == 1
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter, SPR_Log_Counter;
 #endif
@@ -44,6 +45,7 @@ double* smat[] = {(double*)dJTTVal,(double*)dWAGVal,(double*)dLGVal,(double*)dDA
 double* freq[] = {(double*)dJTTFreq,(double*)dWAGFreq,(double*)dLGFreq,(double*)dDAYFreq,(double*)dmtREVFreq,(double*)dmtMAMFreq,(double*)dmtArtFreq,(double*)drtREVFreq,(double*)dcpREVFreq,(double*)dBLOSUM62Freq,(double*)dVTFreq,(double*)dHIVbFreq,(double*)dHIVwFreq};
 
 std::map <string,double**> aa_model_map;
+std::set <string> codon_model_set;
 
 
 
@@ -56,6 +58,10 @@ int main(int argc, char *argv[])	{
                 double* vals[] = {smat[i],freq[i]};
                 aa_model_map[model_names[i]]=vals;
         }
+        codon_model_set.insert("F0");
+        codon_model_set.insert("F1X4");
+        codon_model_set.insert("F3X4");
+        codon_model_set.insert("F64");
 
         //read conf
         string confFile="modelassess.ini";
@@ -72,6 +78,16 @@ int main(int argc, char *argv[])	{
                                 cout << "Skipping " << model_names[i] << "\n";
                         }
                 }
+                std::set <string> new_codon_model_set;
+                std::set<string>::iterator it;
+                for( it = codon_model_set.begin(); it != codon_model_set.end(); it++ ) {
+                        if (reader.GetBoolean("Codon",*it,true)){
+                                new_codon_model_set.insert(*it);
+                        }else {
+                                cout << "Skipping " << *it << "\n";
+                        }
+                }
+                codon_model_set=new_codon_model_set;
         }
 
 
@@ -363,52 +379,58 @@ void GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int G
 	CCodonM0 *M0;
 	int i,NoF64 = 0;
 	FOR(i,64) { if(GenCodes[GeneticCode][i] >= 0) { NoF64++; } }
-	// 1. F0
-	CoD = *Data;
-	M0 = new CCodonM0(&CoD,Tree,cEQU,GeneticCode); Model = M0;
-	Models->push_back(DoModelRun(Model,2));
-	if(os != cout) { os << *Model<< endl << flush; }	// Output model details
-	Model->MakeGammaModel(0,4);
-	Models->push_back(DoModelRun(Model,3));
-	if(os != cout) { os << *Model<< endl << flush; }	// Output model details
-        cout<<"."<<flush;
-	Model = NULL;
-	delete M0;
-	// 1. F1X4
-	CoD = *Data;
-	M0 = new CCodonM0(&CoD,Tree,F1X4,GeneticCode); Model = M0;
-	Models->push_back(DoModelRun(Model,6));
-	if(os != cout) { os << *Model<< endl << flush; }	// Output model details
-	Model->MakeGammaModel(0,4);
-	Models->push_back(DoModelRun(Model,7));
-	if(os != cout) { os << *Model<< endl << flush; }	// Output model details
-        cout<<"."<<flush;
-	Model = NULL;
-	delete M0;
-	// 1. F3X4
-	CoD = *Data;
-	M0 = new CCodonM0(&CoD,Tree,F3X4,GeneticCode); Model = M0;
-	Models->push_back(DoModelRun(Model,11));
-	if(os != cout) { os << *Model<< endl << flush; }	// Output model details
-	Model->MakeGammaModel(0,4);
-	Models->push_back(DoModelRun(Model,12));
-	if(os != cout) { os << *Model<< endl << flush; }	// Output model details
-        cout<<"."<<flush;
-	Model = NULL;
-	delete M0;
-	// 1. F64
-	CoD = *Data;
-	M0 = new CCodonM0(&CoD,Tree,F64,GeneticCode); Model = M0;
-	Models->push_back(DoModelRun(Model,2 + NoF64));
-	if(os != cout) { os << *Model<< endl << flush; }	// Output model details
-	Model->MakeGammaModel(0,4);
-	Models->push_back(DoModelRun(Model,3 +NoF64));
-	if(os != cout) { os << *Model<< endl << flush; }	// Output model details
-        cout<<"."<<flush;
-	Model = NULL;
-	delete M0;
-
-
+        if (codon_model_set.count("F0")){
+                // 1. F0
+                CoD = *Data;
+                M0 = new CCodonM0(&CoD,Tree,cEQU,GeneticCode); Model = M0;
+                Models->push_back(DoModelRun(Model,2));
+                if(os != cout) { os << *Model<< endl << flush; }	// Output model details
+                Model->MakeGammaModel(0,4);
+                Models->push_back(DoModelRun(Model,3));
+                if(os != cout) { os << *Model<< endl << flush; }	// Output model details
+                cout<<"."<<flush;
+                Model = NULL;
+                delete M0;
+        }
+        if (codon_model_set.count("F1X4")){
+                        // 1. F1X4
+                        CoD = *Data;
+                        M0 = new CCodonM0(&CoD,Tree,F1X4,GeneticCode); Model = M0;
+                        Models->push_back(DoModelRun(Model,6));
+                        if(os != cout) { os << *Model<< endl << flush; }	// Output model details
+                        Model->MakeGammaModel(0,4);
+                        Models->push_back(DoModelRun(Model,7));
+                        if(os != cout) { os << *Model<< endl << flush; }	// Output model details
+                        cout<<"."<<flush;
+                        Model = NULL;
+                        delete M0;
+        }
+        if (codon_model_set.count("F3X4")){
+                // 1. F3X4
+                CoD = *Data;
+                M0 = new CCodonM0(&CoD,Tree,F3X4,GeneticCode); Model = M0;
+                Models->push_back(DoModelRun(Model,11));
+                if(os != cout) { os << *Model<< endl << flush; }	// Output model details
+                Model->MakeGammaModel(0,4);
+                Models->push_back(DoModelRun(Model,12));
+                if(os != cout) { os << *Model<< endl << flush; }	// Output model details
+                cout<<"."<<flush;
+                Model = NULL;
+                delete M0;
+        }
+        if (codon_model_set.count("F64")){
+                // 1. F64
+                CoD = *Data;
+                M0 = new CCodonM0(&CoD,Tree,F64,GeneticCode); Model = M0;
+                Models->push_back(DoModelRun(Model,2 + NoF64));
+                if(os != cout) { os << *Model<< endl << flush; }	// Output model details
+                Model->MakeGammaModel(0,4);
+                Models->push_back(DoModelRun(Model,3 +NoF64));
+                if(os != cout) { os << *Model<< endl << flush; }	// Output model details
+                cout<<"."<<flush;
+                Model = NULL;
+                delete M0;
+        }
 
 }
 
