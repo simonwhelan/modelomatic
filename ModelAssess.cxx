@@ -85,6 +85,11 @@ int main(int argc, char *argv[])	{
                                 cout << "Skipping " << model_names[i] << "\n";
                         }
                 }
+                //handle EQU separately
+
+                if (reader.GetBoolean("Amino Acid","EQU",dotReader.GetBoolean("Amino Acid","EQU",true))){
+                        aa_model_map["EQU"]=NULL;
+                }
                 std::set <string> new_codon_model_set;
                 std::set<string>::iterator it;
                 for( it = codon_model_set.begin(); it != codon_model_set.end(); it++ ) {
@@ -327,28 +332,31 @@ void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	CEMP *EMP;
      	// Get the correction
 	double AA2Cod_Adj = Data->GetAminoToCodonlnLScale(GeneticCode);
-	// 1. EQU
-	CEQU *EQU; EQU = new CEQU(&AmA,Tree,false); Model = EQU;
-	Models->push_back(DoModelRun(Model,0,AA2Cod_Adj));
-	if(os != cout) { os << *EQU<< endl << flush; }	// Output model details
-	Model->MakeGammaModel(0,4);
-	Models->push_back(DoModelRun(Model,1,AA2Cod_Adj));
-	Alpha = Model->m_vpPar[0]->Val();
-	if(os != cout) { os << *EQU<< endl << flush; }	// Output model details
-        cout<<"."<<flush;
-	Model = NULL;
-	delete EQU;
-	// 2. EQU+F
-	EQU = new CEQU(&AmA,Tree,true); Model = EQU;
-	Models->push_back(DoModelRun(Model,19,AA2Cod_Adj));
-	if(os != cout) { os << *EQU<< endl << flush; }	// Output model details
-	Model->MakeGammaModel(0,4,Alpha);
-	Models->push_back(DoModelRun(Model,20,AA2Cod_Adj));
-	if(os != cout) { os << *EQU<< endl << flush; }	// Output model details
-        cout<<"."<<flush;
-	Model = NULL;
-	delete EQU;
+        if (aa_model_map.find("EQU")!=aa_model_map.end()){
+                // 1. EQU
+                CEQU *EQU; EQU = new CEQU(&AmA,Tree,false); Model = EQU;
+                Models->push_back(DoModelRun(Model,0,AA2Cod_Adj));
+                if(os != cout) { os << *EQU<< endl << flush; }	// Output model details
+                Model->MakeGammaModel(0,4);
+                Models->push_back(DoModelRun(Model,1,AA2Cod_Adj));
+                Alpha = Model->m_vpPar[0]->Val();
+                if(os != cout) { os << *EQU<< endl << flush; }	// Output model details
+                cout<<"."<<flush;
+                Model = NULL;
+                delete EQU;
+                // 2. EQU+F
+                EQU = new CEQU(&AmA,Tree,true); Model = EQU;
+                Models->push_back(DoModelRun(Model,19,AA2Cod_Adj));
+                if(os != cout) { os << *EQU<< endl << flush; }	// Output model details
+                Model->MakeGammaModel(0,4,Alpha);
+                Models->push_back(DoModelRun(Model,20,AA2Cod_Adj));
+                if(os != cout) { os << *EQU<< endl << flush; }	// Output model details
+                cout<<"."<<flush;
+                Model = NULL;
+                delete EQU;
+        }
         for(std::map<string,double**>::iterator iter = aa_model_map.begin(); iter != aa_model_map.end(); ++iter){
+                if (iter->first == "EQU") continue;
                 string name=iter->first;
                 double* mySMat=iter->second[0];
                 double* myFreq=iter->second[1];
