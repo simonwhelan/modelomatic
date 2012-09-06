@@ -55,7 +55,9 @@ int main(int argc, char *argv[])	{
         //
 
         for (int i=0; i < n_models; i++){
-                double* vals[] = {smat[i],freq[i]};
+                double** vals = (double**) malloc(2*sizeof(double*));
+                vals[0]=smat[i];
+                vals[1]=freq[i];
                 aa_model_map[model_names[i]]=vals;
         }
         codon_model_set.insert("F0");
