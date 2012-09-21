@@ -66,6 +66,8 @@ double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double Cu
 	}	}
 	// Get the optimised likelihood
 	if(ACC > gtol) { gtol = ACC; }
+//	cout << "\nInto optimiser for " << Model->Name() << " = " << CurlnL << " cf. " << Model->lnL() << " cff. " << Model->lnL(true);
+//	if(fabs(CurlnL - Model->lnL(true)) > 0.001) { cout << "\nAnd it's broken already...\n\n"; exit(-1); }
 //	cout << "\nModel: " << Model->Name() << ", Options: [" << DoPar << "," << DoBra << "," << DoFreq << "," << CurlnL << "," << FullLikAcc << "," << NoIterations << "," << lnL2Beat << "," << lnL_tol << "]";
 //	DoOutput = true; cout << "\nOptimising: "; FOR(i,(int)vPar.size()) { cout << "\t" << *vPar[i]; }
 	if(!vPar.empty()) {
@@ -1614,6 +1616,8 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 	GET_MEM(pold,double,n); GET_MEM(xi,double,n); GET_MEM(grad_delta,double,n);
 	GET_MEM(oldxi,double,n);
 
+//	cout << "\nDifference fp: " << fp << " and " << Model->lnL() << " cf. " << Model->lnL(true);
+
 	// Calculate starting values
     fold = BIG_NUMBER;
 	fret = fp = -OrilnL;
@@ -1662,6 +1666,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
     }
 	// Iterate
 	FOR(its,NumberIter)	{
+//		cout << "\n\t--- Iter: " << its << ": " << fp << " cf. " << Model->lnL(true) << " (" << fabs(fp+Model->lnL(true)) << ")" << flush ;
 		if(DoBasicOutput) {
 			cout << "\n\t["<<its<<"] " <<fold << " -> " << fp; //  << " cf. " << Model->lnL() << flush;
 			if(its == 0) { cout << "\n\t\t" << its << ": "; }

@@ -14,6 +14,9 @@
 #include <time.h>
 #include "ini/cpp/INIReader.h"
 #include <set>
+
+#define CHECK_LNL_OUT 1
+
 #if FUNC_COUNTERS == 1
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter, SPR_Log_Counter;
 #endif
@@ -51,6 +54,7 @@ std::set <string> codon_model_set;
 
 int main(int argc, char *argv[])	{
 
+		int count = 0;
         //set up aa_model_map
         //
 
@@ -80,11 +84,13 @@ int main(int argc, char *argv[])	{
                         std::cout << "Error parsing " << dotConfFile << "\n" ;
                         return 1;
                 }
+                count = 0;
                 for (int i=0; i < n_models; i++){
                         //default true, ini in cwd takes priority
                         if (!reader.GetBoolean("Amino Acid",model_names[i],dotReader.GetBoolean("Amino Acid",model_names[i],true))){
                                 aa_model_map.erase(model_names[i]);
-                                cout << "Skipping " << model_names[i] << "\n";
+                                if(count == 0) { cout << "\nSkipping " << model_names[i]; count++; }
+                                else { cout << ", " << model_names[i]; }
                         }
                 }
                 //handle EQU separately
@@ -94,11 +100,13 @@ int main(int argc, char *argv[])	{
                 }
                 std::set <string> new_codon_model_set;
                 std::set<string>::iterator it;
+                count = 0;
                 for( it = codon_model_set.begin(); it != codon_model_set.end(); it++ ) {
                         if (reader.GetBoolean("Codon",*it,dotReader.GetBoolean("Codon",*it,true))){
                                 new_codon_model_set.insert(*it);
                         }else {
-                                cout << "Skipping " << *it << "\n";
+                        	if(count == 0) { cout << "\nSkipping " << *it; count++; }
+                        	else { cout << ", " << *it; }
                         }
                 }
                 codon_model_set=new_codon_model_set;
@@ -272,26 +280,32 @@ void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	// Initialise
 	CBaseModel *Model;
 	double Alpha;
+	int count = 2;
 	// 1. JC
 	CJC *JC; JC = new CJC(Data,Tree); Model = JC;
 	Models->push_back(DoModelRun(Model,0));
 	if(os != cout) { os << *JC << endl << flush; }	// Output model details
+//	cout << "\nTree JC:   \t" << Tree->TreeLength() << "\t" << JC->lnL(true) << " cf. " << Models->at(count++).OrilnL;
 	Model->MakeGammaModel(0,4);
 	Models->push_back(DoModelRun(Model,1));
 	Alpha = JC->m_vpPar[0]->Val();
 	if(os != cout) { os << *JC << endl << flush; }	// Output model details
         cout<<"."<<flush;
 	Model = NULL;
+//	cout << "\nTree JCdG: \t" << Tree->TreeLength() << "\t" << JC->lnL(true) << " cf. " << Models->at(count++).OrilnL;
 	delete JC;
 	// 2. FEL
 	CFEL *FEL; FEL = new CFEL(Data,Tree); Model = FEL;
 	Models->push_back(DoModelRun(Model,3));
 	if(os != cout) { os << *FEL << endl << flush; }	// Output model details
+//	delete FEL; FEL = new CFEL(Data,Tree); Model = FEL;
+//	cout << "\nTree FEL:  \t" << Tree->TreeLength() << "\t" << FEL->lnL(true) << " cf. " << Models->at(count++).OrilnL;
 	Model->MakeGammaModel(0,4,Alpha);
 	Models->push_back(DoModelRun(Model,4));
 	if(os != cout) { os << *FEL << endl << flush; }	// Output model details
         cout<<"."<<flush;
 	Model = NULL;
+//	cout << "\nTree FELdG:\t" << Tree->TreeLength() << "\t" << FEL->lnL(true) << " cf. " << Models->at(count++).OrilnL;
 	delete FEL;
 	// 3. K2P
 	CK2P *K2P; K2P= new CK2P(Data,Tree); Model = K2P;
@@ -459,5 +473,10 @@ SModelDetails DoModelRun(CBaseModel *M, int NoPar,double Adj) {
 	ModDet.NoPar = NoPar; ModDet.AIC = GetAIC(ModDet.lnL,ModDet.NoPar);
 	ModDet.TreeLength = M->Tree()->GetTreeLength();
 	ModDet.Name = M->Name();
+#if CHECK_LNL_OUT == 1
+	if(fabs(ModDet.OrilnL - M->lnL(true)) > 0.001)	{
+			cout << "\nModel: " << M->Name() << " obtained " << ModDet.lnL << " cf. " << M->lnL() << " cff. " << M->lnL(true) << "\n\n"; exit(-1);
+	}
+#endif
 	return ModDet;
 }

@@ -1669,6 +1669,7 @@ void CBaseModel::MakeGammaModel(int PNum, int NoCat, double InitAlpha)	{
 	CGammaPar *GP;
 	CBaseProcess *NewProc = NULL;
 	// Check entry conditions
+	FOR(i,(int)m_vpProc.size()) { m_vpProc[i]->DecompressSpace(); }
 	assert(PNum < (int)m_vpProc.size());
 	assert(m_vpProc[PNum]->IsGamma() == false); // Check the process hasn't already been made into a gamma model
 	// Get the gamma distribution parameter
