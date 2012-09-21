@@ -225,7 +225,6 @@ int main(int argc, char *argv[])	{
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
     out.close();
-
     ofstream output(argv[3]);
 	double minAIC = Models[0].AIC;
 	for (i=1; i<(int)Models.size(); i++) {
@@ -255,7 +254,8 @@ void GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	double RY2Cod_Adj = Data->GetRYToCodonlnLScale(GeneticCode);
 	// Optimise
 	RY.lnL();
-	RY_Model.lnL = FullOpt(&RY) + RY2Cod_Adj;
+	RY_Model.OrilnL = FullOpt(&RY);
+	RY_Model.lnL = RY_Model.OrilnL + RY2Cod_Adj;
 	RY_Model.Name = RY.Name();
 	RY_Model.TreeLength = RY.Tree()->GetTreeLength();
 	RY_Model.NoPar = 1;
@@ -266,7 +266,8 @@ void GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	// 2. RY+dG
 	RY.MakeGammaModel(0,4);
 	RY.lnL();
-	RY_Model.lnL = FullOpt(&RY) + RY2Cod_Adj;
+	RY_Model.OrilnL = FullOpt(&RY);
+	RY_Model.lnL = RY_Model.OrilnL + RY2Cod_Adj;
 	RY_Model.Name = RY.Name();
 	RY_Model.TreeLength = RY.Tree()->GetTreeLength();
 	RY_Model.NoPar = 2;

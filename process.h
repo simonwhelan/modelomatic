@@ -88,10 +88,11 @@ public:
 
 // The alpha parameter of the gamma distribution
 #define INITIAL_GAMMA MODEL_INITIAL_GAMMA
+#define MIN_ALFA 0.05
 #define MAX_ALFA 100
 class CGammaPar : public CPar	{
 public:
-	CGammaPar(string Name, int Char, CPar* Rate,double Value = INITIAL_GAMMA, bool Optimise=true, double Lowbound = 0.01, double Upbound=MAX_ALFA,ParOp Oper=REPLACE);	// Constructor
+	CGammaPar(string Name, int Char, CPar* Rate,double Value = INITIAL_GAMMA, bool Optimise=true, double Lowbound = MIN_ALFA, double Upbound=MAX_ALFA,ParOp Oper=REPLACE);	// Constructor
 	~CGammaPar();							// Destructor
 	// public functions
 	void GlobalApply();						// How the parameter is applied

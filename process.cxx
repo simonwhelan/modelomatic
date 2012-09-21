@@ -153,6 +153,7 @@ void CGammaPar::GlobalApply()	{
 	// Get the gamma distributed rates
 	DiscreteGamma(P,R,Val(),Val(),NoCat(),0);
 //	cout << "\nRate: " << Rate;
+
 	FOR(i,NoCat())	{ R[i] *= Rate; m_arpRates[i]->SetVal(R[i]); }
 //	cout << "\nGetting gamma -- alpha ["<<m_arpRates.size() << ":"<<NoCat()<<"] = " << Val() << " == { "; FOR(i,NoCat()) { cout << R[i] << " "; } cout << "}";
 	// Tidy up
