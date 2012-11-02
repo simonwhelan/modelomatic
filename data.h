@@ -63,7 +63,6 @@ public:
 	vector <string> m_vsTrueSeq;	// vector of real sequences
     // Implementation
 	////////////////////////////////////////////////////////////
-	void ApplyGenCode(int Code);	// Adjust to the correct genetic code
 	void RemoveInvariantSites();	// Removes invariant sites from the alignment
 	// Distances
 	double PropDiff(int S1, int S2, bool IgnoreGaps);	// Count differences between sequences S1 and S2;
@@ -87,8 +86,10 @@ public:
 	void ExpandCodonData(int GenCode);		// Expands the state space of codon data back to a 64 state model
 	int GenCode() { return m_iGenCode; }	// Returns the genetic code assigned to the data
 	// Functions for getting likelihood scaling between amino acid and codon models
-	double GetAminoToCodonlnLScale(int GenCode);		// Returns eqn (6) from Seo and Kishino, Syst Biol. 2008
-	double GetRYToCodonlnLScale(int GenCode);			// Returns the equivalent to eqn (6) from Seo and Kishino, Syst Biol. 2008, but for RY to codons
+	double GetAminoToCodonlnLScale(int GenCode, int *df);		// Decides what adjustment to do and returns the value
+	double GetAdjustmentScore(CData *AA_Data, CData *COD_Data, vector <double> AAFreq, vector <double> CodFreq, int GenCode = 0); // Returns eqn (6) from Seo and Kishino (Syst Biol. 2008) for a set of frequencies
+	double GetRYToCodonlnLScale(int GenCode, int *df);			// Returns the equivalent to eqn (6) from Seo and Kishino, Syst Biol. 2008, but for RY to codons
+	double OldGetAminoToCodonlnLScale(int GeneticCode); // Old amino acid version for error checking.
 	// Some stuff relating to tree HMMs
 	CData *MakeMatchData();				// Returns the data for a match state TreeHMM
 	CData *MakeDeleteData();			// Returns the data for a delete state TreeHMM
@@ -109,8 +110,14 @@ bool ReadData(string File, vector <string > &Names, vector <string > &Seqs, bool
 char *GetName(char *string, char *name);
 string GetName(string name);
 
+// Function that produces corrects a set of codon frequencies so that they match a set of amino acid frequencies
+// For a codon c_{i,j} and the corresponding amino acid a_c_{i,j} we know
+//   a_c_{i,j} = \sum_{c_{i,j} \in a_c_{i,j}} c_{i,j}
+// For a given set of c_{i,j} they are normalised to produce the correct a_c_{i,j}
+vector <double> EnforceAAFreqOnCodon(vector<double> CodFreq, vector <double> AAFreq, int GCode);
 
 // Definitions of the genetic code
+const int NumGenCode = 12;;
 // The genetic codes are:
 //	0:  Universal code
 //	1:  Vertebrate mt
@@ -124,6 +131,21 @@ string GetName(string name);
 //	9:  Ascidian mt
 //  10: Blepharisma nuclear
 //	11: Fake code where everything codes
+const string GenCodeName[] = {
+		"Universal",					// [0]
+		"Vertebrate mt",				// [1]
+		"Yeast mt",						// [2]
+		"Mould mt",						// [3]
+		"Invertebrate mt",				// [4]
+		"Ciliate nuclear",				// [5]
+		"Echinoderm mt",				// [6]
+		"Euplotid mt",					// [7]
+		"Alternative yeast nuclear",	// [8]
+		"Ascidian mt",					// [9]
+		"Blepharisma",					// [10]
+		"Fake with everything coding"	// [11]
+};
+
 const int GenCodes[][64] = {
 	{	11, 2,11, 2,16,16,16,16, 1,15, 1,15, 9, 9,12, 9,
 		 5, 8, 5, 8,14,14,14,14, 1, 1, 1, 1,10,10,10,10,
@@ -190,6 +212,5 @@ const int GenCodes[][64] = {
 		 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 }	};
-
 
 #endif

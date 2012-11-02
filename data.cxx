@@ -819,7 +819,7 @@ void CData::Translate(int GenCode)	{
 			if(FindState(COD,Codon) == 64) {
 				vSeq[seq] += '-';
 			} else {
-				if(!InRange(GenCodes[GenCode][FindState(COD,Codon)],0,64)) { Error("\nUnrecognised codon: " + Codon + " for data..."); }
+				if(!InRange(GenCodes[GenCode][FindState(COD,Codon)],0,64)) { Error("\nUnrecognised codon: " + Codon + " for data codon position " + int_to_string(site) + " in sequence " + int_to_string(seq) + "..."); }
 				vSeq[seq] += State(AA,GenCodes[GenCode][FindState(COD,Codon)]);
 			}
 	}	}
@@ -1086,7 +1086,191 @@ bool CData::CreateAllPairMapping(CData *D1, CData *D2) {
 	}
 }
 
-double CData::GetAminoToCodonlnLScale(int GeneticCode)	{
+//////////////////////////////////////////////////////////////////////////////////////
+// Get the scaling factor between amino acid models and codon models
+// ---
+// Idea and much of the implementation is based on Seo and Kishino
+// The formula is: Adj = \Sum_{i} \Sum_{j} log(CodonFreq[i][j] / AminoAcidFreq[i][j])
+// The novelty w.r.t. Seo and Kishino comes from the calculation of the frequencies and how they're treated as parameters in the model
+// There are several possible parameterisations based on how those frequencies are produced
+// 1. Amino acid frequencies
+//		-- Those fed in from the model (e.g. database frequencies for LG without the +F option); 0 d.f.
+//		-- The empirical frequencies estimated from the data; additional 19 d.f.
+// 2. Codon frequencies
+//		-- No information about codon frequencies. The frequency of a codon CodonFreq[i][j] is AminoAcidFreq[i][j] / #degenerate_codons
+//		-- Information about coding frequencies as parameters in the model. There are a very wide range of possible parameterisations here,
+//			but we will only consider the case of empirically estimated sense codon frequencies, EmpCodon[i][j], taken direct from the data.
+//			Let K = {k_i,k_j} be the set of codons associated with AminoAcidFreq[i][j] so
+//				CodonFreq[i][j] = AminoAcidFreq[i][j] * ( EmpCodon[i][j] / \Sum_{k \in K} EmpCodon[k_i][k_j] );
+//			Note when the AminoAcidFreq are taken empirically from the data, then this value is equivalent of:
+//				CodonFreq[i][j] = EmpFreq[i][j] because \Sum_{k \in K} EmpCodon[k_i][k_j] = AminoAcidFreq[i][j]
+//			This option adds (60 df from codon model - 19 df. from amino acid model =) 41 degrees of freedom to the model
+// ---
+// This approach means that for amino acid models there are 4 possible scaling factors.
+// In this function the best scaling factor is chosen according to AIC, and the return value has the AIC penalty associated with it.
+// *****************************************************************************
+// Update: 31 Oct 2012
+// ---
+// I have realised that there are actually only 2 possible scaling factors regardless of which model is examined
+// Consider equation (6) from Seo and Kishino:
+//		Adj = \Sum_{i} \Sum_{j} log(CodonFreq[i][j] / AminoAcidFreq[i][j])
+// The factors CodonFreq[i][j] / AminoAcidFreq[i][j] are effectively the proportions by which a codon codes for an amino acid
+// So there are two natural ways to treat these quantities when the codon frequencies are not part of the model
+// i. Treat them as equiprobable, which means the adjustment factor is:
+//		1 / Number_of_codons[i][j] and this approach adds 0 degrees of freedom to the model
+// ii. Take the ML estimates of the codon frequencies, which minimises the adjustment factor.
+//		The way to maximise the adjustment factor is to find the set of P[k] frequencies that maximise the function
+//			adj = \Sum_{i} \Sum{j} log ( P[{site[i][j]}] );
+//		This is the equivalent of obtaining the MLEs for frequencies for a multinomial distribution, which is simply taking the empirical frequencies
+// 		This approach is the equivalent of using the empirical codon frequencies (EmpFreq) and empirical amino acid frequencies (EmpAA):
+//		EmpFrq[i][j] / EmpAA[i][j]
+// 		And adds (#CodingCodons - 20)  degrees of freedom to the model
+// Note that this approach then makes the correction independent of amino acid model frequencies, allowing the correction to be applied for all models
+double CData::GetAminoToCodonlnLScale(int GeneticCode, int *df)	{
+	bool AAFrDiff = false;
+	int i, count;
+	double EqFrq, EmFrq, RetValue = 0.0;
+	vector <double> DataAAFreq(20,0), EquCod, EmpCod;
+	if(m_DataType != DNA) { Error("\nError: CData::GetAminoToCodonlnLScale() only works for NUCLEOTIDE data\n"); }
+	if(!InRange(GeneticCode,0,11)) { Error("\nTrying to do DNA CData::GetAminoToCodonlnLScale() with out of range GenCode\n"); }
+	// Initialise objects associated with the function
+	CData AA_Data = *this; AA_Data.Translate(GeneticCode); DataAAFreq = AA_Data.m_vFreq;
+	CData COD_Data = *this; COD_Data.MakeCodonData();	EmpCod = COD_Data.m_vFreq; // Note the genetic code here is in *64* state-space
+	EquCod.assign(COD_Data.m_iChar,0);
+	// Do some basic error checking
+	assert(AA_Data.m_iTrueSize == COD_Data.m_iTrueSize && AA_Data.m_iNoSeq == COD_Data.m_iNoSeq);
+	assert((int)DataAAFreq.size() == 20);
+	assert(df != NULL); *df = 0;
+	// Do the calculations
+	// 1. Set up the frequencies
+	count = 0; FOR(i,64) { if(GenCodes[GeneticCode][i] != -1) { count++; } }
+	EquCod.assign(64, (double) 1 / (double) count );
+	FOR(i,64) { if(GenCodes[GeneticCode][i] == -1) { EquCod[i] = 0.0; } }
+	EquCod = EnforceAAFreqOnCodon(EquCod,DataAAFreq,GeneticCode);
+	EmpCod = EnforceAAFreqOnCodon(EmpCod,DataAAFreq,GeneticCode);
+	// 2. Get the two possible adjustment factors
+	RetValue = EqFrq = GetAdjustmentScore(&AA_Data,&COD_Data,DataAAFreq,EquCod,GeneticCode); *df = 0;
+	EmFrq = GetAdjustmentScore(&AA_Data,&COD_Data,DataAAFreq,EmpCod,GeneticCode);
+	// Organise the return value if AIC(EmFrq) > AIC(EqFrq)
+	if(EmFrq - count + 20 > EqFrq) {
+		RetValue = EmFrq; *df = count - 20;
+	}
+//	cout << "\nEmFrq: " << EmFrq  << " (" << EmFrq - count + 20 << ") and EqFrq: " << EqFrq << " df = " << *df << " (0:" << count - 20 << ")";
+//	if(EmFrq - count + 20 > EqFrq) { cout << " *EMP*"; } else { cout << " *EQU*"; } cout << " -- return: " << RetValue << endl;
+	// Return
+	return RetValue;
+}
+
+
+// Function returns the likelihood and df the degrees of freedom for the correction
+/*  OLD VERSION THAT PRODUCED THE CORRECTION IN LOTS OF DIFFERENT WAYS
+double CData::GetAminoToCodonlnLScale(int GeneticCode, vector <double> ModelAAFreq, int *df)	{
+	bool AAFrDiff = false;
+	int i, count;
+	double EqFrq, EmFrq, RetValue = 0.0;
+	double Adj_ModelF_EQUCod, Adj_ModelF_EmpCod, Adj_EmpF_EQUCod, Adj_EmpF_EmpCod;			 // The store for the different adjustments
+	vector <double> DataAAFreq(20,0), DataEquCod, DataEmpCod, ModelEquCod, ModelEmpCod;
+
+	cout << "\n----------------- CData::GetAminotoCodonlnLScale(...) -----------------\n";
+
+	if(m_DataType != DNA) { Error("\nError: CData::GetAminoToCodonlnLScale() only works for NUCLEOTIDE data\n"); }
+	if(!InRange(GeneticCode,0,11)) { Error("\nTrying to do DNA CData::GetAminoToCodonlnLScale() with out of range GenCode\n"); }
+	// Initialise objects associated with the function
+	Adj_ModelF_EQUCod = Adj_ModelF_EmpCod = Adj_EmpF_EQUCod = Adj_EmpF_EmpCod = -BIG_NUMBER;
+	CData AA_Data = *this; AA_Data.Translate(GeneticCode);
+	CData COD_Data = *this; COD_Data.MakeCodonData();	// Note the genetic code here is in *64* state-space
+	DataEquCod.assign(COD_Data.m_iChar,0); DataEmpCod = ModelEquCod = ModelEmpCod = DataEquCod;
+	// Do some basic error checking
+	assert(AA_Data.m_iTrueSize == COD_Data.m_iTrueSize && AA_Data.m_iNoSeq == COD_Data.m_iNoSeq);
+	assert((int)DataAAFreq.size() == 20);
+	assert((int)ModelAAFreq.size() == 20);
+	assert(df != NULL); *df = 0;
+	// Make the various sets of frequencies
+	// a. Get data amino acid frequencies
+	DataAAFreq = AA_Data.m_vFreq;
+	FOR(i,20) { cout << "\ntest: [" << DataAAFreq[i] << " - " << ModelAAFreq[i] << "] " << fabs(DataAAFreq[i] - ModelAAFreq[i]); if(fabs(DataAAFreq[i] - ModelAAFreq[i]) > 1.0E-3) { AAFrDiff = true; break; } }
+	// b. Get the empirical codon frequencies via function EnforceAAFreqOnCodon(...)
+	count = 0; FOR(i,64) { if(GenCodes[GeneticCode][i] != -1) { count++; } }
+	DataEquCod.assign(64, (double) 1 / (double) count );
+	FOR(i,64) { if(GenCodes[GeneticCode][i] == -1) { DataEquCod[i] = 0; } }
+	ModelEquCod = DataEquCod;
+	DataEquCod = EnforceAAFreqOnCodon(DataEquCod,DataAAFreq,GeneticCode);
+	ModelEquCod = EnforceAAFreqOnCodon(ModelEquCod,ModelAAFreq,GeneticCode);
+	// c. Get the other codon frequencies
+	DataEmpCod = ModelEmpCod = COD_Data.m_vFreq;
+	ModelEmpCod = EnforceAAFreqOnCodon(ModelEmpCod,ModelAAFreq,GeneticCode);
+
+	cout << "\nAA\nData \t" << DataAAFreq << "\nModel\t" << ModelAAFreq;
+	cout << "\n>>>\nCodon\nModelEqu\t" << ModelEquCod << "\nModelEmp\t" << ModelEmpCod;
+	cout << "\nDataEqu \t" << DataEquCod << "\nDataEmp \t" << DataEmpCod << flush;
+
+	// d. Count the number of non-stop codons
+	count = 0; FOR(i,64) { if(GenCodes[GeneticCode][i]!=-1) { count++; } }
+	// Compute the different adjustment factors Adj_ModelF_EQUCod, Adj_ModelF_EmpCod, Adj_EmpF_EQUCod, Adj_EmpF_EmpCod;
+	// 1. Equiprobable codons, with model's amino acid frequencies. 0 extra degrees of freedom
+	RetValue = Adj_ModelF_EQUCod = GetAdjustmentScore(&AA_Data,&COD_Data,ModelAAFreq,ModelEquCod,GeneticCode);
+	*df = 0;
+	// 2. Empirical codons, with model's amino acid frequencies. (count - 1) - 19 extra degrees of freedom
+	Adj_ModelF_EmpCod =  GetAdjustmentScore(&AA_Data,&COD_Data,ModelAAFreq,ModelEmpCod,GeneticCode);
+	if(Adj_ModelF_EmpCod < RetValue) { RetValue = Adj_ModelF_EmpCod; *df = (count - 20); }
+	// Do the remaining adjustments if needed
+	if(AAFrDiff)	{
+		// 3. Equiprobobable codons, with empirical amino acid frequencies. 0 extra degrees of freedom
+		Adj_EmpF_EQUCod = GetAdjustmentScore(&AA_Data,&COD_Data,DataAAFreq,DataEquCod,GeneticCode);
+		if(Adj_EmpF_EQUCod < RetValue) { RetValue = Adj_EmpF_EQUCod; *df = 0;}
+		// 4. Empirical codons, with empirical amino acid frequencies. (count - 1) - 19 extra degrees of freedom
+		Adj_EmpF_EmpCod = GetAdjustmentScore(&AA_Data,&COD_Data,DataAAFreq,DataEmpCod,GeneticCode);
+		if(Adj_EmpF_EmpCod  < RetValue) { RetValue = Adj_EmpF_EmpCod; *df = (count - 20); }
+	}
+	cout << "\nThe adjustment factors:\n\tCod_equ + Mod_aa = " << Adj_ModelF_EQUCod;
+	cout << "\n\tCod_emp + Mod_aa = " << Adj_ModelF_EmpCod << "\n\tCod_equ + Emp_aa = " << Adj_EmpF_EQUCod << "\n\tCod_emp + Emp_aa = " << Adj_EmpF_EmpCod;
+
+	// Return
+	return RetValue;
+}
+*/
+#define GetAdjustmentScore_DEBUG 1
+double CData::GetAdjustmentScore(CData *AA_Data, CData *COD_Data, vector <double> AAFreq, vector <double> CodFreq, int GenCode) {
+	int i, j;
+	double RetValue = 0.0;
+	// Some basic error checking
+	assert(AA_Data->m_DataType == AA); assert(COD_Data->m_DataType == COD);
+	assert(AAFreq.size() == 20); assert(CodFreq.size() == 64);
+	assert(AA_Data->m_iTrueSize == COD_Data->m_iTrueSize && AA_Data->m_iNoSeq == COD_Data->m_iNoSeq);
+	// If required do the hard debug
+#if GetAdjustmentScore_DEBUG == 1
+	int count;
+	double Checker = 0.0;
+	FOR(i,20) {	// Loop through the amino acids
+		Checker = 0.0;
+		FOR(j,64)	{ // Loop through the codons
+			if(GenCodes[GenCode][j] == i) { assert(count < CodFreq.size()); Checker += CodFreq[j]; }
+		}
+		if(fabs(Checker - AAFreq[i]) > 1.0E-5) { Error("Frequencies in GetAdjustmentScore(...) do not match...\n\n"); }
+	}
+#endif
+/*	cout << "\nDEBUG CHECKING";
+	cout << "\nCODS:"; FOR(i,64) { cout << "\t" << State(COD,i); }
+	cout << "\nCodFrqs1:\t" << CodFreq;
+	cout << "\nCodFrqs2:\t" << COD_Data->m_vFreq;
+	cout << "\nCodons:"; FOR(i,64) { cout << "\t" << GenCodes[GenCode][i]; }
+	cout << "\nAAFrq:\t" << AAFreq;
+*/	// Do the computations. Arbitrarily indexing on the amino acid sequence.
+	// Note I have to work in the true sequence space because of the redundancy of the amino acid sequence
+	RetValue = 0.0;
+	FOR(i,AA_Data->m_iNoSeq)	{
+		FOR(j,AA_Data->m_iTrueSize)	{
+//			cout << "\n[" << i<< "][" << j << "]: ";
+			if(AA_Data->m_ariSeq[i][AA_Data->m_ariPatMap[j]] == AA_Data->m_iChar) { continue; } // Skip gaps
+//			cout << State(COD,COD_Data->m_ariSeq[i][COD_Data->m_ariPatMap[j]]) << " = " << CodFreq[COD_Data->m_ariSeq[i][COD_Data->m_ariPatMap[j]]] << " : " << AAFreq[AA_Data->m_ariSeq[i][ AA_Data->m_ariPatMap[j]]];
+			RetValue += log(CodFreq[COD_Data->m_ariSeq[i][COD_Data->m_ariPatMap[j]]] / AAFreq[AA_Data->m_ariSeq[i][ AA_Data->m_ariPatMap[j]]]);
+		}
+	}
+	return RetValue;
+}
+
+
+double CData::OldGetAminoToCodonlnLScale(int GeneticCode)	{
 	int i, j;
 	double RetValue = 0.0;
 	if(m_DataType != DNA) { Error("\nError: CData::GetAminoToCodonlnLScale() only works for NUCLEOTIDE data\n"); }
@@ -1098,22 +1282,56 @@ double CData::GetAminoToCodonlnLScale(int GeneticCode)	{
 	FOR(i,AA_Data.m_iNoSeq) {
 		FOR(j,AA_Data.m_iTrueSize) {
 			if(AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]] == AA_Data.m_iChar) { continue; } // Skip gaps
-			 // cout << "\n["<<i<<"]["<<j<<"]: " <<  COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] << " / " << AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]];
-			 // cout << " = " << COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]] << " / " << AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]];
-			 // cout << " = " << COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]];
-			 // cout << " --> " << log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]]);
+			 cout << "\n["<<i<<"]["<<j<<"]: " <<  COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] << " / " << AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]];
+			 cout << " = " << COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]] << " / " << AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]];
+			 cout << " = " << COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]];
+			 cout << " --> " << log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]]);
 			RetValue += log(COD_Data.m_vFreq[COD_Data.m_ariSeq[i][COD_Data.m_ariPatMap[j]]] / AA_Data.m_vFreq[AA_Data.m_ariSeq[i][AA_Data.m_ariPatMap[j]]]);
 		}
 	}
 	return RetValue;
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+// Function that produces corrects a set of codon frequencies so that they match a set of amino acid frequencies
+// For a codon c_{i,j} and the corresponding amino acid a_c_{i,j} we know
+//   a_c_{i,j} = \sum_{c_{i,j} \in a_c_{i,j}} c_{i,j}
+// For a given set of c_{i,j} they are normalised to produce the correct a_c_{i,j}
+// Note: Assumes codon frequencies are passed in 64-state space
+vector <double> EnforceAAFreqOnCodon(vector<double> CodFreq, vector <double> AAFreq, int GCode)	{
+	int i, j;
+	int count, aa;
+	double Total;
+	vector <double> temp;
+	// Check entry conditions
+	assert(CodFreq.size() == 64); assert(AAFreq.size() == 20);
+	assert(fabs(Sum(&CodFreq) - 1.0) < 1.0E-5); assert(fabs(Sum(&AAFreq) - 1.0) < 1.0E-5);
+	// Do the codon frequencies on a per amino acid basis
+	FOR(aa,20) { // Loop through the amino acids
+		// Count the number of codons for a particular amino acid
+		Total = 0; count = 0; temp.clear();
+		FOR(i,64) { if(GenCodes[GCode][i] == aa) { count++; Total+=CodFreq[i]; temp.push_back(CodFreq[i]); } }
+		Total /= AAFreq[aa];
+		temp.clear();
+		// Non-zero it's simple
+		if(Total > 1.0E-5) { FOR(i,64) { if(GenCodes[GCode][i] == aa) { CodFreq[i] /= Total; temp.push_back(CodFreq[i]); } }assert(fabs(Sum(&temp) - AAFreq[aa]) < 1.0E-5); }
+		// If it's zero arbitrarily set to even
+		else { FOR(i,64) { if(GenCodes[GCode][i] == aa) { CodFreq[i] = AAFreq[aa]/ (double) count; } } }
+	}
+	// Error checking on exit
+	assert(fabs(Sum(&CodFreq) - 1.0) < 1.0E-5);
+	return CodFreq;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////
 // Get the scaling factor between RY recoding and codon models
 // ** This function is based on the premise that the RY to nucleotide projection is adequate **
-double CData::GetRYToCodonlnLScale(int GeneticCode)	{
-	int i, j;
-	double RetValue = 0.0;
+// Similar to the AA -> Codon projection there are two valid ways of producing an adjustment factor
+// 1. Take the empirical frequencies, which is the equivalent of taking the MLEs from a multinomial. Adds 2 df
+// 2. Equiprobable frequencies, which are always 1/2. Adds 0 df.
+double CData::GetRYToCodonlnLScale(int GeneticCode, int *df)	{
+	int i, j, count =0;
+	double RetValue = 0.0, EmpVal = 0.0, EquVal = 0.0; *df = 0;
 	if(m_DataType != DNA) { Error("\nError: CData::GetRYToCodonlnLScale() only works for NUCLEOTIDE data\n"); }
 	if(!InRange(GeneticCode,0,11)) { Error("\nTrying to do DNA CData::GetAminoToCodonlnLScale() with out of range GenCode\n"); }
 	CData RY_Data = *this; RY_Data.DNA2RY();
@@ -1126,9 +1344,13 @@ double CData::GetRYToCodonlnLScale(int GeneticCode)	{
 			cout << "[" << RY_Data.m_ariSeq[i][RY_Data.m_ariPatMap[j]] << "]=" << RY_Data.m_sABET[RY_Data.m_ariSeq[i][RY_Data.m_ariPatMap[j]]] << " : ";
 			cout <<  m_vFreq[m_ariSeq[i][m_ariPatMap[j]]] << " / " << RY_Data.m_vFreq[RY_Data.m_ariSeq[i][RY_Data.m_ariPatMap[j]]] << " = " << m_vFreq[m_ariSeq[i][m_ariPatMap[j]]] / RY_Data.m_vFreq[RY_Data.m_ariSeq[i][RY_Data.m_ariPatMap[j]]];
 			cout << " --> " << log(m_vFreq[m_ariSeq[i][m_ariPatMap[j]]] / RY_Data.m_vFreq[RY_Data.m_ariSeq[i][RY_Data.m_ariPatMap[j]]]);
-*/			RetValue += log(m_vFreq[m_ariSeq[i][m_ariPatMap[j]]] / RY_Data.m_vFreq[RY_Data.m_ariSeq[i][RY_Data.m_ariPatMap[j]]]);
+*/			EmpVal += log(m_vFreq[m_ariSeq[i][m_ariPatMap[j]]] / RY_Data.m_vFreq[RY_Data.m_ariSeq[i][RY_Data.m_ariPatMap[j]]]);
+			count++;
 		}
 	}
+	EquVal = count * log(0.5);
+	if(EmpVal -2 > EquVal) { RetValue = EmpVal; *df = 2; } else { RetValue = EquVal; }
+//	cout << "\n--- NT---\nEmp: " << EmpVal << " (" << EmpVal - 2 << ") and Equ: " << EquVal; if(EmpVal - 2 > EquVal) { cout << "  *EMP*"; } else { cout << " *EQU*"; } cout << endl;
 	return RetValue;
 }
 
