@@ -1010,6 +1010,7 @@ int CBaseModel::PrepareSPR(int Br, int LNum, int *OriBr, LazyType DoLazy)	{
 
 // Calculate P(t) matrices for a specific branch
 void CBaseModel::PreparePT(int Br)	{
+	assert(InRange(Br,0,Tree()->NoBra()));
 	int i; FOR(i,(int)m_vpProc.size()) { m_vpProc[i]->Make_PT(Br,true); }
 }
 

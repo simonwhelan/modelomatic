@@ -9,6 +9,8 @@
 
 enum ENodeType	{ branch, leaf, root};
 
+struct SSplit{ int BrLabel; vector <int> Left, Right; };
+
 class CNode		{
 public:
     // Member variables
@@ -54,9 +56,9 @@ public:
     /////////////////////////////////
 
     // Constructor functions
-    CTree(string TREE, int NoSeq, bool AllowFail = false, CData *Data = NULL);			// Basic constructor
-	CTree(string TREE, bool GetTreeFromFile,CData *Data =NULL, bool AllowFail = false);	// Risky constructor (may be wrong tree for data)
-	void CreateTree(string TREE,int NoSeq,bool CheckVar = true, bool AllowFail = false,CData *D = NULL);// Underlying construction function
+    CTree(string TREE, int NoSeq, bool AllowFail = false, CData *Data = NULL, bool AllowSubTree = false);			// Basic constructor
+	CTree(string TREE, bool GetTreeFromFile,CData *Data =NULL, bool AllowFail = false, bool AllowSubTree = false);	// Risky constructor (may be wrong tree for data)
+	void CreateTree(string TREE,int NoSeq,bool CheckVar = true, bool AllowFail = false,bool AllowSubTree = false,CData *D = NULL);// Underlying construction function
     // Blank constructor
     CTree(CData *D = NULL);
 	// Copy Constructor
@@ -153,10 +155,14 @@ public:
 
 	// Function to create a consistent output for comparison
 	vector <int> ConstOut();
-	int NodeDist(int Node1, int Node2, int NodeFrom = -1);		// Count number of branches seperating nodes i and j;
-	int BranchDist(int Br1, int Br2, bool AllowZero = false);	// Count the number of branches seperating branches Br1 and Br2; !AllowZero means that very short branches will not be considered real branches
-	// Function for comparing trees using Robinson-Foulds distance
-	int GetRFDist(CTree &Tree);
+	int NodeDist(int Node1, int Node2, int NodeFrom = -1);		// Count number of branches separating nodes i and j;
+	int BranchDist(int Br1, int Br2, bool AllowZero = false);	// Count the number of branches separating branches Br1 and Br2; !AllowZero means that very short branches will not be considered real branches
+	// Functions for comparing trees using Robinson-Foulds distance
+	int GetRFDist(CTree &Tree);			// Standard comparison between two trees of same number of taxa
+	bool IsCompatible(CTree &SubTree);	// Compares tree <SubTree> with #Seq <= *this->#Seq to check whether they are compatible (High level function accepting tree objects)
+
+	// Functions for adding sequences to a subtree tree based on an existing full tree (Greedy algorithm for maximising tree length)
+
 
 	// Functions for testing properties of trees
 	bool IsNode(int Node);  // Used for assert statements
@@ -164,10 +170,15 @@ public:
 	bool IsCutTree();		// Whether tree has had sequences removed...
 	bool GoodBra(int Branch);	// Is an active branch in the tree
 	bool GoodNode(int Node);	// Is an active node in the tree
+
+	// Tree split-based functions
+	void BuildSplits();									// Build the set of splits associated with a tree. Current implementation always forces the rebuild
+	SSplit GetSplit(int Bra);						// Return the split set for branch Bra
 	int BranchSets(int BranchNum, vector <int> *Left, vector <int> *Right);	// Find the sets of leaf sequences that the branch splits
 	int FindBra(int Node_i, int Node_j);	// Find branch linking Nodes i and j, returns -1 if none
 		// Returns the value of total number in the Left set (i.e. Left = m_ariBraLinks[0] )
 	void GetBraSets(int NTo, int NFr, vector <int> *List, bool First = true);
+	void OutSplits(ostream &os = cout);
 	// Functions to get pairwise distances from a tree
 	vector <double> GetTreePW();
 	vector <double> GetAllTreePW();
@@ -220,6 +231,7 @@ private:
 	bool m_bValid;				// Flag to identify whether a valid constructor has been run
 	vector <int> m_viBranchLabels;	// Labels for different branch types (e.g. parameter per branch models)
 	int m_iNoBraLabels;				// Number of unique branch labels
+	vector <SSplit> m_vSplits;	// Vector containing the splits on a tree
 
 	// Private member functions
     ////////////////////////////////////////////////////////////
@@ -242,5 +254,13 @@ private:
 
 void ExpandNode(int Node, string *String, int Stringpos, CTree *TREE);
 int IsTreeGap(char Check);
+// Functions for finding the greedy subtree
+CTree FindGreedySubTree(CTree *FullTree, int NoSeq); 		// Driver function: uses the greedy algorithm to identify the optimal subtree
+double TravAddGreedy(CTree *CurT, int To, int Fr, int Seq2Add, vector <double> *PWDist, int *BestBra); // Function to traverse a tree and test which position maximises distance
+double GetDist(int Add, int a, int b,vector <double> *PWDist);	// Check how much improvement a given sequence added to the tree would provide
+void GreedySeq2Tree(int Bra,int Seq2Add, CTree *CurTree, vector <double> *PWDists);  // Adds the sequence to the tree
+
+bool SplitsCompatible(vector <SSplit> Splits1, int S1_seq, vector <SSplit> Splits2, int S2_seq);	// Low level function just comparing a set of splits
+bool CompareSplit(SSplit S1, SSplit S2);															// Simple function for comparing splits
 
 #endif

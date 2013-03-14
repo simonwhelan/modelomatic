@@ -35,8 +35,8 @@ vector <double> PWDists;
 CPhyloDat PhyDat;
 int TABU_RADIUS = DEFAULT_TABU_RADIUS, EXIT_OBS, OptObs;
 double PROB_RAN_SEQ_REM = DEFAULT_PROB_RAN_SEQ_REM;
-bool AllowPreOpt = true, DoItFast = false;
-
+bool AllowPreOpt = true, DoItFast = false, DoItTrim = false;
+int TrimTree = 10;		// Number of sequences defaulted to by the DoItTrim option
 void DoInstructions();
 
 bool WarningMulD;
@@ -131,28 +131,32 @@ int main(int argc, char *argv[])	{
 
 	// Get information
 	if(!InRange(argc,4,7)) {
-		Error("ModelAssess <data_file> <tree_file> <output_file> <genetic_code> <fast>\n");
+		cout << "ModelAssess <data_file> <tree> <output_file> <genetic_code> <fast>\n";
+		cout << "\n---";
+		cout << "\n\t<data_file>:  \tInput data in sequential or interleaved format";
+		cout << "\n\t<tree_file>:  \tEither input tree file in Newick or use 'bionj' to build a distance tree";
+		cout << "\n\t<output_file> \tWhere the output from the program will go";
+		cout << "\n\t<genetic_code>\tThe genetic code used for codon models and amino acid models [default = Universal]";
+		cout << "\n\t<fast>        \tOption controlling how analyses will be done [default = normal]";
+		cout << "\n\t\t\t\t\tnormal = full ML estimation for each tree";
+		cout << "\n\t\t\t\t\tfast = Only do full MLE for first tree of each data type; after that just model parameters";
+		cout << "\n\t\t\t\t\ttrim = Only use ten species with greatest tree coverage to perform analysis";
+		cout << "\nExiting...\n";
+		exit(-1);
 	}
 
 
 
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Create the data structures
+	// 1. Input the raw data
 	PhyDat.SetIn(argv[1]); PhyDat.GetData();
 	assert(PhyDat.pData()->m_DataType == DNA);
-	CData NT_Data = *PhyDat.pData();
-	CData AA_Data = *PhyDat.pData();
-	CData AA_Temp = *PhyDat.pData();  AA_Temp.Translate(GeneticCode);	// Error check the translation for stop codons and so on
-	CData COD_Data = *PhyDat.pData(); COD_Data.MakeCodonData();
-	CData RY_Data = *PhyDat.pData();
-
-	///////////////////////////////////////////////////////////////////////////////////////////
-	// Get tree
+	// 2. Create a tree
 	CTree Tree;
         clock_t start,end;
 	cout << "\nCreating start tree ... " << flush;
-        
-        start = clock();
+    start = clock();
 	if(!strcmp(argv[2],"bionj")) {
 		// Create a bionj starting tree
                 CData tmp_AA_Data = *PhyDat.pData();
@@ -162,7 +166,6 @@ int main(int argc, char *argv[])	{
 		CTree T_bionj(DoBioNJ(PWDists,PhyDat.pData()->m_vsName,true),tmp_AA_Data.m_iNoSeq);
 		cout << " estimated using bionj" << flush;
 		Tree = T_bionj;
-
 	} else {
 		// Take tree from file
 		InTree += argv[2];
@@ -176,6 +179,31 @@ int main(int argc, char *argv[])	{
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
 
+	// 3. If needed do the DoItTrim option
+   	// Check whether if is meant to be running fast
+        if(argc>5) {
+    	if(strcmp(argv[5],"normal") == 0) { DoItFast = false; }
+   		else if(strcmp(argv[5],"fast") == 0) { DoItFast = true; }
+   		else if(strcmp(argv[5],"trim") == 0) { DoItTrim = true; }
+   		else { Error("\nError on fast option\n"); }
+   	}
+
+	if(DoItTrim && Tree.NoSeq() > TrimTree)	{
+		bool Check;
+		// Now build the greedy tree
+		cout << "\nTRIMMING: Tree contains " << Tree.NoSeq() << "(>TrimTree=" << TrimTree << ") ..." << flush;
+		Tree  = FindGreedySubTree(&Tree,TrimTree);
+		cout << " done" << flush;
+		cout << "\n\tNewTree: " << Tree << flush;
+	}
+
+	// 3. Create the other data sets
+	CData NT_Data = *PhyDat.pData();
+	CData AA_Data = *PhyDat.pData();
+	CData AA_Temp = *PhyDat.pData();  AA_Temp.Translate(GeneticCode);	// Error check the translation for stop codons and so on
+	CData COD_Data = *PhyDat.pData(); COD_Data.MakeCodonData();
+	CData RY_Data = *PhyDat.pData();
+
 	// Set output
 	PhyDat.SetOut(argv[3]);
 
@@ -185,30 +213,6 @@ int main(int argc, char *argv[])	{
 		GeneticCode = atoi(argv[4]);
 	}
 	cout << "\nWorking with genetic code: " << GenCodeName[GeneticCode];
-
-	// Check whether if is meant to be running fast
-	if(argc>5) {
-		if(strcmp(argv[5],"fast") != 0) { cout << "\nExpecting to see fast, but saw " << argv[5] << "\n"; exit(-1); }
-		DoItFast=true;
-	}
-
-/*
-	// Some debug code for Codon models
-	cout << "\nTrying M0 Codon model...";
-	CCodonM0 TestM0(&COD_Data, &Tree, F64, 0);
-	TestM0.m_vpPar[1]->SetVal(1.0);
-	TestM0.m_vpPar[0]->SetVal(1.0);
-	cout << "\nlnL: " << flush;
-	cout << TestM0.lnL() << flush;
-	cout << " ... done" << flush;
-//	TestM0.m_vpProc[0]->OutQ();
-	cout << "\n" << TestM0;
-
-	exit(-1);
-	FullOpt(&TestM0,true,true,false,-BIG_NUMBER,true,DEFAULT_OPTNUM,-BIG_NUMBER,FULL_LIK_ACC,true);
-
-	exit(-1);
-*/
 
 	cout << "\nDoing model analysis...\n";
 	///////////////////////////////////////////////////////////////////////////////////////////
@@ -265,6 +269,7 @@ void GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int G
 	CRY RY(&RY_Data,Tree);
 	// Get the correction
 	double RY2Cod_Adj = Data->GetRYToCodonlnLScale(GeneticCode,&df);
+
 	if(df > 0) { NameAdd = "(+EMP)"; }
 	// Optimise
 	RY.m_sName += NameAdd;

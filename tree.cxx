@@ -123,9 +123,9 @@ CNode &CNode::operator=(const CNode & Node) {
 // **********************************************************
 
 // Top level constructors
-CTree::CTree(string TREE, int NoSeq, bool AllowFail, CData *Data)	{ m_iRootNode = -1; m_bRooted = false; m_bValid = false; m_ariBraLinks = NULL; CreateTree(TREE,NoSeq,true,AllowFail,Data); }		// Basic constructor
+CTree::CTree(string TREE, int NoSeq, bool AllowFail, CData *Data, bool AllowSubTree)	{ m_iRootNode = -1; m_bRooted = false; m_bValid = false; m_ariBraLinks = NULL; CreateTree(TREE,NoSeq,true,AllowFail,AllowSubTree, Data); }		// Basic constructor
 
-CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail)	{		// Risky constructor (may be wrong tree for data)
+CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail, bool AllowSubTree)	{		// Risky constructor (may be wrong tree for data)
 	/* If tree from file then TREE[] == filename, else TREE[] == the tree */
 	int FileNoSeq = -1;
 	string store;
@@ -143,7 +143,7 @@ CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail)	{		// R
 		}
 	}
 	else { store = TREE; }
-	CreateTree(store,FileNoSeq,true,AllowFail,Data);
+	CreateTree(store,FileNoSeq,true,AllowFail,AllowSubTree,Data);
 }
 
 int IsTreeGap(char Check)	{
@@ -163,7 +163,7 @@ CTree::CTree(const CTree &Tree)	{
 
 // Underlying Constructor function
 /////////////////////////////////////////////////////
-// Takes two arguements: char tree[], and int NoSeq
+// Takes two arguments: char tree[], and int NoSeq
 // tree[] is the tree is bracket form eg. ((1,2)3,4)
 // NOTE1:  The nnumber of brackets determines whether the tree is classified as rooted
 //          or unrooted.  Brackets == NoSeq-1 => rooted, Brackets == NoSeq-2 => unrooted
@@ -174,8 +174,8 @@ CTree::CTree(const CTree &Tree)	{
 // NOTE4:  This routine is wasteful of space as it takes an extra node rooted trees regardless of their shape
 // NoSeq is the number of leaf nodes in the tree
 /////////////////////////////////////////////////////
-void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CData *D) {
-    int i,j,pRight=0,pLeft=0,NextPointer=0,Parent, IntVal = -1, mem_seq, countBra;
+void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,bool AllowSubTree,CData *D) {
+    int i,j,pRight=0,pLeft=0,NextPointer=0,Parent, IntVal = -1, mem_seq, countBra, SubSeq;
 	size_t pos, pos_e;
     double TempBranch[3];		// Stores branch lengths
 	int TempLabel[3];			// Stores branch labels
@@ -202,13 +202,16 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 		if(AllowFail) { return; } else { Error(); }
 	}
 	// 2. Number of species agree
-	if(NoSeq > 0 && j != NoSeq) {
+	if(NoSeq > 0 && j != NoSeq && AllowSubTree == false) {
 		if(CheckVar) { Error("\nDisagreement between number of species in file header ("+int_to_string(NoSeq)+") and number of species in file ("+int_to_string(j)+")"); }
 		else {
 			// Make sure difference between input tree and space reserved
 			mem_seq = NoSeq; NoSeq = j;
 		}
-	} else { mem_seq = NoSeq = j; }
+	} else {
+		if(AllowSubTree) { assert(NoSeq > j); mem_seq = NoSeq; SubSeq = j; }
+		else { mem_seq = NoSeq = SubSeq = j; }
+	}
 	// 3. Number of internal nodes is correct
 	if(NoSeq == 2) { m_bRooted = false; }
 	else if(pRight!=(NoSeq-1) && NoSeq>2) {		// For unrooted trees #internal nodes = #seq - 2
@@ -224,7 +227,6 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 	}
 	// 4. Ends in ;
 	if(Tree[(int) ( Tree.size() -1 )] != ';') { cout << "\nNo ; at end of tree:\n"<<Tree<<"\n\n"; if(AllowFail) { return; } Error();	 }
-
 	///////////////////////////////////////////////////////////////////
 	// Initialise
     m_Node = NULL; m_bReady = false; m_iOutBra=m_bOutName=false; m_bOldTree = false; m_bOutLabel = false;
@@ -235,7 +237,6 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 	m_bFastCalcOK = false;
 	CheckAlloc = new bool[m_iNoNode+1]; assert(CheckAlloc != NULL);
     for(i=0;i<m_iNoNode+1;i++) { CheckAlloc[i] = false; }
-
 	// If data is not NULL then do replaces so its readable as a set of numbers
 	if(D != NULL) {
 		FOR(i,D->m_iNoSeq) {
@@ -262,11 +263,11 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 		if(isalpha(Tree[i])) { Error("\nError in CTree::CreateTree(): tree has names not associated with datafile...\nTree: " + Tree + "\n\n"); } 
 	}
 	TempTree = Tree;
-    if(m_iNoSeq>2)	{		// Prepare first bit of trNextPointeree if more than two species
+    if(SubSeq>2)	{		// Prepare first bit of trNextPointeree if more than two species
         // Loop to allocate nodes pLeft, pRight, Next are the old child0 child1 and parent nodes
 		// these are allocated to m_Node->link[0], [1] and [2] respectively  This is used to some effect
 		// when allocated branches and so on be careful not to screw it up
-    	if(m_bRooted) { countBra = NoSeq-1; } else { countBra = NoSeq-3; }
+    	if(m_bRooted) { countBra = SubSeq-1; } else { countBra = SubSeq-3; }	// Note SubSeq used to allow subtrees
     	// Note the last node is done in this routine for rooted trees and finalised in the next section
         for(NextPointer = m_iNoSeq, i=0;i<countBra;i++)	{	// Get the non-trifurcating bits of tree
 //        	cout << "\nProcessing: " << TempTree << flush;
@@ -325,7 +326,6 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
         			case 2: Parent = j; break;
         			default: cout << "\nError assigning branch lengths...\n\n"; if(AllowFail) { return; } Error();
         	}	}
-//        	cout << "\nFinal node being added: " << NextPointer << flush;
         	m_Node[NextPointer] = new CNode(pLeft,pRight,Parent,pLeft,pRight,Parent,IntVal); // Initialise the final node
         	if(m_Node[pLeft]->m_viLink.size() > 2)	{ m_Node[pLeft]->m_viLink[2] = NextPointer; }
         	if(m_Node[pRight]->m_viLink.size() > 2)	{ m_Node[pRight]->m_viLink[2] = NextPointer; }
@@ -336,27 +336,35 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
         	m_iRootNode = NextPointer -1;
         }
 	}	else	{	// Otherwise for two species
-		m_Node[0] = new CNode(1,0); m_Node[1] = new CNode(0,0);
-		i=1; while(isdigit(TempTree[i])) { i++; }	// Do first side
-		SetB(0,DoBranch(&TempTree,&i,&IntVal),true,true);
-		while(TempTree[i]!=':' && TempTree[i] != ';')	{ i++; }
-		if(TempTree[i] == ':') { AddB(0,DoBranch(&TempTree,&i,&IntVal),true,true); } // Get branch2
+		if(SubSeq == m_iNoSeq) {
+			m_Node[0] = new CNode(1,0); m_Node[1] = new CNode(0,0);
+			cout << "\nTempTree: " << TempTree << " cf. " << TempBranch << flush;
+			i=1; while(isdigit(TempTree[i])) { i++; }	// Do first side
+			SetB(0,DoBranch(&TempTree,&i,&IntVal),true,true);
+			while(TempTree[i]!=':' && TempTree[i] != ';')	{ i++; }
+			if(TempTree[i] == ':') { AddB(0,DoBranch(&TempTree,&i,&IntVal),true,true); } // Get branch2
+		}
+		else {
+			TempBranch[0] = TempBranch[1] = TempBranch[2] = 0.0;
+			find_closest(&TempTree,&pLeft,&pRight,&Parent,NextPointer, TempBranch, TempLabel,&IntVal);
+			m_Node[pLeft] = new CNode(pRight,0); m_Node[pRight] = new CNode(pLeft,0);
+			SetB(0,TempBranch[0] + TempBranch[1],true,true);
+			ReplaceBraLink(0,0,pRight); ReplaceBraLink(0,1,pLeft);
+		}
 	}
-	BuildBraLinks(CheckVar); // Get the list of branches links
-
+    FOR(i,NoNode()) { if(CheckAlloc[i] == false) { break; } } // Check if all nodes assigned
+	if(i!=NoNode()) { CheckVar = false; FOR(i,m_iNoSeq) { if(NoLinks(i) > 0) {  m_iStartCalc = i; break; } } }
+	BuildBraLinks(CheckVar);  // Get the list of branches links
 	OrderNode(-1,true);
 	m_bReady=true;	    // Tree is now ready!!!
-
 	// Do some branch by branch things
 	m_iNoOptBra = m_iNoBra;
 	DEL_MEM(CheckAlloc);
 	ValidateTree();
 	m_bValid = true;
-
 	// Remove branch labels if not used
 	for(i=1;i<(int)m_viBranchLabels.size();i++) { if(m_viBranchLabels[i] != m_viBranchLabels[0]) { break; } }
 	if(i == m_viBranchLabels.size()) { m_viBranchLabels.clear(); }
-
 	// Sort branch labels so sensibly labelled
 	temp_l.assign(m_viBranchLabels.begin(),m_viBranchLabels.end());
 	temp_l.sort(); temp_l.unique();
@@ -365,6 +373,7 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,CDa
 	m_iNoBraLabels = (int)temp_l2.size();
 }
 
+// Create the branch links. Also works for sub trees
 void CTree::BuildBraLinks(bool Verify)	{
 	int i,j,k;
 	int *BranCount;
@@ -1048,6 +1057,7 @@ int CTree::AddSeq(int SNum,int Bra, double Prop)	{
 	assert(braN < m_iNoNode && m_Node[braN]->m_NodeType == branch && m_Node[braN]->m_viLink.size() == 3 && m_Node[braN]->m_viBranch.size() == 3);
 	braB = m_Node[braN]->m_viBranch[1];
 	assert(m_Node[braN]->m_viLink[0] == SNum && m_Node[braN]->m_viLink[1] == -1 && m_Node[braN]->m_viLink[2] == -1);
+	assert(m_Node[braN]->m_viBranch[0] == leafB);
 	assert(m_Node[braN]->m_viBranch[0] == leafB && m_Node[braN]->m_viBranch[1] != -1 && m_Node[braN]->m_viBranch[2] == -1);
 	inN1 = m_ariBraLinks[Bra][0]; inN2 = m_ariBraLinks[Bra][1];
 	assert(IsNode(inN1) && IsNode(inN2));
@@ -1267,6 +1277,33 @@ void CTree::Unroot()	{
 }
 
 ///////////////////////////////////////////////////////////////////
+// Functions associated with splits on a tree
+void CTree::BuildSplits()	{
+	int i;
+	m_vSplits.clear();
+	FOR(i,NoBra()) { m_vSplits.push_back(GetSplit(i)); }
+}
+
+SSplit CTree::GetSplit(int Bra) {
+	SSplit RetSplit;
+	// Check entry conditions
+	assert(InRange(Bra,0,m_iNoBra));
+	// Get the splits
+	RetSplit.BrLabel = Bra;
+	BranchSets(Bra,&RetSplit.Left,&RetSplit.Right);
+	return RetSplit;
+}
+
+void CTree::OutSplits(ostream &os) {
+	int i;
+	BuildSplits();
+	FOR(i,NoBra()) {
+		cout << "\n\t" << m_vSplits[i].BrLabel << ":\t" << m_vSplits[i].Left << "\t" << m_vSplits[i].Right;
+	}
+
+}
+
+///////////////////////////////////////////////////////////////////
 // Function to calculate Robinson-Foulds distance between trees
 int CTree::GetRFDist(CTree &Tree)	{
 	int i,j, Dist;
@@ -1284,6 +1321,83 @@ int CTree::GetRFDist(CTree &Tree)	{
 	return Dist;
 }
 
+////////////////////////////////////////////////////////////////////////////
+// Function to check whether a subtree is compatible with the current tree
+bool CTree::IsCompatible(CTree &SubTree) {
+	int i,j,k,l,count,match = 0;
+	// Check input information
+	assert(SubTree.NoSeq() <= NoSeq());		// Check numbers of sequences are compatible
+	// Build the sets of splits
+	BuildSplits(); SubTree.BuildSplits();
+	return SplitsCompatible(m_vSplits,NoSeq(),SubTree.m_vSplits,SubTree.NoSeq());
+}
+
+bool SplitsCompatible(vector <SSplit> Split1, int S1_seq, vector <SSplit> Split2, int S2_seq) {
+	int i,j,k,l,count,match = 0;
+	// Check some entry conditions
+	assert((int)Split1.size() >= (int)Split2.size());
+	assert((int)Split1.size() == (S1_seq * 2) -3);
+	assert((int)Split2.size() == (S2_seq * 2) -3);
+//	cout << "\n>>>>>>>> INTO SplitsCompatible <<<<<<<<<<<";
+	// Compare the subtree's splits to the full tree one-by-one to check they're compatible
+	FOR(i,(int)Split2.size()) {
+		if(Split2[i].Left.empty() || (int)Split2[i].Left.size() < 2 || (int)Split2[i].Right.size() < 2 ) { continue; }	// Skip empty splits or trivial splits
+//		cout << "\nTesting SubTree["<<i<<"]: " << Split2[i].Left << " | " << Split2[i].Right;
+		// Splits are compatible providing there one split from *this matches one split from SubTree
+		// If not, then trees are incompatible and return false
+		FOR(j,Split1.size()) {
+			if((int)Split1[j].Left.size() < 2 || (int)Split1[j].Right.size() < 2) { continue; }
+//			cout << "\n\tcf ["<<j<<"]: " << Split1[j].Left << " | " << Split1[j].Right;
+			if(CompareSplit(Split1[j],Split2[i])) { break; }
+		}
+		// If loop runs to completion then no match is found
+		if(j==(int)Split1.size()) { return false; }
+	}
+	// If all match then return true
+	return true;
+}
+
+/////////////////////////// Compare Split /////////////////////
+// Functions where S2 can have a subset of sequences from S1
+// Assumes sequences in splits are in correct order (low to high); THIS IS NOT CHECKED!
+bool CompareSplit(SSplit S1, SSplit S2) {
+	int i, count = 0;
+	bool MatchLeft = false;
+	// Weak error checking
+	assert((int)S1.Left.size() + (int)S1.Right.size() >= (int)S2.Left.size() + (int)S2.Right.size());
+	// Compares S2.Left to S1.Left and S1.Right
+	// 1. S2.Left vs S1.Left
+	count = 0;
+	FOR(i,(int)S1.Left.size()) {
+		if(S1.Left[i] > S2.Left[count]) { break; }		// Always in order
+		if(S1.Left[i] == S2.Left[count]) { count++; if(count == (int)S2.Left.size()) { MatchLeft = true; break; } }	// Match
+	}
+	// 2. S2.Left to S1. Right
+	if(!MatchLeft) {
+		count = 0;
+		FOR(i,(int)S1.Right.size()) {
+			if(S1.Right[i] > S2.Left[count]) { break; } 	// Always in order
+			if(S1.Right[i] == S2.Left[count]) { count++; if(count == (int)S2.Left.size()) { break; } }	// Match
+		}
+		if(count != (int) S2.Left.size()) { return false; } // Neither Left nor right match
+	}
+	// Now checks right
+	if(MatchLeft) {
+		count = 0;
+		FOR(i,(int)S1.Right.size())	{
+			if(S1.Right[i] > S2.Right[count]) 	{ break; } 		// Always in order
+			if(S1.Right[i] == S2.Right[count])	{ count++; if(count == (int)S2.Right.size()) { return true; } } 	// Match
+		}
+	} else {
+		// 2. S2.Right vs S1.Left
+		count = 0;
+		FOR(i,(int)S1.Left.size()) {
+			if(S1.Left[i] > S2.Right[count])	{ return false; } 	// Always in order
+			if(S1.Left[i] == S2.Right[count])	{ count++; if(count == (int)S2.Right.size()) { return true; } }		// Match
+		}
+	}
+	return false;
+}
 
 // ofstream operator for tree
 /////////////////////////////////////////////////////
@@ -1977,4 +2091,112 @@ bool IsSameTree(CTree *T1, CTree *T2)	{
 	return true;
 }
 
+/////////////////////////////////////////////////////////////////////////////////
+// Functions for finding maximum tree length subtree containing exactly SubSeq
+// from the tree FullTree
+CTree FindGreedySubTree(CTree *FullTree, int SubSeq) {
+	int i,j,max,bra, best_seq, best_bra;
+	double dist, best_val;
+	vector <double> PWDists;
+	vector <int> SeqsToAdd; FOR(i,FullTree->NoSeq()) { SeqsToAdd.push_back(i); }
+	CTree CurTree;
+	string Start;
+	// Get starting pair of sequences
+	// 1. Get PW distances
+	PWDists = FullTree->GetTreePW();
+	// 2. Find the minimum pairwise distance and initialise the tree
+	dist = 0; max = 0; FOR(i,(int)PWDists.size()) { if(PWDists[i] > dist) { dist = PWDists[i]; max = i; } }
+	Start = "(" + int_to_string((max / FullTree->NoSeq())+1) + ":" + double_to_string(PWDists[max]) + "," + int_to_string((max % FullTree->NoSeq())+1) + ":0.0);";
+	SeqsToAdd[max / FullTree->NoSeq()] = -1; SeqsToAdd[max % FullTree->NoSeq()] = -1;
+	CurTree.CreateTree(Start,FullTree->NoSeq(),true,true,true);
+	// Progressively add the sequences to the tree
+	PWDists = FullTree->GetAllTreePW();
+	FOR(i,SubSeq-2)	{
+		// Find which sequence gives greatest gain
+		best_seq = -1; best_val = -BIG_NUMBER;
+		FOR(j,(int)SeqsToAdd.size()) {
+			if(SeqsToAdd[j]<0) { continue; }
+			// Initialise the tree part
+			dist = TravAddGreedy(&CurTree,(int)CurTree.StartCalc(),-1,SeqsToAdd[j],&PWDists,&bra);
+			if(dist > best_val) { best_seq = j; best_val = dist; best_bra = bra; }
+		}
+		GreedySeq2Tree(best_bra,SeqsToAdd[best_seq],&CurTree,&PWDists); SeqsToAdd[best_seq] = -1;
+		// Check compatibility between new and full tree
+		assert(FullTree->IsCompatible(CurTree));
+	}
+	return CurTree;
+}
 
+// Core in order tree traversal for adding a sequence
+// Need to find the closest location to add a sequence
+double TravAddGreedy(CTree *CurT, int To, int Fr, int Seq2Add, vector <double> *PWDist, int *BestBra) {
+	int i;
+	static double best;	// Current best value
+	double dist;
+	if(CurT->NodeType(To) == leaf) {	// Leaf nodes
+		if(Fr == -1) { // Starting node
+			*BestBra = CurT->FindBra(To,CurT->NodeLink(To,0));
+			best = GetDist(Seq2Add,To,CurT->NodeLink(To,0),PWDist); // Always store the first as best
+		} else {
+			dist = GetDist(Seq2Add,To,Fr,PWDist);
+			if(dist < best) { *BestBra = CurT->FindBra(To,Fr); best = dist; }
+		}
+	} else { 						// internal nodes
+		FOR(i,CurT->NoLinks(To))	{ if(CurT->NodeLink(To,i) == Fr || CurT->NodeLink(To,i) == -1) { break; } }
+		assert(i != CurT->NoLinks(To));
+		// If the node from isn't a leaf node do the internal calculation (i.e. avoids first node)
+		if(CurT->NodeType(CurT->NodeLink(To,i)) != leaf)	{
+			dist = GetDist(Seq2Add,To,Fr,PWDist);
+			if(dist < best) { *BestBra = CurT->FindBra(To,Fr); best = dist; }
+	}	}
+	// Do the looping
+	FOR(i,CurT->NoLinks(To))	{
+		if(CurT->NodeLink(To,i) == Fr || CurT->NodeLink(To,i) == -1) { continue; }
+		TravAddGreedy(CurT,CurT->NodeLink(To,i),To,Seq2Add, PWDist,BestBra);
+	}
+	return best;
+}
+// Get the distance obtained from adding a sequence (Add) between nodes (a,b)
+double GetDist(int Add, int a, int b, vector <double> *PWDist) {
+	int index = sqrt(PWDist->size());
+	double d_ab = PWDist->at((a*index)+b), d_aAdd = PWDist->at((a*index)+Add),d_bAdd = PWDist->at((Add*index)+b), l = d_ab+d_aAdd+d_bAdd;
+	return 0.5 * (l - (2*d_ab));
+
+}
+
+void GreedySeq2Tree(int Br, int Seq2Add, CTree *CurTree, vector <double> *PWDist) {
+	int i,j,k;
+	int tmp, NLeft = CurTree->BraLink(Br,0), NRight = CurTree->BraLink(Br,1);
+	vector <int> vtmp;
+	if(NRight > NLeft) { tmp = NRight; NRight = NLeft; NLeft = tmp; }
+	double Dleft = GetDist(NLeft,NRight,Seq2Add,PWDist), Dright = GetDist(NRight,NLeft,Seq2Add,PWDist), Dnew = GetDist(Seq2Add,NLeft,NRight,PWDist);
+	double prop;
+	// Error check and get the branch proportions
+	assert((Dleft + Dright) - CurTree->B(Br) < FLT_EPSILON);	// Check branch lengths agree
+	prop = Dright / (Dleft + Dright);
+	// Create the new node and branch for adding to the tree
+	// 1. Find a spare node and branch
+	assert(CurTree->NoLinks(Seq2Add) == 0);	// Check the node is empty
+	// Find the node that matches the expected distances
+	// Note this this not guarantee the correct mapping between the CurTree and original tree due to multifurcations, but it works!
+	for(i=CurTree->NoSeq();i<CurTree->NoNode();i++) {	// Find spare internal node
+		if(CurTree->NoLinks(i) == 0)  {
+			// Check 3 way distance condition matches
+			if(fabs(PWDist->at((CurTree->NoNode() * i) + NLeft) - Dleft) < FLT_EPSILON &&
+				fabs(PWDist->at((CurTree->NoNode() * i) + NRight) - Dright) < FLT_EPSILON &&
+				fabs(PWDist->at((CurTree->NoNode() * i) + Seq2Add) - Dnew) < FLT_EPSILON) { break; }
+	} 	}
+	assert(i != (int)CurTree->NoNode());
+	// Find two spare branches
+	k = -1; FOR(j,CurTree->NoBra()) { if(!CurTree->GoodBra(j)) { if(k==-1) { k = j; } else { /*cout << "\nBranch[" <<j << "] is spare";*/ break; } } }
+	// 2. Now connect them up (i = node; j = branch; k = branch spare)
+	vtmp.clear(); vtmp.push_back(i); CurTree->ReplaceNodeLink(Seq2Add,vtmp); 											// } replace nodes
+	vtmp.clear(); vtmp.push_back(Seq2Add); vtmp.push_back(-1); vtmp.push_back(-1); CurTree->ReplaceNodeLink(i,vtmp);	// }
+	CurTree->AssignNodeType(Seq2Add,leaf); CurTree->AssignNodeType(i,branch);											// }
+	vtmp.clear(); vtmp.push_back(j); CurTree->ReplaceNodeBra(Seq2Add,vtmp);		// }
+	vtmp.push_back(k); vtmp.push_back(-1); CurTree->ReplaceNodeBra(i,vtmp);		// } Do branches
+	CurTree->ReplaceBraLink(j,0,min(Seq2Add,i)); CurTree->ReplaceBraLink(j,1,max(Seq2Add,i));	// } Do links
+	CurTree->ReplaceBraLink(k,0,i); CurTree->SetB(j,Dnew);																// }
+
+	CurTree->AddSeq(Seq2Add,Br,prop);
+}
