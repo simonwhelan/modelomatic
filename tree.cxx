@@ -1147,6 +1147,10 @@ bool CTree::IsCutTree()	{
 int CTree::GetStart(bool replace)	{
 	int i;
 	FOR(i,m_iNoSeq) {
+		if(m_Node[i] == NULL) { continue; }
+		if((int)m_Node[i]->m_viLink.size() !=1 ) { continue; }
+		if(!InRange(m_Node[i]->m_viLink[0],0,m_iNoNode)) { continue; }
+		if((int)m_Node[m_Node[i]->m_viLink[0]]->m_viLink.size() != 3) { continue; }
 		if(m_Node[m_Node[i]->m_viLink[0]]->m_viLink[2]!=-1) { break; }
 	}
 	assert(i != m_iNoSeq);
@@ -2112,15 +2116,20 @@ CTree FindGreedySubTree(CTree *FullTree, int SubSeq) {
 	// Progressively add the sequences to the tree
 	PWDists = FullTree->GetAllTreePW();
 	FOR(i,SubSeq-2)	{
+//		cout << "\nDoing sequence add #" << i << "\n\tTrying";
 		// Find which sequence gives greatest gain
 		best_seq = -1; best_val = -BIG_NUMBER;
 		FOR(j,(int)SeqsToAdd.size()) {
+//			cout << " " << SeqsToAdd[j] << flush;
 			if(SeqsToAdd[j]<0) { continue; }
 			// Initialise the tree part
 			dist = TravAddGreedy(&CurTree,(int)CurTree.StartCalc(),-1,SeqsToAdd[j],&PWDists,&bra);
+//			cout << "^" << flush;
 			if(dist > best_val) { best_seq = j; best_val = dist; best_bra = bra; }
 		}
+//		cout << "\n\tBest " << SeqsToAdd[best_seq] << flush;
 		GreedySeq2Tree(best_bra,SeqsToAdd[best_seq],&CurTree,&PWDists); SeqsToAdd[best_seq] = -1;
+//		CurTree.OutBra(); cout << "\n\t" << CurTree;
 		// Check compatibility between new and full tree
 		assert(FullTree->IsCompatible(CurTree));
 	}
@@ -2172,7 +2181,8 @@ void GreedySeq2Tree(int Br, int Seq2Add, CTree *CurTree, vector <double> *PWDist
 	double Dleft = GetDist(NLeft,NRight,Seq2Add,PWDist), Dright = GetDist(NRight,NLeft,Seq2Add,PWDist), Dnew = GetDist(Seq2Add,NLeft,NRight,PWDist);
 	double prop;
 	// Error check and get the branch proportions
-	assert((Dleft + Dright) - CurTree->B(Br) < FLT_EPSILON);	// Check branch lengths agree
+//	cout << "\nDleft (" << Dleft << ") + Dright ("<< Dright << ") == " << Dleft + Dright << " cf. " << CurTree->B(Br) << " diff: " << fabs(CurTree->B(Br) - (Dleft + Dright));
+	assert(fabs((Dleft + Dright) - CurTree->B(Br)) < 10-4);	// Check branch lengths agree
 	prop = Dright / (Dleft + Dright);
 	// Create the new node and branch for adding to the tree
 	// 1. Find a spare node and branch
