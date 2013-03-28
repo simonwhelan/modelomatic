@@ -95,10 +95,10 @@ void CPhyloDat::GetData() {
 	getline(incheck,store); incheck.close();
 	FOR(i,(int)store.size()) { store[i] = toupper(store[i]); }
 	if(store.find("MULTIGENE") == string::npos) {
-		cout << "\nGetting single data";
+//		cout << "\nGetting single data";
 		GetSingleData();
 	} else {
-		cout << "\nGetting multidata";
+//		cout << "\nGetting multidata";
 		GetMultiData();
 	}
 }
@@ -107,9 +107,9 @@ void CPhyloDat::GetSingleData()	{
 	// If required get the input file
 	if(In().empty() || !FileExist(In())) { SetIn(GetInFileName()); }
 	while(m_pData == NULL)	{
-		cout << "\nGetting data" << flush;
+//		cout << "\nGetting data" << flush;
 		m_pData = new CData(In(),NONE,true);
-		cout << " ... done" << flush;
+//		cout << " ... done" << flush;
 		if(!m_pData->Valid()) {
 			cout << "\nFile does not appear to contain sequence data...";
 			delete m_pData; m_pData = NULL; SetIn(GetInFileName());

@@ -1,8 +1,8 @@
 /*	///////////////////////////////////////////////////////////////////////
-		ModelAssess -- Program for assessing the fit of lots of models
-			Simon Whelan, University of Manchester
+		ModelOMatic -- Program for assessing the fit of lots of models
+			Simon Whelan, Uppsala University
 
-		ModelAssess <data_file> <tree_file> <output_file> <Genetic_code; default=universal> <fast>
+		ModelOMatic <data_file> <tree_file> <output_file> <Genetic_code; default=universal> <fast>
 
 	Option definitions
 	<data_file>		Any sequence data file in phylip or sequential format
@@ -20,6 +20,7 @@
 #include <set>
 
 #define CHECK_LNL_OUT 1
+#define VERSION_NUMBER "1.0a"
 
 #if FUNC_COUNTERS == 1
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter, SPR_Log_Counter;
@@ -37,7 +38,7 @@ vector <double> PWDists;
 CPhyloDat PhyDat;
 int TABU_RADIUS = DEFAULT_TABU_RADIUS, EXIT_OBS, OptObs;
 double PROB_RAN_SEQ_REM = DEFAULT_PROB_RAN_SEQ_REM;
-bool AllowPreOpt = true, DoItFast = false, DoItTrim = false;
+bool AllowPreOpt = true, DoItFast = false, DoItTrim = false, ModelOut = false;
 int TrimTree = 10;		// Number of sequences defaulted to by the DoItTrim option
 void DoInstructions();
 
@@ -57,6 +58,18 @@ std::set <string> codon_model_set;
 int main(int argc, char *argv[])	{
 		int GeneticCode = 0;
 		int count = 0;
+
+		// Stuff from Leaphy
+		int i,j,NumModelReruns = 1;
+		long RandomSeed = 0;
+		string temp_string, Name;
+		vector <string> Toks;
+		TabuTrees.clear();
+		WarningMulD = false;
+		SBestModel Result;
+		bool DoSurface = false, DoHardOptCheck = false;
+		string TreeName, DataName;	// Some files strings for Trim option
+
         //set up aa_model_map
         //
 
@@ -117,46 +130,41 @@ int main(int argc, char *argv[])	{
 
 	string InTree = "file=";
 
-
-	// Stuff from Leaphy
-	int i,NumModelReruns = 1;
-	long RandomSeed = 0;
-	string temp_string, Name;
-	vector <string> Toks;
-	TabuTrees.clear();
-	WarningMulD = false;
-	SBestModel Result;
-	bool DoSurface = false, DoHardOptCheck = false;
-
 	// Some initial verification
 	if(min(LOOSE_RMSD_SUBSET,FULL_RMSD_SUBSET) < 105 && min(LOOSE_PARS_SUBSET,FULL_PARS_SUBSET) < 105) { Error("\nTrying to choose subsets of trees to examine based both on RMSD and parsimony"); }
 
 	// Get information
-	if(!InRange(argc,4,7)) {
-		cout << "ModelAssess <data_file> <tree> <output_file> <genetic_code> <fast>\n";
+	if(!InRange(argc,4,8)) {
+		cout << "ModelOMatic <data_file> <tree> <output_file> <genetic_code> <normal/fast/trim> <models_out>\n";
 		cout << "\n---";
 		cout << "\n\t<data_file>:  \tInput data in sequential or interleaved format";
 		cout << "\n\t<tree_file>:  \tEither input tree file in Newick or use 'bionj' to build a distance tree";
 		cout << "\n\t<output_file> \tWhere the output from the program will go";
 		cout << "\n\t<genetic_code>\tThe genetic code used for codon models and amino acid models [default = Universal]";
-		cout << "\n\t<fast>        \tOption controlling how analyses will be done [default = normal]";
+		cout << "\n\t<normal/fast/trim>        \tOption controlling how analyses will be done [default = normal]";
 		cout << "\n\t\t\t\t\tnormal = full ML estimation for each tree";
 		cout << "\n\t\t\t\t\tfast = Only do full MLE for first tree of each data type; after that just model parameters";
 		cout << "\n\t\t\t\t\ttrim = Only use ten species with greatest tree coverage to perform analysis";
+		cout << "\n\t<models_out>  \tyes/no Option to output full model details to file model.out [default = no]";
 		cout << "\nExiting...\n";
 		exit(-1);
 	}
-
-
+	cout << "\n---------------------------------------------------------------------------------------------";
+	cout << "\n  ModelOMatic (v" << VERSION_NUMBER << ").\n\tA program for choosing substitutions models for phylogenetic inference.\n\tWritten by Simon Whelan.\n\tContributions from James Allen, Ben Blackburne and David Talavera.";
+	cout << "\n---------------------------------------------------------------------------------------------";
 
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Create the data structures
+	// 0. Set output
+	PhyDat.SetOut(argv[3]);
 	// 1. Input the raw data
+	cout << "\nData: <" << argv[1] << ">" << flush;
 	PhyDat.SetIn(argv[1]); PhyDat.GetData();
 	assert(PhyDat.pData()->m_DataType == DNA);
+	cout << ": " << PhyDat.pData()->m_iNoSeq << " sequences of length " << PhyDat.pData()->m_iTrueSize << " (DataMatrix: " << PhyDat.pData()->m_iNoSeq << " x " << PhyDat.pData()->m_iSize << ")" << flush;
 	// 2. Create a tree
 	CTree Tree;
-        clock_t start,end;
+	clock_t start,end;
 	cout << "\nCreating start tree ... " << flush;
     start = clock();
 	if(!strcmp(argv[2],"bionj")) {
@@ -175,30 +183,88 @@ int main(int argc, char *argv[])	{
 		if(PhyDat.pTree() == NULL) { Error("Failed to read tree from file <" + (string) argv[2] + ">\n\n"); }
 		PhyDat.pTree()->Unroot();
 		Tree = *PhyDat.pTree();
-		cout << " taken from file successfully" << flush;
+		cout << " taken from <" << InTree <<"> successfully" << flush;
 	}
         end = clock();
-        cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
+        cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)"<<flush;
         start=clock();
 
 	// 3. If needed do the DoItTrim option
    	// Check whether if is meant to be running fast
-        if(argc>5) {
+    if(argc>5) {
     	if(strcmp(argv[5],"normal") == 0) { DoItFast = false; }
-   		else if(strcmp(argv[5],"fast") == 0) { DoItFast = true; }
-   		else if(strcmp(argv[5],"trim") == 0) { DoItTrim = true; }
-   		else { Error("\nError on fast option\n"); }
+    	else {
+    		TreeName = argv[5];
+    		if(TreeName.find("fast") != string::npos) { DoItFast = true; TreeName = find_and_replace(TreeName,"fast",""); }
+    		if(TreeName.find("trim") != string::npos) { DoItTrim = true; TreeName = find_and_replace(TreeName,"trim",""); }
+    		if(!TreeName.empty()) { cout << "\nParsing of trim/fast option has resulted in left over characters: " << TreeName << "\n\n"; exit(-1); }
+    	}
    	}
+    cout << "\nOptimisation settings: "; if(!DoItFast && !DoItTrim) { cout << "normal"; } else { if(DoItFast) { cout << "fast "; } if(DoItTrim) { cout << "trim"; } }
+    // 4. Check model output options
+    if(argc>6) {
+    	TreeName = argv[6];
+    	if(TreeName.find("yes") != string::npos) { ModelOut = true; }
+    	else if(TreeName.find("no") != string::npos) { ModelOut = false; }
+    	else { cout << "\nUnknown option for models_out: " << TreeName << "\n\n"; exit(-1); }
+    }
+    // 5. Some file validation
+    if(FileExist(argv[3])) { cout << "\nError: main output file <" << argv[3] << "> already exists. Please delete this and related files before continuing.\n"; exit(-1); }
+    if(FileExist((string)argv[3] + (string)".model.out")) { cout << "\nError: models_out file <" << (string)argv[3] + (string)".model.out" << "> already exists. Please delete this and related files before continuing.\n"; exit(-1); }
 
 	if(DoItTrim && Tree.NoSeq() > TrimTree)	{
 		bool Check;
+		// Build file names
+		TreeName = (string)argv[3] + ".trim.tree";
+		DataName = (string)argv[3] + ".trim.data";
+		if(FileExist(TreeName)) { cout << "\n\tError: <" << TreeName << "> exists already. Please delete before continuing.\n"; exit(-1); }
+		if(FileExist(DataName)) { cout << "\n\tError: <" << DataName << "> exists already. Please delete before continuing.\n"; exit(-1); }
+		cout << "\nTRIMMING: \tTree contains " << Tree.NoSeq() << " sequences (>TrimTree=" << TrimTree << ") ..." << flush;
+		// Very briefly optimise the tree under JC
+		cout << "\n          \tLoose optimisation of start tree under JC ..." << flush;
+		CJC *TrimJC = NULL; TrimJC = new CJC(PhyDat.pData(),&Tree);
+		TrimJC->lnL(); LazyOpt(TrimJC,false,true,false);
+		delete TrimJC;
+		cout << " done" << flush;
 		// Now build the greedy tree
-		cout << "\nTRIMMING: Tree contains " << Tree.NoSeq() << "(>TrimTree=" << TrimTree << ") ..." << flush;
+		cout << "\n          \tObtaining greedy start tree with " << TrimTree << " sequences ..." << flush;
 		Tree  = FindGreedySubTree(&Tree,TrimTree);
 		cout << " done" << flush;
-		cout << "\n\tNewTree: " << Tree << flush;
+		// Output tree to appropriate place
+		Tree.SetNames(PhyDat.pData()->m_vsName,true);
+		Tree.OutName(); Tree.OutBra();
+		ofstream trout(TreeName.c_str());
+		trout << Tree << flush;
+		trout.close();
+		// Output the new data
+		// Needs to be slightly clever so that columns of '-' are not included
+		vector <string> NewSeq(TrimTree,"");
+		vector <int> Seqs2Out(TrimTree,-1), temp;
+		temp = Tree.GetSplit(Tree.StartCalc()).Right;
+		Tree.BuildSplits(); Seqs2Out = Tree.GetSplit(Tree.StartCalc()).Left; Seqs2Out.insert(Seqs2Out.end(),temp.begin(),temp.end());
+		assert((int)Seqs2Out.size() == TrimTree);
+		FOR(j,(int)PhyDat.pData()->m_iTrueSize) {
+			FOR(i,TrimTree) {
+				if(GAP_ABET.find(PhyDat.pData()->m_vsTrueSeq[Seqs2Out[i]][j]) == string::npos) { break; } // Real sequence exists so output
+			}
+			if(i != TrimTree) { // Sequence exists at that site so add to data for output
+				FOR(i,TrimTree) {
+					NewSeq[i].push_back(PhyDat.pData()->m_vsTrueSeq[Seqs2Out[i]][j]);
+		}	}	}
+		ofstream datout(DataName.c_str());
+		datout << TrimTree << "  " << NewSeq[0].size() << endl << endl;
+		FOR(i,TrimTree) { datout << PhyDat.pData()->m_vsName[Seqs2Out[i]] << " \t" << NewSeq[i] << "\n\n" << flush; }
+		datout.close();
+		// Read back the data
+		cout << "\n          \tReinitialising objects for trimmed data ..." << flush;
+		PhyDat.CleanData();	PhyDat.SetIn(DataName); PhyDat.GetData();
+		//CData NewData(DataName,DNA); PhyDat.
+		// Finally read back the tree
+		CTree SmallTree(TreeName,true,PhyDat.pData()); Tree = SmallTree;
+		cout << " done" << flush;
+		cout << "\n          \tNew files available: data = <" << DataName << ">; tree = <" << TreeName << ">";
+		// Create
 	}
-
 	// 3. Create the other data sets
 	CData NT_Data = *PhyDat.pData();
 	CData AA_Data = *PhyDat.pData();
@@ -216,10 +282,11 @@ int main(int argc, char *argv[])	{
 	}
 	cout << "\nWorking with genetic code: " << GenCodeName[GeneticCode];
 
-	cout << "\nDoing model analysis...\n";
+	cout << "\n>>> Doing model analysis <<< \n";
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Do the models
-	ofstream out("model.output");
+	TreeName = (string)argv[3] + (string)".model.out";
+	ofstream out(TreeName.c_str());
 	vector <SModelDetails> Models;
 	GetRYModels(&RY_Data,&Tree,&Models,GeneticCode, out);
         cout<<"\rRY Done ";
@@ -242,6 +309,7 @@ int main(int argc, char *argv[])	{
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
     out.close();
+    cout << "\nOutputting results to <" << argv[3] << ">";
     ofstream output(argv[3]);
 	double minAIC = Models[0].AIC;
 	for (i=1; i<(int)Models.size(); i++) {
@@ -253,7 +321,7 @@ int main(int argc, char *argv[])	{
 
 	}
 	output.close();
-	cout << "\n\nSuccessful exit\n";
+	cout << "\nSuccessful exit\n";
 	return 0;
 }
 
