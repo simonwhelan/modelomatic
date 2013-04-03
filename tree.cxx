@@ -2106,6 +2106,10 @@ CTree FindGreedySubTree(CTree *FullTree, int SubSeq) {
 	CTree CurTree;
 	string Start;
 	// Get starting pair of sequences
+	// 0. Need to ensure there are no real multifurcations because these can end up being resolved incorrectly.
+	FOR(i,FullTree->NoBra()) {
+		if(FullTree->B(i) < FLT_EPSILON) { FullTree->SetB(i,Random()*1.0E-4); }
+	}
 	// 1. Get PW distances
 	PWDists = FullTree->GetTreePW();
 	// 2. Find the minimum pairwise distance and initialise the tree
@@ -2114,6 +2118,7 @@ CTree FindGreedySubTree(CTree *FullTree, int SubSeq) {
 	SeqsToAdd[max / FullTree->NoSeq()] = -1; SeqsToAdd[max % FullTree->NoSeq()] = -1;
 	CurTree.CreateTree(Start,FullTree->NoSeq(),true,true,true);
 	// Progressively add the sequences to the tree
+//	FullTree->OutBra(); cout << "\nInitial starting tree:\n" << *FullTree;
 	PWDists = FullTree->GetAllTreePW();
 	FOR(i,SubSeq-2)	{
 //		cout << "\nDoing sequence add #" << i << "\n\tTrying";
