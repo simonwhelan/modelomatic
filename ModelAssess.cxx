@@ -240,8 +240,11 @@ int main(int argc, char *argv[])	{
 		// Needs to be slightly clever so that columns of '-' are not included
 		vector <string> NewSeq(TrimTree,"");
 		vector <int> Seqs2Out(TrimTree,-1), temp;
-		temp = Tree.GetSplit(Tree.StartCalc()).Right;
-		Tree.BuildSplits(); Seqs2Out = Tree.GetSplit(Tree.StartCalc()).Left; Seqs2Out.insert(Seqs2Out.end(),temp.begin(),temp.end());
+		Tree.BuildSplits();
+		FOR(i,Tree.NoSeq()) { if(Tree.BraLink(i,0) != -1) { break; } }
+		assert(i!=Tree.NoSeq());
+		temp = Tree.GetSplit(i).Right;
+		Seqs2Out = Tree.GetSplit(i).Left; Seqs2Out.insert(Seqs2Out.end(),temp.begin(),temp.end());
 		assert((int)Seqs2Out.size() == TrimTree);
 		FOR(j,(int)PhyDat.pData()->m_iTrueSize) {
 			FOR(i,TrimTree) {
@@ -285,6 +288,9 @@ int main(int argc, char *argv[])	{
 	cout << "\n>>> Doing model analysis <<< \n";
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Do the models
+
+//	cout << "\n>>>>>>>>>>>>>>>>>> DOING DEBUG STUFFING <<<<<<<<<<<<<<<<<<<<<<<<";
+
 	TreeName = (string)argv[3] + (string)".model.out";
 	ofstream out(TreeName.c_str());
 	vector <SModelDetails> Models;
@@ -615,6 +621,9 @@ SModelDetails DoModelRun(CBaseModel *M, int NoPar,double Adj) {
 	ModDet.DataType = M->m_pData->m_DataType;
 	M->lnL();
 	ModDet.OrilnL = FullOpt(M,true,FlipBool(DoItFast)) ;
+//	cout << "\nFinished opt: " << ModDet.OrilnL << " cf. actual lnL calc: " << M->lnL(true);
+//	double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double CurlnL,bool FullLikAcc, int NoIterations, double lnL2Beat, double lnL_tol, bool DoOutput,bool TightFullOpt)	{
+//	ModDet.OrilnL = FullOpt(M,true,FlipBool(DoItFast),false,-BIG_NUMBER,true, DEFAULT_OPTNUM,-BIG_NUMBER, FULL_LIK_ACC,true,false);
 	ModDet.lnL = ModDet.OrilnL + Adj;
 	ModDet.NoPar = NoPar; ModDet.AIC = GetAIC(ModDet.lnL,ModDet.NoPar);
 	ModDet.TreeLength = M->Tree()->GetTreeLength();

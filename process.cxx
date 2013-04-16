@@ -2862,7 +2862,7 @@ CQPar * CCodonProcess::AddOmega(int GenCode)	{
 	// Check entry conditions
 	assert(InRange(GenCode,0,11));
 	// Initialise
-	Par = new CQPar("Omega",m_iChar,INITIAL_OMEGA,true,1e-5);
+	Par = new CQPar("Omega",m_iChar,INITIAL_OMEGA,true,MIN_OMEGA);
 	// Assign the parameters
 	if(m_iChar == 64) { // When the Genetic code hasn't been applied
 		assert(m_vpQMat[0]->Char() == 64 && m_pData->m_DataType == COD);
