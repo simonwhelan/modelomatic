@@ -14,6 +14,7 @@ extern bool WarningMulD;
 extern vector <double> PWDists;
 extern vector <STabuTree> TabuTrees;
 extern int TABU_RADIUS, OptObs, EXIT_OBS;
+extern bool ALLOW_PREDICTLNL;
 #else
 CPhyloDat PhyDat;
 bool WarningMulD;
@@ -88,12 +89,12 @@ double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double Cu
 // Standard likelihood optimising routine but only does a bit...
 double LazyOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double CurlnL,bool FullLikAcc, int NoIterations, double lnL2Beat, bool DoOutput)	{
 	int i;
-	double ACC = FULL_LIK_ACC;
+	double ACC = FULL_LIK_ACC; double GTOL = FULL_GTOL;
 	bool OnlyBra = false;
 	// Deal with parsimony
 	if(Model->IsParsimony()) { return Model->lnL(true); }
 	// Do everything else
-	if(FullLikAcc == false) { ACC = PART_LIK_ACC; }
+	if(FullLikAcc == false) { ACC = PART_LIK_ACC; GTOL = PART_GTOL; }
 	if(Model->IsRMSDCalc()) { ACC = RMSD_ACC; }
 #if DO_NOT_RUN == 1
 	Error("\nSet IS_LNL_CALC to 1 in Leaphy.h file when compiling programs that do likelihood computations");
@@ -113,7 +114,8 @@ double LazyOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double Cu
 			if(fabs(CurlnL+BIG_NUMBER) < DBL_EPSILON) { Model->m_pTree->OutBra(); cout << "\nTree:\n" << *Model->m_pTree << "\nLikelihood: " << Model->lnL(); Error("\nLazyOpt(...) failed due to weird likelihood..."); }
 	}	}
 	// Get the optimised likelihood
-	CurlnL = MulD_Optimise(CurlnL,FULL_GTOL,ACC,vPar,Model,2,DoOutput,OnlyBra,2,true,-lnL2Beat,2);
+	CurlnL = MulD_Optimise(CurlnL,GTOL,ACC,vPar,Model,NoIterations,DoOutput,OnlyBra,2,true,-lnL2Beat,2,false,false);
+//	CurlnL = MulD_Optimise(CurlnL,GTOL,ACC,vPar,Model,NoIterations,DoOutput,OnlyBra,2,true,-lnL2Beat,2);
 	// Clean up and return
 	FOR(i,(int)vPar.size()) { vPar[i] = NULL; }
 //	if(CurlnL > 0) { cout << "\n --- RETURNING CurlnL > 0 ???"; }
@@ -153,7 +155,7 @@ double PreOpt(CBaseModel *Model,bool DoOutput)	{
 
 /////////////////////////////////////////////////////////////////////////////////
 // Likelihood optimising routine for branches; doesn't work rigorously
-double LazyBraOpt(CBaseModel *Model, double CurlnL,int NoIterations)	{
+double LazyBraOpt(CBaseModel *Model, double CurlnL,int NoIterations, double Tol)	{
 	int i;
 	double ACC = FULL_LIK_ACC;
 	bool OnlyBra = false;
@@ -176,7 +178,7 @@ double LazyBraOpt(CBaseModel *Model, double CurlnL,int NoIterations)	{
 			if(fabs(CurlnL+BIG_NUMBER) < DBL_EPSILON) { Model->m_pTree->OutBra(); cout << "\nTree:\n" << *Model->m_pTree << "\nLikelihood: " << Model->lnL(); Error("\nLazyOpt(...) failed due to weird likelihood..."); }
 	}	}
 	// Get the optimised likelihood
-	CurlnL = Model->FastBranchOpt(CurlnL,0.001,NULL,2);
+	CurlnL = Model->FastBranchOpt(CurlnL,Tol,NULL,NoIterations);
 	// Clean up and return
 	FOR(i,(int)vPar.size()) { vPar[i] = NULL; }
 	return CurlnL;
@@ -1719,7 +1721,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 //		cout << "\nInto lnsrch " <<fold << " -> " << fp  << " --> real_lnL: " << -Model->lnL(true) << " (diff=" << abs(Model->lnL(true) + fp) << ")";
 
 		alpha = lnsrch(x,fp,g,xi,pold,&fret,Do_GS,Model); fp = fret;
-
+//		cout << " --lnsrch-->" << fp;
 #if DEBUG_MULD_OPT > 1
 		cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< OUT OF LINESRCH: exp: " << -fp << "; lnL: " << Model->lnL() << "  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
 #endif
@@ -1934,6 +1936,8 @@ double PredictlnL(double *Last, int n)	{
 	int i,count = 0;
 	double OrilnL = Last[n-1], lnL = Last[n-1], dx1, dx2 = 0,temp = BIG_NUMBER;
 	assert(n >3);
+	if(!ALLOW_PREDICTLNL) { return 0.0; }
+	cout << "\nDOUPEE!!!"; exit(-01);
 
 	if(fabs(lnL) < DBL_EPSILON || Last[0] + DBL_EPSILON > BIG_NUMBER) { return 0.0; }
 //	cout << "\n\t\tlast 5: "; FOR(i,n) { cout << Last[i] << " "; }

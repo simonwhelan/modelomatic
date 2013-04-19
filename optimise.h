@@ -56,8 +56,8 @@ double DoScoreSPR(CBaseModel *M, bool DoOutput = true, double OrilnL = -BIG_NUMB
 // Likelihood optimiser routines
 double PreOpt(CBaseModel *Model, bool DoOutput);		// Pre-optimiser that gets branch lengths and initial parameters for models
 double FullOpt(CBaseModel *Model, bool DoPar = true, bool DoBra = true, bool DoFreq = false, double CurlnL = -BIG_NUMBER, bool FullLikAcc = true, int MaxNoIterations = DEFAULT_OPTNUM, double lnL2Beat = -BIG_NUMBER, double lnL_tol = FULL_LIK_ACC, bool DoOutput = false, bool TightFullOpt = false);
-double LazyOpt(CBaseModel *Model, bool DoPar = true, bool DoBra = true, bool DoFreq = false, double CurlnL = -BIG_NUMBER, bool FullLikAcc = true, int MaxNoIterations = DEFAULT_OPTNUM, double lnL2Beat = -BIG_NUMBER, bool DoOutput=false);
-double LazyBraOpt(CBaseModel *Model, double CurlnL = -BIG_NUMBER,int NoIterations = 2);
+double LazyOpt(CBaseModel *Model, bool DoPar = true, bool DoBra = true, bool DoFreq = false, double CurlnL = -BIG_NUMBER, bool FullLikAcc = true, int MaxNoIterations = 2, double lnL2Beat = -BIG_NUMBER, bool DoOutput=false);
+double LazyBraOpt(CBaseModel *Model, double CurlnL = -BIG_NUMBER,int NoIterations = 2, double Tol = 0.001);
 double IntBraOpt(CBaseModel *Model, double CurlnL = -BIG_NUMBER, bool FullLikAcc = true, int MaxNoIterations = DEFAULT_OPTNUM);
 
 // RMSD optimiser

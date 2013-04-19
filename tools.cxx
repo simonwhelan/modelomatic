@@ -3,7 +3,7 @@
 
 ///////////////////////////////////////////////////////////////////////
 // Some tools
-
+bool ALLOW_PREDICTLNL = true;	// Whether to allow predicted lnLs in optimisation
 #if FUNC_COUNTERS == 1
 int LFunc_Log_Counter = 0;
 int MakeQ_Log_Counter = 0;

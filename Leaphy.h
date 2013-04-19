@@ -99,7 +99,8 @@ enum LazyType { fullopt, lazy, randomtree };		// The type of optimisation done w
 #define FULL_LIK_ACC 1.0e-7		// Accuracy of full likelihood routines
 #define TREESEARCH_LIK_ACC 1.0e-2	// Accuracy of tree-search likelihood
 #define FULL_GTOL 1.0e-4		// Accuracy of gradient
-#define PART_LIK_ACC 1.0e-3		// Accuracy of approximate likelihood routines
+#define PART_GTOL 1.0e-2		// Accuracy of the gradient for approximate routines
+#define PART_LIK_ACC 1.0e-1		// Accuracy of approximate likelihood routines
 #define RMSD_ACC 1.0e-2			// Accuracy of RMSD optimisation
 #define DX 5.0E-5				// Delta(x) used for optimisation
 #define BOUND_GRAD 0			// Whether gradients should be bounded at GRAD_LIM
