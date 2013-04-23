@@ -1439,9 +1439,8 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
     // Start main loop
     for(;;)	{
     	// Hard debug code...
-/*
-    	cout << "\nOrips:"; FOR(i,n) { cout << "\t" << pold[i]; }
-    	cout << "\nSteps:"; FOR(i,n) { cout << "\t" << alam*p[i]; }
+ //   	cout << "\nOrips:"; FOR(i,n) { cout << "\t" << pold[i]; }
+ //   	cout << "\nSteps:"; FOR(i,n) { cout << "\t" << alam*p[i]; }
     	FOR(i,n) {
     		double left, middle, right;
     		*x[i] = pold[i] - 0.01;
@@ -1450,14 +1449,16 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
     		middle = -Model->lnL();
     		*x[i] = pold[i] + 0.01;
   			right = -Model->lnL();
-    		cout << "\nPar["<<i<<"] = " << pold[i] << " += " << p[i] <<": " << left << " (" << middle << ") " << right;
-    		if(middle < left && middle < right) { cout << " +++"; }
+//    		cout << "\nPar["<<i<<"] = " << pold[i] << " += " << p[i] <<": " << left << " (" << middle << ") " << right;
+//    		if(middle < left && middle < right) { cout << " +++"; }
     		*x[i] = pold[i];
     	}
-*/		// Add the value
+		// Add the value
 		FOR(i,n) { *x[i] = pold[i] + (alam * p[i]); }
 		// Perform calculation
+//		cout << "\n>>>> lnsrch: doing lnL calc " << flush;
 		*f = -Model->lnL(); v2 = v1; v1 = *f; a2 = a1; a1 = alam;
+//		cout << " ... done: " << *f << " <<< " << flush;
 #if DEBUG_MULD_OPT > 1
 		cout << "\n\t\tlnsrch: alam="<<alam << "; func=" << *f; if(x.size() == 1) { cout << " x= " << *x[0]; }
 #endif
@@ -1717,9 +1718,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 #if DEBUG_MULD_OPT > 1
 		cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< INTO LINESEARCH: exp: " << -fp << "; lnL: " << Model->lnL() << "  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
 #endif
-
 //		cout << "\nInto lnsrch " <<fold << " -> " << fp  << " --> real_lnL: " << -Model->lnL(true) << " (diff=" << abs(Model->lnL(true) + fp) << ")";
-
 		alpha = lnsrch(x,fp,g,xi,pold,&fret,Do_GS,Model); fp = fret;
 //		cout << " --lnsrch-->" << fp;
 #if DEBUG_MULD_OPT > 1
@@ -1937,8 +1936,6 @@ double PredictlnL(double *Last, int n)	{
 	double OrilnL = Last[n-1], lnL = Last[n-1], dx1, dx2 = 0,temp = BIG_NUMBER;
 	assert(n >3);
 	if(!ALLOW_PREDICTLNL) { return 0.0; }
-	cout << "\nDOUPEE!!!"; exit(-01);
-
 	if(fabs(lnL) < DBL_EPSILON || Last[0] + DBL_EPSILON > BIG_NUMBER) { return 0.0; }
 //	cout << "\n\t\tlast 5: "; FOR(i,n) { cout << Last[i] << " "; }
 	// Get 1st derivative

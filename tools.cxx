@@ -950,6 +950,9 @@ CProb &CProb::Assign(double Value)		{
 #if HARD_DEBUG_PROBS == 1
 	if(isnan(m_dValue) || isnan(Value)) { cout << "\nReturning Assign(double Value): Value= " << Value << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
+	if(!(Value <= 1.0 + FLT_EPSILON && Value >= 0.0 - FLT_EPSILON)) {
+		cout << "\nAbout to fail assert statement: Value = " << Value;
+	}
 	assert(Value <= 1.0 + FLT_EPSILON && Value >= 0.0 - FLT_EPSILON); m_dValue = Value; m_iScale = 0; DoScale(); return *this;
 }
 CProb &CProb::Assign(CProb &Prob)		{

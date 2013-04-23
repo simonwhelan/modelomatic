@@ -1340,7 +1340,6 @@ bool CBaseProcess::Likelihood(bool ForceReal)	{
 //	cout << "\nDoing likelihood: "; FOR(i,m_vpPar.size()) { cout << m_vpPar[i]->Val() << " "; }
 	// Create space if not already done so
 	if(m_vSpace.empty()) { MakeCalcSpace(false); }
-
 	// For zero rate models this is really easy
 	if(Rate() < DX) { MakeZeroRateLikelihood(); return true; }
 	// For maximum rate model this is also really easy (Garbage Collector)
@@ -1354,7 +1353,6 @@ bool CBaseProcess::Likelihood(bool ForceReal)	{
 	if(Prob() < SMALL_PROB) { return true; }
 	// Adjust the rate for the process (if required)
 	FOR(i,(int)m_vpQMat.size()) { m_vpQMat[i]->ScaleQ(m_pRate->Val()); }
-
 //	cout << "\nScaled Q rate" << flush;
 //	cout << "\nOverall eqm: " << m_vdEqm;
 //	cout << "\nHidden eqm:  " <<  m_vpEqm[0]->TransEqm();
@@ -1460,8 +1458,10 @@ void CBaseProcess::MakeZeroRateLikelihood()	{
 	int i;
 	FOR(i,m_pData->m_iSize)	{
 		if(m_pData->m_viNoChange[i] == -1) { m_ardL[i].Zero(); continue; }
+		assert( InRange(m_pData->m_viNoChange[i],0,(int)m_vdEqm.size()) );
 		m_ardL[i].Assign(m_vdEqm[m_pData->m_viNoChange[i]]);
-}	}
+	}
+}
 
 void CBaseProcess:: MakeMaxRateLikelihood() {
 	int i,j;

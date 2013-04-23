@@ -433,7 +433,9 @@ void CData::InputData(EDataType Type, vector <string> cInputSeq, vector <string>
 	// Get the places where no changes occur
 	FOR(i,m_iSize)	{
 		for(j=1;j<m_iNoSeq;j++) { if(m_ariSeq[j][i] != m_ariSeq[0][i]) { break; } }
-		if(j == m_iNoSeq) { m_viNoChange[i] = m_ariSeq[0][i]; }
+		if(j == m_iNoSeq) {
+			if(InRange(m_ariSeq[0][i],0,m_iChar)) { m_viNoChange[i] = m_ariSeq[0][i]; }
+		}
 	}
 	m_ariPatOcc.assign(m_iSize,0);
 	FOR(i,m_iSize) { m_ariPatOcc[i] = ariPatOcc[i]; }
@@ -871,6 +873,9 @@ void CData::ReduceCodonData(int GenCode) {
 	m_iGenCode = GenCode;
 	m_DataType = COD_RED;
 	m_vFreq = NormaliseVector(m_vFreq);
+	// Also rebuild the m_viNoChange vector so it has the right dimensionality
+	FOR(i,m_iSize) { if(m_viNoChange[i] != -1) { m_viNoChange[i] = m_ariSeq[0][j]; } }
+
 
 //	cout << "\nNew frequency vector:"; FOR(i,m_iChar) { cout << "\n" << m_sABET.substr(i*3,3) << " == " << m_vFreq[i]; }
 //	cout << "\nState-space:"; FOR(i,m_iChar) { cout << "\n["<<i<<"]: " << m_sABET.substr(i*3,3); }
