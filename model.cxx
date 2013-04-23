@@ -692,7 +692,7 @@ void CBaseModel::PreparelnL(bool ForceRemake)	{
 double CBaseModel::lnL(bool ForceReal)	{
 	int i;
 	double logL = 0.0, TotalProb = 0.0;
-//	cout << "\n\t\t\tCBaseModel::lnL(" << ForceReal << ")" << flush;
+
 //	cout << "\n\n========== Starting new likelihood calc ================" << flush;
 	// New stuff dealing with submodels
 	if(!m_vpAssociatedModels.empty()) {

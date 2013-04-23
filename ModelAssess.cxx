@@ -638,20 +638,16 @@ SModelDetails DoModelRun(CBaseModel *M, int NoPar,double Adj) {
 	M->lnL();
 	ModDet.OrilnL = FullOpt(M,true,FlipBool(DoItFast)) ;
 	*/
-//	cout << "\nInto optimiser for " << M->Name() << flush;
 	// --- NEW VERSION OF THE DoItFast OPTION ---
 	CurlnL = M->lnL();
 	if(DoItFast) {
 		if(M->m_pData->m_DataType == DNA || M->m_pData->m_DataType == COD || M->m_pData->m_DataType == COD_RED) { NoIter = 10; }
 		CurlnL = LazyBraOpt(M,CurlnL,1,0.1);
-//		cout << " ... branches done" << flush;
 		CurlnL = LazyOpt(M,true,false,false,CurlnL,false,NoIter);
-//		cout << " ... parameters done" << flush;
 		ModDet.OrilnL = LazyBraOpt(M,CurlnL,1,0.1);
 	} else {
 		ModDet.OrilnL = FullOpt(M,true,true);
 	}
-//	cout << " ... all done" << flush;
 
 //	cout << "\nFinished opt: " << ModDet.OrilnL << " cf. actual lnL calc: " << M->lnL(true);
 //	double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double CurlnL,bool FullLikAcc, int NoIterations, double lnL2Beat, double lnL_tol, bool DoOutput,bool TightFullOpt)	{
