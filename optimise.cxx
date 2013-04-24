@@ -1587,7 +1587,7 @@ double SubSetlnsrch(double Prob, vector <double *> x,double *step_xi, vector <do
 double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,CBaseModel *Model,int NI, bool DoBasicOutput,bool OnlyBranches, int OptTol, bool NewOne, double lnL2Beat, int NoBranchOpt,bool AllowOnlyParOpt,bool TryReallyHard)	{
 	int i, its, j, NumberIter = NI, LikTol = 0, HessWarning = 0, n = (int)x.size();
     double den, fold, fac, fad, fae, fp, sum = 0.0, sumdg, sumxi, temp, test, max_g, old_max_g;
-	double inc;	// Some values describing the increases in likelihood
+	double inc, temp_lnL;	// Some values describing the increases in likelihood
     double *dg, *hdg, **hessin, *pold, *xi, *oldxi, fret, alpha, *sub_xi;
     double step_max = BIG_STEP_MAX, *grad_delta, Last5[5] = {BIG_NUMBER,BIG_NUMBER,BIG_NUMBER,BIG_NUMBER,BIG_NUMBER};
 	double PredictedlnL;
@@ -1668,7 +1668,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
     }
 	// Iterate
 	FOR(its,NumberIter)	{
-//		cout << "\n\t--- Iter: " << its << ": " << fp << " cf. " << Model->lnL(true) << " (" << fabs(fp+Model->lnL(true)) << ")" << flush ;
+//		cout << "\n\t--- Iter: " << its << ": " << fp; //  << " cf. " << Model->lnL(true) << " (" << fabs(fp+Model->lnL(true)) << ")" << flush ;
 		if(DoBasicOutput) {
 			cout << "\n\t["<<its<<"] " <<fold << " -> " << fp; //  << " cf. " << Model->lnL() << flush;
 			if(its == 0) { cout << "\n\t\t" << its << ": "; }
@@ -1718,7 +1718,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< INTO LINESEARCH: exp: " << -fp << "; lnL: " << Model->lnL() << "  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
 #endif
 
-//		cout << "\nInto lnsrch " <<fold << " -> " << fp  << " --> real_lnL: " << -Model->lnL(true) << " (diff=" << abs(Model->lnL(true) + fp) << ")";
+//		cout << "\nInto lnsrch " <<fold << " -> " << fp; //   << " --> real_lnL: " << -Model->lnL(true) << " (diff=" << abs(Model->lnL(true) + fp) << ")";
 
 		alpha = lnsrch(x,fp,g,xi,pold,&fret,Do_GS,Model); fp = fret;
 //		cout << " --lnsrch-->" << fp;
@@ -1767,10 +1767,16 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		optout << "\n\tPredictedlnL: " << PredictlnL(Last5,5) << "; Last5: "; FOR(i,5) { optout << Last5[i] << " "; }
 		if(inc < 0) { optout << "\nError: likelihood increasing in MulD_Optimise(...): fold: " << fold << ", fp: " << fp << "; diff= " << inc; exit(-1); }
 #endif
-		if(inc < ltol) {
-			if(n==1) { LikTol = OptTol; } else { LikTol++; }
-			if(fabs(inc) < FLT_EPSILON) { ResetHess = true; }
-		} else { LikTol = 0; }
+		if(inc < ltol) {	// If there's no discernable increase in likelihood
+			temp_lnL = -Model->lnL(true);
+			if(fabs(temp_lnL - fp) > 1.0E-6) {	// If there's an error detected reset the likelihood. Hopefully this won't happen too often...
+				 if(fabs(temp_lnL - fp) > 1.0E-1) { ResetHess = true; } // If it's a large error reset the hessian matrix
+				 fp = temp_lnL;
+				 LikTol = 0;
+			} else {
+				if(n==1) { LikTol = OptTol; } else { LikTol++; }
+				if(fabs(inc) < FLT_EPSILON) { ResetHess = true; }
+		} 	} else { LikTol = 0; }
 		// Check return conditions
 		if((test <= gtol && inc < ltol) || LikTol > OptTol)	{
 			// Do a round of fast branch optimisation
@@ -1795,6 +1801,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 						optout << "\n>>> Returning naturally. lnL= " << fp << " cf. old= " << fold << "; diff= " << fp - fold;
 #endif
 						// Final step is to check whether the
+//		cout << "\n---Return B: fp: " << -fp << " cf. " << Model->lnL(true);
 						FREEALL return -fp;
 				}	} else {
 #if DEBUG_MULD_OPT > 0
@@ -1804,6 +1811,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 #if DEBUG_MULD_OPT_SEP_FILES == 1 && DEBUG_MULD_OPT > 1
 		cout << " " << -fp << "("<<its<<")";
 #endif
+//		cout << "\n---Return C: fp: " << -fp << " cf. " << Model->lnL(true);
 						FREEALL return -fp;
 				}
 			}

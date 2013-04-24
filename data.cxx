@@ -874,7 +874,18 @@ void CData::ReduceCodonData(int GenCode) {
 	m_DataType = COD_RED;
 	m_vFreq = NormaliseVector(m_vFreq);
 	// Also rebuild the m_viNoChange vector so it has the right dimensionality
-	FOR(i,m_iSize) { if(m_viNoChange[i] != -1) { m_viNoChange[i] = m_ariSeq[0][j]; } }
+	FOR(i,m_iSize) {
+			if(m_viNoChange[i] != -1) {
+			m_viNoChange[i] = m_ariSeq[0][i];
+			if(!InRange(m_viNoChange[i],0,m_iChar)) {
+				cout << "\nHaving a problem with m_viNoChange["<<i<<"]: set to: " << m_viNoChange[i];
+				cout << "\n"; FOR(j,m_iNoSeq) { cout << "[" << j <<"]: " << m_ariSeq[j][i] << " "; }
+				cout << "\nHave set it to: " << m_ariSeq[0][i] << " == " << m_viNoChange[i];
+				cout << "\nAnd the sequences..."; FOR(j,m_iNoSeq) { cout << "\n["<<j<<"]: " << m_vsTrueSeq[j]; }
+			}
+			assert(InRange(m_viNoChange[i],0,m_iChar));
+		}
+	}
 
 
 //	cout << "\nNew frequency vector:"; FOR(i,m_iChar) { cout << "\n" << m_sABET.substr(i*3,3) << " == " << m_vFreq[i]; }

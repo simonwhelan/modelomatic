@@ -42,6 +42,7 @@ double PROB_RAN_SEQ_REM = DEFAULT_PROB_RAN_SEQ_REM;
 bool AllowPreOpt = true, DoItFast = false, DoItTrim = false, ModelOut = false;
 int TrimTree = 10;		// Number of sequences defaulted to by the DoItTrim option
 void DoInstructions();
+bool RunHadError = false;
 
 bool WarningMulD;
 
@@ -329,6 +330,7 @@ int main(int argc, char *argv[])	{
 
 	}
 	output.close();
+	if(RunHadError) { cout << "\nWARNING: Run had a potential error, but appeared to recover"; }
 	cout << "\nSuccessful exit\n";
 	return 0;
 }
@@ -640,6 +642,7 @@ SModelDetails DoModelRun(CBaseModel *M, int NoPar,double Adj) {
 	*/
 	// --- NEW VERSION OF THE DoItFast OPTION ---
 	CurlnL = M->lnL();
+//	cout << "\n-----------------------------------------------\nModel: " << M->Name();
 	if(DoItFast) {
 		if(M->m_pData->m_DataType == DNA || M->m_pData->m_DataType == COD || M->m_pData->m_DataType == COD_RED) { NoIter = 10; }
 		CurlnL = LazyBraOpt(M,CurlnL,1,0.1);
@@ -648,6 +651,7 @@ SModelDetails DoModelRun(CBaseModel *M, int NoPar,double Adj) {
 	} else {
 		ModDet.OrilnL = FullOpt(M,true,true);
 	}
+//	cout << "\n\t ... final: ret= " << ModDet.OrilnL << " cf. real= " << M->lnL(true);
 
 //	cout << "\nFinished opt: " << ModDet.OrilnL << " cf. actual lnL calc: " << M->lnL(true);
 //	double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double CurlnL,bool FullLikAcc, int NoIterations, double lnL2Beat, double lnL_tol, bool DoOutput,bool TightFullOpt)	{
@@ -657,8 +661,10 @@ SModelDetails DoModelRun(CBaseModel *M, int NoPar,double Adj) {
 	ModDet.TreeLength = M->Tree()->GetTreeLength();
 	ModDet.Name = M->Name();
 #if CHECK_LNL_OUT == 1
+	// Error checking. This no longer throws a terminal error, but instead makes the program rerun
 	if(fabs(ModDet.OrilnL - M->lnL(true)) > 0.001)	{
-			cout << "\nModel: " << M->Name() << " obtained " << ModDet.lnL << " cf. " << M->lnL() << " cff. " << M->lnL(true) << "\n\n"; exit(-1);
+			cout << "\nModel: " << M->Name() << " obtained " << ModDet.lnL << " cf. " << M->lnL() << " cff. " << M->lnL(true) << "\n\n";
+			cout << "\nModel details: " << *M; exit(-1);
 	}
 #endif
 	return ModDet;

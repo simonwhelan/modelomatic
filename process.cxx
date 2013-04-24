@@ -1458,6 +1458,13 @@ void CBaseProcess::MakeZeroRateLikelihood()	{
 	int i;
 	FOR(i,m_pData->m_iSize)	{
 		if(m_pData->m_viNoChange[i] == -1) { m_ardL[i].Zero(); continue; }
+		if(!InRange(m_pData->m_viNoChange[i],0,(int)m_vdEqm.size())) {
+			cout << "\nGoing to throw assert error... Site["<<i<<"] which is: ";
+			int j; FOR(j,m_pData->m_iNoSeq) { cout << m_pData->m_ariSeq[j][i] << " "; }
+			cout << "\nAnd m_pData->m_viNoChange[" << i<<"]: " << m_pData->m_viNoChange[i];
+			cout << "\nEqm[size=" << m_vdEqm.size() << "]: " << m_vdEqm;
+			cout << "\nAnd the vector of m_viNoChange:\n" << m_pData->m_viNoChange;
+		}
 		assert( InRange(m_pData->m_viNoChange[i],0,(int)m_vdEqm.size()) );
 		m_ardL[i].Assign(m_vdEqm[m_pData->m_viNoChange[i]]);
 	}

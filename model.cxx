@@ -451,6 +451,7 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 	bool OK = true, ForceNumBra = false;
 	vector <double> Grads;
 	vector <double> temp;
+	double temp_lnL;
 	if(m_vpAllOptPar.empty())  { return Grads; }
 	assert(IsViable());
 #if MODEL_DEBUG
@@ -499,7 +500,18 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 					assert(m_vpAllOptPar[i]->IsBranch());
 					m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
 				}
-				if(fabs(lnL() - CurlnL) > 0.00001) { cout << "\nError... likelihoods don't match lnL()= " << CurlnL << " cf. "<< lnL() << " cf. " << lnL(true); exit(-1); }
+				// Error check here
+				temp_lnL = lnL(true);
+				if(fabs(temp_lnL - CurlnL) > 0.00001) {
+					// If there's an error try one more time
+					CurlnL = temp_lnL;
+					FOR(i,m_vpProc[0]->Tree()->NoBra()) {
+						assert(m_vpAllOptPar[i]->IsBranch());
+						m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+					}
+					// I shouldn't let it continue, but I'll try...
+					if(fabs(temp_lnL - CurlnL) > 0.001) { cout.precision(10); cout << "\nError in CModel::GetDerivatives(...): likelihoods don't match lnL()= " << CurlnL << " cf. "<< lnL() << " cf. " << lnL(true); exit(-1); }
+				}
 			}
 			// Copy the derivatives to the store
 			FOR(i,(int)m_vpAllOptPar.size()) { if(m_vpAllOptPar[i]->IsBranch()) { m_vpAllOptPar[i]->grad(temp[i]); } }
