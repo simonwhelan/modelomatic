@@ -1,12 +1,12 @@
 /*
- * ModelAssess.h
+ * modelomatic.h
  *
  *  Created on: May 3, 2012
  *      Author: Simon Whelan
  */
 
-#ifndef MODELASSESS_H_
-#define MODELASSESS_H_
+#ifndef MODELOMATIC_H_
+#define MODELOMATIC_H_
 #ifdef ISUNIX
 #include "optimise.h"
 #include "TreeList.h"
@@ -38,4 +38,4 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 
 double GetAIC(double lnL, int NoPar) { return 2*(NoPar-lnL); }
-#endif /* MODELASSESS_H_ */
+#endif /* MODELOMATIC_H_ */

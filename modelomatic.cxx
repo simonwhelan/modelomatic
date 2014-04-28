@@ -14,7 +14,7 @@
 
 // Note: this version was sent to David T @ Thu 14 March 2013
 
-#include "./ModelAssess.h"
+#include "./modelomatic.h"
 #include <time.h>
 #include "ini/cpp/INIReader.h"
 #include <set>
