@@ -32,10 +32,10 @@ struct SModelDetails {
 
 SModelDetails DoModelRun(CBaseModel *M, int NoPar, double Adj = 0.0);
 
-void GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
-void GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
-void GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
-void GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 
 double GetAIC(double lnL, int NoPar) { return 2*(NoPar-lnL); }
 #endif /* MODELASSESS_H_ */

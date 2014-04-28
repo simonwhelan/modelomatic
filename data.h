@@ -24,6 +24,8 @@ public:
 	CData(int NoSeq, int Size, EDataType Type, vector <string> *Names = NULL);
 	// Takes strings into object
     void InputData(EDataType Type, vector <string> cInputSeq, vector <string> cInputName, vector <int> SiteLabels, bool AllowFail = false);
+    // Takes a NEXUS file and it's tags into the object (Work Still in Progress...)
+    void InputNexus(string File);
     // Destructor
 	~CData();						// Clears memory
 	void Clean();					// Does the memory clearing
@@ -63,6 +65,7 @@ public:
     // Implementation
 	////////////////////////////////////////////////////////////
 	void RemoveInvariantSites();	// Removes invariant sites from the alignment
+	void RemoveSparseSeqs(bool sparse=true,CTree *Tree = NULL, bool stdout=true);		// Removes all sequences with no data (sparse=tree: without at least MIN_DATA_PERCENT% data); if Tree != NULL then will also remove the sequences from the tree
 	// Distances
 	double PropDiff(int S1, int S2, bool IgnoreGaps);	// Count differences between sequences S1 and S2;
 	double PoissonDist(int S1, int S2);					// Calculate the poisson distance between S1 and S2
@@ -74,6 +77,7 @@ public:
 	int RemoveSeq(int RemSeq,CTree *TREE);
 	void CondenseGaps();			// Remove sites where all sequences are gaps
 	void DNA2RY();					// Changes normal DNA into a 2 state RY form
+	void CleanToDNACodon();			// Takes a DNA data set and cleans it up so it is codon compatible
 	void AddColumn(vector <int> Column, int NoOccurs = 1);			// Add a new column to a data set, along with the number of times it occurs
 	// Some useful functions for guessing parameter values
 	double GetPar(vector <string> s1, vector <string> s2);
@@ -95,6 +99,8 @@ public:
 	// Code for deailing with pairwise coevolution models
 	CData * CreateAllPairs(CData *SecondData = NULL, bool Output=true);			// Function that creates all pairs of characters from existing data
 	bool CreateAllPairMapping(CData *Data1, CData *Data2);
+	void OutRealData(ostream &os = cout);										// Output the sequences in sequential
+	int CountMSAChars();					// Function to count number of characters actually used in an analysis
 private:
 	bool m_bValid;			// Whether the data is valid
 	int m_iGenCode;			// Stores the genetic code

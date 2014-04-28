@@ -338,7 +338,7 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,boo
 	}	else	{	// Otherwise for two species
 		if(SubSeq == m_iNoSeq) {
 			m_Node[0] = new CNode(1,0); m_Node[1] = new CNode(0,0);
-			cout << "\nTempTree: " << TempTree << " cf. " << TempBranch << flush;
+			//cout << "\nTempTree: " << TempTree << " cf. " << TempBranch << flush;
 			i=1; while(isdigit(TempTree[i])) { i++; }	// Do first side
 			SetB(0,DoBranch(&TempTree,&i,&IntVal),true,true);
 			while(TempTree[i]!=':' && TempTree[i] != ';')	{ i++; }

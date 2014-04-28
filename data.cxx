@@ -40,18 +40,57 @@ CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos)
 	// Some original preperation
     m_bValid = false; m_iGenCode = -1;
 
+	// Check whether a NEXUS file first
+    ifstream input(file.c_str());
+   	getline(input,store);
+   	input.close();
+   	if(input.eof()) { cout << "\nUnexpected end of file..."; if(!AllowFail) { Error(); } }
+   	Toks = Tokenise(store);
+	if(Toks[0].find("#NEXUS") != string::npos) {
+		InputNexus(file);
+		return;
+	}
     ReadData(file,vName,vData);
 	/////////////////////////////////////////////////////////////////////////
 	// Do a bit more checking and initialise the data object
+    ////////////////////////////////////////////////
 	// Guess the type of data
+    // New code for guessing data type
+    int DNA_count = 0, AA_count = 0, Error_count = 0;
+    if(SpecType == NONE) {
+    	FOR(i,(int)vData.size()) 	{
+    		Old = GuessDataType(vData[i]);
+    		if(Old == DNA) { DNA_count++; } else if(Old == AA) { AA_count++; } else { Error_count++; }
+    	}
+    	if(Error_count > (int)vData.size() *0.75) {
+    		cout << "\nError when guessing data type: " << Error_count << "/" << vData.size() << " sequences could not be identified.\nPlease inspect your data for excesses of weird or gap characters.\nThis message will be also triggerred when there are a lot of gaps (>" << double_to_string(100*(1.0-MIN_DATA_PERCENT)) << "%) or frequent non-standard characters.\n\n"; Error(); }
+    	if(DNA_count < (int)vData.size() /2 && AA_count < (int)vData.size()) {
+    		cout << "\nError when guessing data type. Of " << (int)vData.size() << " sequences: " << DNA_count << " appear as DNA and " << AA_count << " appear as AA. \nPlease inspect your data for excesses of weird or gap characters.\nThis message will be also triggerred when there are a lot of gaps (>" << double_to_string(100*(1.0-MIN_DATA_PERCENT)) << "%) or frequent non-standard characters.\n\n"; Error();}
+    	if(DNA_count > AA_count && AA_count > 3) { cout << "\nWARNING: Identified DNA sequences, but " << AA_count << "/" << vData.size() << " look like amino acid sequences. Proceeding with analysis, but be cautious...\n"; }
+    	if(AA_count > DNA_count && DNA_count > 3) { cout << "\nWARNING: Identified DNA sequences, but " << DNA_count << "/" << vData.size() << " look like DNA sequences. Proceeding with analysis, but be cautious...\n"; }
+    	if(Error_count > (int)vData.size() *0.1) { cout << "\nWARNING: " << Error_count << "/" << vData.size() << " sequences could not be reliably identified.\nInspect your data for excesses of weird or gap characters."; }
+
+    	if(DNA_count > AA_count) { Type = DNA; } else { Type = AA; }
+    }
+
+    /* OLD CODE FOR GUESSING DATA TYPE
+    int ErrorCount = 0;
 	if(SpecType == NONE)	{
-		Old = GuessDataType(vData[0]);
+		// Find a stable data type
+		FOR(i,(int)vData.size())	{
+			Old = GuessDataType(vData[i]);
+			if(Old != NONE) { break; }
+		}
+		if(i == (int)vData.size())  { Error("Could not guess data type... Seems to be very little data here... All sequences have >"+double_to_string(100*(1.0-MIN_DATA_PERCENT))+"% gaps...\n\n"); }
 		FOR(i,(int)vData.size())	{
 			Type = GuessDataType(vData[i]);
-			if(Type == NONE || Type != Old) { Type = NONE; break; }
+			if(Type == NONE) { ErrorCount++; Type = Old; }
+			if(Type != Old) { Type = NONE; break; }
 	}	} else { Type = SpecType; }
 	// Ensure the data is of a real type
-	if(Type == NONE) { Error("\nCouldn't guess data type. Please inspect your data for excesses of weird or gap characters.\nThis message will be triggerred when there are a lot of gaps (>" + double_to_string(100*(1.0-MIN_DATA_PERCENT)) + "%) in a single sequence.\n\n" ); }
+	if(ErrorCount > (int)vData.size() / 3) { cout << "\nError: There are " << ErrorCount << " sequences with little or no data..."; exit(-1); }
+	*/
+	if(Type == NONE) { Error("\nCouldn't guess data type. Please inspect your data for excesses of weird or gap characters.\nThis message will be also triggerred when there are a lot of gaps (>" + double_to_string(100*(1.0-MIN_DATA_PERCENT)) + "%) or frequent non-standard characters.\n\n" ); }
     InputData(Type,vData,vName,SiteLabels,AllowFail);		// Put the sequence data into the object
 }
 
@@ -146,7 +185,6 @@ bool ReadData(string File, vector <string > &Names, vector <string > &Seqs, bool
     // Move to the first line of sequence info and use it to guess the data type
 	store = GetDataLine(&input);
 	Toks = Tokenise(store);
-
 	// PAML and FASTA data have no sequences on the first line
 	if(Toks.size() == 1) {
 		FOR(i,NoSeq)	{
@@ -185,9 +223,19 @@ bool ReadData(string File, vector <string > &Names, vector <string > &Seqs, bool
 	return true;
 }
 
+////////////////////////////////////////////////////////////
+// Function to count number of analysable characters
+int CData::CountMSAChars()	{
+	int i,j, count = 0;
+	FOR(i,m_iNoSeq) {
+		FOR(j,m_iSize) { if(m_ariSeq[i][j] != m_iChar) { count += m_ariPatOcc[j]; } }
+	}
+	return count;
+}
+
 // Get Name function
 ////////////////////////////////////////////////////////////
-// Arguements are a char string
+// Arguments are a char string
 // returns an integer that signals where the name ends in
 // that char string
 ////////////////////////////////////////////////////////////
@@ -479,6 +527,14 @@ ostream& operator<<(ostream& os, const CData& DATA)	{
     return os;
 }
 
+void CData::OutRealData(ostream &os)	{
+	int i;
+	os << m_iNoSeq << "  " << m_iTrueSize << "\n";
+	FOR(i,m_iNoSeq) {
+		os << "\n" << m_vsName[i] << "  \t" << m_vsTrueSeq[i];
+	}
+}
+
 ////////////////////////////////////////////////////////////
 // Function for getting character frequencies from data
 vector <double> CData::GetFreq(int Seq)	{
@@ -553,6 +609,30 @@ void CData::RemoveInvariantSites()	{
 	exit(-1);
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+// Function for removing sequences with little or no data in them (i.e. all or mostly gaps)
+// Can also edit a tree if needed
+void CData::RemoveSparseSeqs(bool Sparse,CTree *Tree, bool out) {
+	int i,j,count;
+	double perc;
+	string name;
+	if(out) { cout << "\nChecking for "; if(Sparse) { cout << "sparse (>" << (1-MIN_DATA_PERCENT)*100 <<"% gaps)"; } else { cout << "all gap"; } cout << " sequences\n\tStarting with " << m_iNoSeq; }
+	FOR(i,m_iNoSeq) {
+//		cout << "\nChecking[" << i << "]" << flush;
+		count = 0;
+		FOR(j,(int)m_vsTrueSeq[i].size()) {
+			if(IsGap(m_vsTrueSeq[i][j]) || (m_DataType == DNA && m_vsTrueSeq[i][j] == 'N')) { count++;}
+		}
+		perc = ((double) count / (double) m_vsTrueSeq[i].size());
+		if((!Sparse && 1.0 - perc < FLT_EPSILON) || (Sparse && (1.0 - MIN_DATA_PERCENT) - perc  < FLT_EPSILON) ) {
+//			cout << "\n\tRemoving["<<i<<"]: " << m_vsName[i] << " has " << perc *100 << "% gaps" << flush;
+			name = m_vsName[i];
+			if(RemoveSeq(i,Tree)) { Error("\nFailed to remove sequence " + name + " in RemoveSparseSeqs(...)\n"); } i--;
+		}
+	}
+	if(out)	{ cout << " ... after removal there are " << m_iNoSeq << " sequences" << flush; }
+}
+
 // Condense gaps function to remove all sites where there are only gaps
 void CData::CondenseGaps()		{
 	int i,j,k;
@@ -584,7 +664,7 @@ void CData::CondenseGaps()		{
 }
 
 ////////////////////////////////////////////////////////////////
-// Changes a DNA sequence into RY form
+// Changes a DNA sequence into ÄDNA form
 void CData::DNA2RY()	{
 	int Seq,Site;
 	if(m_DataType == RY) { return; }
@@ -606,12 +686,55 @@ void CData::DNA2RY()	{
 	InputData(RY,NewSeq,Names,Labels,false);
 }
 
+////////////////////////////////////////////////////////////////
+// Cleans DNA data so it produces something matching in codons
+// Ensures blocks of 3 alignable ACGTs
+void CData::CleanToDNACodon()	{
+	int codon,site,seq;
+	bool Okay;
+	if(m_DataType != DNA)  { Error("\nCannot CleanToDNACodon non DNA data...\n"); }
+	if(m_iTrueSize%3 != 0) { Error("Can only build codon sequences from data divisible by 3...\n"); }
+	assert(m_iTrueSize == (int) m_vsTrueSeq[0].size());
+	vector <string> NewSeq(m_iNoSeq,"");
+	vector <string> Names; Names = m_vsName;
+	vector <int> Labels; Labels = m_viSiteLabels;
+	// Create new sequences
+	FOR(codon,m_iTrueSize/3) {
+		FOR(seq,m_iNoSeq)	{
+			Okay = true;
+			// Check if a codon is okay
+			FOR(site,3) { if(!(m_vsTrueSeq[seq][(codon*3)+site] == 'A' ||	m_vsTrueSeq[seq][(codon*3)+site] == 'C' || m_vsTrueSeq[seq][(codon*3)+site] == 'G' || m_vsTrueSeq[seq][(codon*3)+site] == 'T')) { Okay = false; break; } }
+			if(Okay) 	{ FOR(site,3) { NewSeq[seq] += m_vsTrueSeq[seq][(codon*3)+site]; } }
+			else 		{ NewSeq[seq] += "---"; }
+		}
+	}
+	// Clean the memory
+	Clean();
+	// Create the new sequences
+	InputData(DNA,NewSeq,Names,Labels,false);
+}
+
 
 // Remove sequence functions
 int CData::RemoveSeq(int RemSeq,CTree *TREE)	{
 	int i =0;
+	string NewTree;
+//	cout <<"\n\nRemoveSeq(" << RemSeq << ")";
+	if(TREE!=NULL) {
+		// Hash job of trimming the sequence from the tree. It's inefficient, but at least works
+		TREE->OutName();
+		TREE->SetNames(m_vsName,true);
+		i+=TREE->RemoveLeafNode(RemSeq);
+		if(RemSeq == 0) { TREE->SetStartCalc(1); }	// Get a new traversal position if the first sequence is removed.
+		i+=RemoveSeq(RemSeq);
+		ostringstream os; os << *TREE;
+		TREE->CleanTree();
+		TREE->CreateTree(os.str(),m_iNoSeq,true,false,false,this);
+//		cout << "\n\tNew tree: " << *TREE;
+	} else {
+	// Remove the sequence from the data structure
 	i+=RemoveSeq(RemSeq);
-	if(TREE!=NULL) { i+=TREE->RemoveLeafNode(RemSeq); }
+	}
 	return i;
 }
 
@@ -623,12 +746,12 @@ int CData::RemoveSeq(int RemSeq)	{
 	GET_MEM(ardFreqCount,double,m_iChar);
 	// Section to remove a sequence
 	for(i=RemSeq;i<m_iNoSeq-1;i++)		{
-		m_vsName[i] = m_vsName[i+1];
 		for(j=0;j<m_iSize;j++) { m_ariSeq[i][j] = m_ariSeq[i+1][j]; }
-		m_vsTrueSeq[i] = m_vsTrueSeq[i+1];
 	}
 	m_iNoSeq--;
-	m_ariSeq.erase(m_ariSeq.end());
+	m_vsTrueSeq.erase(m_vsTrueSeq.begin() + RemSeq);
+	m_vsName.erase(m_vsName.begin() + RemSeq);
+	m_ariSeq.erase(m_ariSeq.begin() + RemSeq);
 	// Now finished adjust the frequency counts
 	for(i=0;i<m_iChar;i++) { ardFreqCount[i] = 0.0; } total = 0.0;
 	for(i=0;i<m_iNoSeq;i++) {
@@ -1371,3 +1494,32 @@ double CData::GetRYToCodonlnLScale(int GeneticCode, int *df)	{
 }
 
 
+/* ******************************* NEXUS FILE SUPPORT ********************************* */
+void CData::InputNexus(string File) {
+    int i,j;
+	vector <string> vName, vData,Toks;
+	string store;
+	EDataType  Type,Old;
+
+	// Check whether a NEXUS file first
+    ifstream input(File.c_str());
+   	Toks = Tokenise(store);
+	if(Toks[0].find("#NEXUS") == string::npos) { cout << "\nIn CData::InputNexus(string file): expecting nexus file in <"<<File<<">\n\n"; Error(); }
+
+	while(!input.eof()) {
+		// Some basic initialisation
+	   	getline(input,store);
+	   	if(input.eof()) { cout << "\nUnexpected end of file..."; Error(); }
+	   	Toks = Tokenise(store); if(Toks[0][0] == '[') { continue; }
+	   	// Get blocks
+	   	if(Toks[0].find("begin") != string::npos) {
+
+	   	}
+	}
+
+
+	input.close();
+
+	cout << "\nSuccessful read...";
+	exit(-1);
+}

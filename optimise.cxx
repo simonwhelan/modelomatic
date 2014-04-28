@@ -2099,6 +2099,9 @@ vector <double> GetPW(CBaseModel *Model, vector <double> *CurrentPW, bool GetJCD
 			FOR(i,Model->m_pData->m_iNoSeq)	{
 				FOR(j,i)	{ Dists[(i*Model->m_pData->m_iNoSeq)+j] = sqrt(Model->m_pData->PoissonVar(i,j)); }
 	}	}	}
+	FOR(i,(int)Dists.size()) {
+		if(Dists[i] < 0) { Dists[i] = 0.0; } if(isnan(Dists[i])) { Dists[i] = 20; }
+	}
 	return Dists;
 }
 

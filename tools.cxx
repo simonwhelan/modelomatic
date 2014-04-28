@@ -121,15 +121,18 @@ bool IsDataType(EDataType Type, char Seq)	{
 }
 double RateDataType(EDataType Type, string Seq)	{
 	int i;
-	double Score = 0.0;
+	int Score = 0, count = 0;;
 	transform(Seq.begin(),Seq.end(),Seq.begin(),(int(*)(int)) toupper);
 	FOR(i,(int)Seq.size() / LenStates(Type)) {
-		if(FindState(Type,GetPos(Seq,i,Type),0) != NumStates(Type)) { Score += 1.0; }
+		if(Seq[i] == 'N') { continue; } // N is a special type because it's used as non-specified for DNA
+		if(FindState(Type,GetPos(Seq,i,Type),0) != NumStates(Type)) { Score += 1.0; } count++;
 	}
-	return Score / (double) Seq.size();
+	if(count == 0) { return -1.0; }
+	return (double)Score / (double) count;
 }
 EDataType GuessDataType(string Data)	{
 	double DNA_score = RateDataType(DNA,Data), AA_score = RateDataType(AA,Data);
+	if(DNA_score < 0) { return NONE; }
 	if(DNA_score * 1.1 > AA_score && DNA_score > MIN_DATA_PERCENT) { return DNA; }
 	if(AA_score > MIN_DATA_PERCENT && AA_score  > DNA_score)	{ return AA; }
 	return NONE;
@@ -140,6 +143,13 @@ bool IsTsByChar(char a, char b) {
 	if((a == 'A' && b == 'G') || (a == 'C' && b == 'T')) { return true; }
 	return false;
 }
+
+bool IsGap(char c) {
+	int i;
+	FOR(i,(int)GAP_ABET.size()) { if(c == GAP_ABET[i]) { return true; } }
+	return false;
+}
+
 
 bool IsTs(string a, string b, EDataType Type)	{
 	int i;

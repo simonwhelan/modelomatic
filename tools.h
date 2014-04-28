@@ -125,6 +125,7 @@ double RateDataType(EDataType Type, string Seq);		// Scores the fit of data to a
 bool IsDataType(EDataType Type, string Seq, bool AllowGaps = false);	// Checks whether is of a certain dataype
 bool IsDataType(EDataType Type, char Seq);								// Checks whether a character is of a certain datatype
 bool IsTsByChar(char a, char b);										// Compares two chars and determines whether a transition
+bool IsGap(char c);														// Is character c a gap? yes: true; no: false
 bool IsTs(string a, string b, EDataType Type);							// Compares two states (inc. codons) and determines whether transition (only one change allowed)
 vector <string> Tree2Names(string Tree,int NoSeq);						// Breaks up a tree and spits out names as a vector
 vector <double> GetFreqFromSeq(string Seq, string ABET);				// Function to get state frequencies from a sequence (string vs string)
@@ -231,6 +232,17 @@ bool FileExist(string File);						// Tests whether a file exists
 bool GetYesNoOption(string message);				// Returns yes[1] or no[0] from a menu
 string GetInFileName();								// Finds an existing input file
 string GetOutFileName(string SuggestedFile = "\0");	// Finds or clears an output file
+
+// Stream to string variables...
+template<class T>
+ string toString(const T& t, bool *ok = NULL)
+ {
+         ostringstream stream;     // line A
+         stream << t;              // line B
+         if(ok != NULL)
+               *ok = (stream.fail() == false);  // line C
+         return stream.str();      // Line D
+}
 
 // Reverse sort
 template <class TSort> void RSort(vector <TSort> *List)	{

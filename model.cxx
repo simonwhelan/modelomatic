@@ -471,6 +471,7 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 			else if(Grads[i] < -RMSD_GRAD_LIM)	{ OK = false; Grads[i] = -RMSD_GRAD_LIM; }
 	}	} else {			////////////////////////// Do likelihood derivatives /////////////////
 #if ALLOW_ANALYTICAL_BRANCH_DERIVATIVES
+//		cout << "\nTrying analytical derivatives...";
 		if((int)m_vpAllOptPar.size() > 1) {
 			int j;
 			// Get the derivatives by process
@@ -498,7 +499,9 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 //				if(Tree()->NoSeq() > 2) { cout << "\n <<<<<<<<<<<<<<< DOING NUMERICAL DERIVATIVES: CurlnL = " << CurlnL << "; diff: "<< fabs(CurlnL-lnL()) <<" >>>>>>>>>>>>>>>>>>>>>>>>>>>>"; }
 				FOR(i,m_vpProc[0]->Tree()->NoBra()) {
 					assert(m_vpAllOptPar[i]->IsBranch());
-					m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+//					cout << "\nGetting branch derivative for ["<<i<<"]: " << *m_vpAllOptPar[i];
+					temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+//					cout << " ... have " << m_vpAllOptPar[i]->grad() << " = " << temp[i];
 				}
 				// Error check here
 				temp_lnL = lnL(true);
@@ -507,14 +510,14 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 					CurlnL = temp_lnL;
 					FOR(i,m_vpProc[0]->Tree()->NoBra()) {
 						assert(m_vpAllOptPar[i]->IsBranch());
-						m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+						temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
 					}
 					// I shouldn't let it continue, but I'll try...
 					if(fabs(temp_lnL - CurlnL) > 0.001) { cout.precision(10); cout << "\nError in CModel::GetDerivatives(...): likelihoods don't match lnL()= " << CurlnL << " cf. "<< lnL() << " cf. " << lnL(true); exit(-1); }
 				}
 			}
 			// Copy the derivatives to the store
-			FOR(i,(int)m_vpAllOptPar.size()) { if(m_vpAllOptPar[i]->IsBranch()) { m_vpAllOptPar[i]->grad(temp[i]); } }
+			FOR(i,(int)m_vpAllOptPar.size()) { if(m_vpAllOptPar[i]->IsBranch()) { m_vpAllOptPar[i]->grad(temp[i]); }  }
 			// Get the remaining numerical derivatives
 //			cout << "\nThink likelihood should be " << CurlnL << " cf. " << lnL() << " == " << fabs(lnL() - CurlnL);
 			FOR(i,(int)m_vpAllOptPar.size())	{
