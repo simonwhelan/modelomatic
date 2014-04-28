@@ -35,20 +35,20 @@
 #if defined(__APPLE__)
 #if (__GNUC__ >= 4)
   #include <cmath>
-  #define isnan(x) std::isnan(x)
+  #define my_isnan(x) std::isnan(x)
 #else
   #include <math.h>
-  #define isnan(x) __isnand((double)x)
+  #define my_isnan(x) __isnand((double)x)
 #endif
 #else
 #include <cmath>
 #ifdef _MSC_VER
 #pragma warning(disable:4786)
-template <class IsNanType> int isnan(IsNanType X) {
+template <class IsNanType> int my_isnan(IsNanType X) {
 	return _isnan(X);
 }
 #else
-template <class IsNanType> int isnan(IsNanType X) {
+template <class IsNanType> int my_isnan(IsNanType X) {
 	if(isinf(X)) { return true; }
 	return isnan(X);
 }

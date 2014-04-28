@@ -1694,7 +1694,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 			optout << "\n\tP:     "; FOR(i,n) { optout << "\t" << *x[i]; }
 			optout << "\n\tG:     "; FOR(i,n) { optout << "\t" << g[i]; }
 
-			FOR(i,Model->NoPar()) { if(isnan(Model->m_vpPar[i]->Val())) { cout << "\nHave nan in MulD Opt...\n\n"; exit(-1); } }
+			FOR(i,Model->NoPar()) { if(my_isnan(Model->m_vpPar[i]->Val())) { cout << "\nHave nan in MulD Opt...\n\n"; exit(-1); } }
 
 //			optout << "\nTree: " << *Model->m_pTree;
 			optout << "\n\tSteps:"; FOR(i,n) { optout << "\t" << xi[i]; }

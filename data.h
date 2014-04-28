@@ -65,7 +65,7 @@ public:
     // Implementation
 	////////////////////////////////////////////////////////////
 	void RemoveInvariantSites();	// Removes invariant sites from the alignment
-	void RemoveSparseSeqs(bool sparse=true,CTree *Tree = NULL, bool stdout=true);		// Removes all sequences with no data (sparse=tree: without at least MIN_DATA_PERCENT% data); if Tree != NULL then will also remove the sequences from the tree
+	void RemoveSparseSeqs(bool sparse=true,CTree *Tree = NULL, bool do_stdout=true);		// Removes all sequences with no data (sparse=tree: without at least MIN_DATA_PERCENT% data); if Tree != NULL then will also remove the sequences from the tree
 	// Distances
 	double PropDiff(int S1, int S2, bool IgnoreGaps);	// Count differences between sequences S1 and S2;
 	double PoissonDist(int S1, int S2);					// Calculate the poisson distance between S1 and S2

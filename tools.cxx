@@ -324,7 +324,7 @@ ostream & operator<<(ostream &os, ParOp Par) {
 // Constructor
 CPar::CPar(string Name,double Value, bool Optimise, double LowBound, double UpBound,ParOp Type) {
 #if PAR_DEBUG == 1
-	if(isnan(Value)) { Error("\nTrying to assign parameter " + Name + " with nan...\n\n"); }
+	if(my_isnan(Value)) { Error("\nTrying to assign parameter " + Name + " with nan...\n\n"); }
 #endif
 	m_dOldReal = m_dRealValue = Value;
 	m_dOldScale = m_dScaledValue.RescaleVal(Value);
@@ -349,7 +349,7 @@ CPar::~CPar() {
 // Copy operator
 CPar & CPar::operator=(CPar &Par)	{
 #if PAR_DEBUG == 1
-	if(isnan(Par.Val())) {
+	if(my_isnan(Par.Val())) {
 		cout << "\nHave nan in CPar::operator=(...): " << Par.m_sName << " = " << Par.Val();
 		cout << "\nm_dRealValue: " << Par.m_dRealValue << "; m_dScaledValue: (Scaler=" << Par.m_dScaledValue.Scaler()<< "; Value=" << Par.m_dScaledValue.Value() << ")";
 		Error("\nTrying to assign parameter " + Par.Name() + " with nan...\n\n");
@@ -373,7 +373,7 @@ CPar & CPar::operator=(CPar &Par)	{
 
 double CPar::DoOper(double Value)	{
 #if PAR_DEBUG == 1
-	if(isnan(m_dRealValue) || isnan(m_dScaledValue.Value()) || isnan(Value)) {
+	if(my_isnan(m_dRealValue) || my_isnan(m_dScaledValue.Value()) || my_isnan(Value)) {
 		cout << "\nHave nan in CPar::DoOper=(...): " << Name() << " = " << Val();
 		cout << "\nm_dRealValue: " << m_dRealValue << "; m_dScaledValue: (Scaler=" << m_dScaledValue.Scaler()<< "; Value=" << m_dScaledValue.Value() << ")";
 		cout << "\nValue: " << Value;
@@ -414,7 +414,7 @@ static int countery = 0;
 double CPar::SetVal(double Value, bool Update, bool Force, bool Normalise) {
 //	cout << "\nInto SetVal(" << Value << "," << Update << "," << Force << "," << Normalise << ")";
 #if PAR_DEBUG == 1
-	if(isnan(m_dRealValue) || isnan(Value)) {
+	if(my_isnan(m_dRealValue) || my_isnan(Value)) {
 		cout << "\nHave nan in CPar::SetVal(...): " << Name() << " = " << Val();
 		cout << "\nm_dRealValue: " << m_dRealValue << "; m_dScaledValue: (Scaler=" << m_dScaledValue.Scaler()<< "; Value=" << m_dScaledValue.Value() << ")";
 		cout << "\nValue: " << Value;
@@ -443,7 +443,7 @@ double CPar::SetVal(double Value, bool Update, bool Force, bool Normalise) {
 	if(Update == true) { UpdatePar(Force,Force); }
 //	if(pDoUpdate == &ProbabilityScale) { cout << " 2: " << m_dRealValue; }
 #if PAR_DEBUG == 1
-	if(isnan(Val()) || isnan(Value)) {
+	if(my_isnan(Val()) || my_isnan(Value)) {
 		cout << "\nHave nan when exiting CPar::SetVal(...): " << Name() << " = " << Val();
 		cout << "\nm_dRealValue: " << m_dRealValue << "; m_dScaledValue: (Scaler=" << m_dScaledValue.Scaler()<< "; Value=" << m_dScaledValue.Value() << ")";
 		cout << "\nValue: " << Value;
@@ -458,7 +458,7 @@ double CPar::SetVal(double Value, bool Update, bool Force, bool Normalise) {
 //  within bounds.
 bool CPar::CheckBound(bool ForceBounds) {
 #if PAR_DEBUG == 1
-	if(isnan(m_dRealValue)) {
+	if(my_isnan(m_dRealValue)) {
 		cout << "\nHave nan in CPar::CheckBound(...): " << Name();
 		cout << "\nm_dRealValue: " << m_dRealValue << "; m_dScaledValue: (Scaler=" << m_dScaledValue.Scaler()<< "; Value=" << m_dScaledValue.Value() << ")";
 		Error("\nTrying to assign parameter " + Name() + " with nan...\n\n");
@@ -521,7 +521,7 @@ double CPar::BoundDist()	{
 // bool RedoScale:		whether the m_dScaledValue should be rescaled
 bool CPar::UpdatePar(bool ForceChange, bool RedoScale) {
 #if PAR_DEBUG == 1
-	if(isnan(m_dRealValue) || isnan(m_dScaledValue.Value())) {
+	if(my_isnan(m_dRealValue) || my_isnan(m_dScaledValue.Value())) {
 		cout << "\nHave nan when entering CPar::UpdatePar(...): " << Name();
 		cout << "\nm_dRealValue: " << m_dRealValue << "; m_dScaledValue: (Scaler=" << m_dScaledValue.Scaler()<< "; Value=" << m_dScaledValue.Value() << ")";
 		Error("\nTrying to assign parameter " + Name() + " with nan...\n\n");
@@ -562,7 +562,7 @@ bool CPar::UpdatePar(bool ForceChange, bool RedoScale) {
 	m_dOldReal = m_dRealValue; m_dOldScale = m_dScaledValue.Value();
 	CheckBound();
 #if PAR_DEBUG == 1
-	if(isnan(m_dRealValue) || isnan(m_dScaledValue.Value())) {
+	if(my_isnan(m_dRealValue) || my_isnan(m_dScaledValue.Value())) {
 		cout << "\nHave nan when exiting CPar::UpdatePar(...): " << Name();
 		cout << "\nm_dRealValue: " << m_dRealValue << "; m_dScaledValue: (Scaler=" << m_dScaledValue.Scaler()<< "; Value=" << m_dScaledValue.Value() << ")";
 		Error("\nTrying to assign parameter " + Name() + " with nan...\n\n");
@@ -582,7 +582,7 @@ double CPar::grad(double g)	{
 }
 
 double CScaledParVal::Value()		  {
-	if(isnan(m_dValue)) { cout << "\nHave nan in value...\n\n"; exit(-1); }
+	if(my_isnan(m_dValue)) { cout << "\nHave nan in value...\n\n"; exit(-1); }
 	return m_dValue * m_dScaler; }						// Returns the real value
 // Set new value (returned as Value) by adjusting m_dScaler and fixing m_dValue
 double CScaledParVal::SoftNewVal(double Val) {
@@ -594,7 +594,7 @@ double CScaledParVal::NewVal(double Val) { assert(m_dScaler > DBL_EPSILON); m_dV
 double CScaledParVal::RescaleVal(double Val) { 											// Set value <- Val and  rescale so m_dValue = 1.
 	if(fabs(Val) > PAR_TO_SCALE && m_bAllowScale == true) { m_dValue = 1.0; m_dScaler = Val; }
 	else { m_dValue = Val; m_dScaler = 1.0; }
-	if(isnan(Value()) || isnan(m_dValue)) { cout << "\nDone RescaleVal... have Value() == nan\n\n"; exit(-1); }
+	if(my_isnan(Value()) || my_isnan(m_dValue)) { cout << "\nDone RescaleVal... have Value() == nan\n\n"; exit(-1); }
 	return Val;
 }
 
@@ -916,7 +916,7 @@ void CProb::DoScale()	{
 	while(m_dValue < 1.0)	{ m_dValue *= 10; m_iScale++; }
 	while(m_dValue > 10.0)	{ m_dValue /= 10; m_iScale--; }
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue)) { cout << "\nReturning CProb::DoScale(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue)) { cout << "\nReturning CProb::DoScale(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 
 }
@@ -929,26 +929,26 @@ ostream &operator<<(ostream &os,CProb &Prob)	{ os << Prob.m_dValue << "*10^-" <<
 // Return functions
 double CProb::Prob()	{
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue)) { cout << "\nReturning Prob(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue)) { cout << "\nReturning Prob(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	return m_dValue * pow(10.0,(double) -m_iScale);
 }
 double CProb::LogP()	{
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue)) { cout << "\nReturning LogP(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue)) { cout << "\nReturning LogP(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	if(IsZero()) { if(MATCH_PAML == 0) { return -BIG_NUMBER; } else { return log(pow((double)10,-80)); }} return (log(m_dValue) + (-LOG10 * m_iScale));
 }
 bool CProb::IsZero()	{
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue)) { cout << "\nReturning IsZero(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue)) { cout << "\nReturning IsZero(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	if(fabs(m_dValue) > DBL_EPSILON) { return false; } return true;
 }
 // Copy operator
 CProb &CProb::operator=(CProb &Prob)	{
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Prob.m_dValue)) { cout << "\nReturning CProb::operator=(): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Prob.m_dValue)) { cout << "\nReturning CProb::operator=(): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	m_dValue = Prob.m_dValue;
 	m_iScale = Prob.m_iScale;
@@ -958,7 +958,7 @@ CProb &CProb::operator=(CProb &Prob)	{
 // Assign operator
 CProb &CProb::Assign(double Value)		{
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Value)) { cout << "\nReturning Assign(double Value): Value= " << Value << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Value)) { cout << "\nReturning Assign(double Value): Value= " << Value << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	if(!(Value <= 1.0 + FLT_EPSILON && Value >= 0.0 - FLT_EPSILON)) {
 		cout << "\nAbout to fail assert statement: Value = " << Value;
@@ -967,32 +967,32 @@ CProb &CProb::Assign(double Value)		{
 }
 CProb &CProb::Assign(CProb &Prob)		{
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Assign(CProb &): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Assign(CProb &): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	m_dValue = Prob.m_dValue; m_iScale = Prob.m_iScale; return *this;
 }
 CProb &CProb::Assign(double Val, int Sc){
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Val)) { cout << "\nReturning Assign(double Val, int Sc): Val= " << Val << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Val)) { cout << "\nReturning Assign(double Val, int Sc): Val= " << Val << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	m_dValue = Val; m_iScale = Sc; if(!IsProb(Prob())) { cout << "\nBroken Prob(): " << Prob() << endl << flush; exit(-1); } assert(IsProb(Prob())); return *this;
 }
 // double functions for numerical operations
 CProb &CProb::Multiply(double Value,bool Overwrite)	{
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Value)) { cout << "\nReturning CProb::Multiply(double Value, bool): Value= " << Value << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Value)) { cout << "\nReturning CProb::Multiply(double Value, bool): Value= " << Value << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	CProb Prob(Value); return Multiply(Prob,Overwrite);
 }
 CProb &CProb::Add(double Value, bool Overwrite)		{
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Value)) { cout << "\nReturning CProb::Add(double Value, bool): Value= " << Value << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Value)) { cout << "\nReturning CProb::Add(double Value, bool): Value= " << Value << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	CProb Prob(Value); return Add(Prob,Overwrite);
 }
 CProb &CProb::Divide(double Value, bool Overwrite)	{
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Value)) { cout << "\nReturning CProb::Divide(double Value, bool): Value= " << Value << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Value)) { cout << "\nReturning CProb::Divide(double Value, bool): Value= " << Value << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	CProb Prob(Value); return Divide(Prob,Overwrite);
 }
@@ -1001,7 +1001,7 @@ CProb &CProb::Divide(double Value, bool Overwrite)	{
 CProb &CProb::Multiply(CProb &Prob, bool Overwrite) {
 	static CProb New;
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Multiply(CProb &,bool): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Multiply(CProb &,bool): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	if(IsZero() || Prob.IsZero()) { if(Overwrite == true) { Zero(); } New.Zero(); }
 	else {
@@ -1018,7 +1018,7 @@ CProb &CProb::Add(CProb &Prob, bool Overwrite) {
 	static CProb New;
 	CProb added(Prob);
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Add(CProb &,bool): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Add(CProb &,bool): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	// Return Prob if zero
 	if(IsZero()) { New = Prob; if(Overwrite) { *this = New; } }
@@ -1039,7 +1039,7 @@ CProb &CProb::Divide(CProb &Prob, bool Overwrite)	{
 	static CProb New;
 	New = *this;
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue) || isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Divide(CProb &,bool): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue) || my_isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Divide(CProb &,bool): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 	// Do the division
 	Error("\nHaven't done division...");
@@ -1062,7 +1062,7 @@ void CProb::MatchScales(CProb *Prob, bool DoHigh)	{
 	if(DoThis == true)	{ m_iScale -= Diff; m_dValue *= pow(10.0,(double) -Diff); }
 	else				{ Prob->m_iScale -= Diff; Prob->m_dValue *= pow(10.0,(double) -Diff); }
 #if HARD_DEBUG_PROBS == 1
-	if(isnan(m_dValue)) { cout << "\nReturning CProb::MatchScales(CProb* Prob): Prob->m_dValue= " << Prob->m_dValue << "; Prob->m_iScale= " << Prob->m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
+	if(my_isnan(m_dValue)) { cout << "\nReturning CProb::MatchScales(CProb* Prob): Prob->m_dValue= " << Prob->m_dValue << "; Prob->m_iScale= " << Prob->m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
 }
 

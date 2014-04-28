@@ -327,7 +327,7 @@ bool CQMat::MakePT(double T, double *PT)	{
 	k = 0; bool okay = true;
 	FOR(i,m_iChar) {
 		e1 = 0.0;
-		FOR(j,m_iChar) { if(PT[k] < -FLT_EPSILON || isnan(PT[k]) ) { okay = false; } e1 += PT[k++]; }
+		FOR(j,m_iChar) { if(PT[k] < -FLT_EPSILON || my_isnan(PT[k]) ) { okay = false; } e1 += PT[k++]; }
 		if(tdiff(e1,1.0,1.0E-6)) { cout << "\nRow " << i << " failed == " << e1 << "; diff= " << fabs(1.0 - e1); okay = false; }
 	}
 	if(okay == false) {
@@ -1398,14 +1398,14 @@ CProb &CBaseProcess::Lsum(int site)	{
 	}
 #endif
 	FOR(i,m_iChar)	{
-		if(isnan(*(p_a))) {
+		if(my_isnan(*(p_a))) {
 			int j;
 			cout << "\nIn LSum(site=" << site<< "): ";
 			cout << "\nBroken\nThe process looks like this: " << *this;
 			cout << "\nThe P(t) matrices are: ";
 			FOR(j,Tree()->NoBra()) { cout << "\nBranch["<<j<<"]:"; OutPT(cout,j); }
 			cout << "\n<PartL(site=" << site << "): "; FOR(j,m_iChar) { cout << PartL(site)[j] << ":"; }   cout << ">"; }
-		if(isnan(m_vdEqm[i])) { cout << " <eqm>"; }
+		if(my_isnan(m_vdEqm[i])) { cout << " <eqm>"; }
 		// Deal with small numbers occasionally caused by underflow
 		// TODO: This seems to cause some instability in the likelihood...
 
