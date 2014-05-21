@@ -1029,6 +1029,44 @@ void CData::ExpandCodonData(int GenCode) {
 }
 
 //////////////////////////////////////////////////////////////////
+// Function that can be used to extract a subset of codon positions
+// ---
+// Extracts all the bools that are true
+bool CData::GetCodonPositions(bool First, bool Second, bool Third)	{
+	int i,j,pos;
+	vector <string> Names, Sequences;
+	vector <int> SiteLabels;
+	assert(!m_vsTrueSeq.empty());
+	assert(m_vsTrueSeq[0].size() == m_iTrueSize);
+	if(m_iTrueSize %3 != 0) { cout << "\nTrying to extract codon positions in GetCodonPositons(...) with data not divisible by 3. " << m_iTrueSize << "% 3 = " << m_iTrueSize % 3 << " ...\n"; Error("Boom"); }
+	// Get Names
+	Names = m_vsName;
+	// Get sequences
+	Sequences.assign(m_iNoSeq,"");
+	for(i=0;i<m_iTrueSize;i+=3) {
+		// Do first position
+		if(First) {
+			pos = 0;
+			FOR(j,m_iNoSeq) { Sequences[j] += m_vsTrueSeq[j][i+pos]; }
+		}
+		// Do second position
+		if(Second) {
+			pos = 1;
+			FOR(j,m_iNoSeq) { Sequences[j] += m_vsTrueSeq[j][i+pos]; }
+		}
+		// Do third position
+		if(Third) {
+			pos = 2;
+			FOR(j,m_iNoSeq) { Sequences[j] += m_vsTrueSeq[j][i+pos]; }
+		}
+	}
+
+	Clean();
+	InputData(DNA,Sequences,Names,SiteLabels,false);
+	return true;
+}
+
+//////////////////////////////////////////////////////////////////
 // Functions that return data for Tree HMMs
 
 CData *CData::MakeMatchData()	{

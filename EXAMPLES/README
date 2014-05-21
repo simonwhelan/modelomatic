@@ -1,0 +1,158 @@
+ModelOMatic
+by Simon Whelan
+
+Examples files
+---
+
+Here are a few example files to get you started using ModelOMatic. They're intended to cover a range of different set-ups for the program and to demonstrate its ffunctionality. One example is taken from PANDIT, Chiari et al (2012), and Regier et al (2010). Please see the main manuscript and documentation for full details of ModelOMatic and how it works. 
+
+//
+Example 1: PF00022 - Pandit record PF00022 for actin. File PF00022.seq contains 20 nucleotide (codon) sequences of length 1167.
+
+This example is run with default settings under the command line: ./modelomatic PF00022.seq
+ 
+This setting gives stdout along the lines of:
+
+---------------------------------------------------------------------------------------------
+  ModelOMatic (v1.0a).
+	A program for choosing substitutions models for phylogenetic inference.
+	Written by Simon Whelan.
+	Contributions from James Allen, Ben Blackburne and David Talavera.
+---------------------------------------------------------------------------------------------
+Data: <PF00022.seq>: 20 sequences of length 1167 (DataMatrix: 20 x 768)
+Checking for sparse (>85% gaps) sequences
+	Starting with 20 ... after removal there are 20 sequences
+Creating start tree ... estimated using bionj (0.282779s)
+Trying to work with: PF00022.seq.output
+Optimisation settings: fast 
+Working with genetic code: Universal
+>>> Doing model analysis <<< 
+RY Done  (0.980888s)
+NT Done  (4.61914s)
+AA Done  (26.7662s).........
+Codon Done  (100.773s)
+
+Outputting results to <PF00022.seq.output>
+Successful exit
+
+How to interpret results:
+If you open the file PF00022.seq.output you can examine the relative fit of the models using the AIC statistic or assess the relative fit of the models to the best-fit model by examining DeltaAIC.
+For this data set the best-fit model is LG+4dG, which is LG with 4 categories of gamma-distributed rates-across-sites:
+
+Model Information
+---
+Model#  Name    DataType        TreeLength      OrilnL  CorrectionType  AdjlnL  NoPar   AIC     DeltaAIC
+...
+Model[37]       LG+4dG  AA      3.38468 -5821.9 EMPIRICAL       -13502  42      27088   0
+...
+
+Note that the EMPIRICAL part refers to the likelihood 'correction' used by ModelOMatic when it applies the adapter function. For most day-to-day purposes you do not need to care about this part of the output.
+
+//
+Example 2: ENSGALG00000017447_macse_DNA_gb.phy from the paper of Chiari et al (2010)
+
+This example is intended to demonstrate some of the basic command line settings one may wish to use. There is a data file <ENSGALG00000017447_macse_DNA_gb.phy> and a tree file <ENSGALG00000017447_macse_DNA_gb.tree>
+
+modelomatic ENSGALG00000017447_macse_DNA_gb.phy ENSGALG00000017447_macse_DNA_gb.tree my_output 0 trim=8normal yes
+
+The options here are:
+ENSGALG00000017447_macse_DNA_gb.phy	- the data file
+ENSGALG00000017447_macse_DNA_gb.tree	- the tree file
+my_output				- the output file
+0					- the universal genetic code
+trim=8normal				- specifies that I want normal (full) optimisation and to trim my data based on a known tree to 8 sequences
+yes					- Says yes I'd like to output the model details
+
+This time the console output looks like this:
+
+---------------------------------------------------------------------------------------------
+  ModelOMatic (v1.0a).
+	A program for choosing substitutions models for phylogenetic inference.
+	Written by Simon Whelan.
+	Contributions from James Allen, Ben Blackburne and David Talavera.
+---------------------------------------------------------------------------------------------
+Data: <ENSGALG00000017447_macse_DNA_gb.phy>: 11 sequences of length 606 (DataMatrix: 11 x 250)
+Checking for sparse (>85% gaps) sequences
+	Starting with 11 ... after removal there are 11 sequences
+Creating start tree ...  taken from <file=ENSGALG00000017447_macse_DNA_gb.tree> successfully (0.000263s)
+Optimisation settings: normal trim=8
+TRIMMING: 	Tree contains 11 sequences (>TrimTree=8) ...
+          	Loose optimisation of start tree under JC ... done
+          	Obtaining greedy start tree with 8 sequences ... done
+          	Reinitialising objects for trimmed data ... done
+          	New files available: data = <my_output.trim.data>; tree = <my_output.trim.tree>
+Working with genetic code: Universal
+>>> Doing model analysis <<< 
+RY Done  (0.942536s)
+NT Done  (2.6104s)
+AA Done  (33.9838s).........
+Codon Done  (271.241s)
+
+Outputting models to <my_output.model.out>
+Outputting results to <my_output>
+Successful exit
+
+Notice how much slower it is using the 'normal' flag rather than the 'fast' flag. The same analysis done under fast takes 13.6 seconds. 
+
+There are now several more output files for you to look at. 
+my_output - contains the results as with the example above
+my_output.model.out - contains a full list of the likelihoods for the individual models and their parameter estimates. This is very long and probably unneeded. 
+my_ouptut.trim.data - contains the data with the trimmed sequences removed and all gap columns closed
+my_output.trim.tree - contains the tree used with the trimmed sequences
+
+//
+Example 3: 26fin3_4.phy from the paper by Regier et al (2012)
+
+This example is intended to demonstrate: i) what happens when you pass modelomatic data with some sequences that contain all 'n' or '-'; and ii) how to specify a search of best-fit model from a particular subset of models using the modelomatic.ini file
+
+The modelomatic.ini file allows you to specify exactly which models you wish to compare. Imagine a case where we don't want to use codon models because they're too slow and we would not believe the result of viral amino acid models. The modelomatic.ini used for this analysis should contain:
+
+[Amino Acid]
+;Ignore Viral models
+rtREV=0
+HIVb=0
+HIVw=0
+
+[Codon]
+;Ignore codon models
+F0=0
+F1X4=0
+F3X4=0
+F64=0
+
+This analysis can be run from the basic command line: ./modelassess/modelomatic/modelomatic 26fin3_4.phy 
+
+The output should look something like this:
+
+---------------------------------------------------------------------------------------------
+  ModelOMatic (v1.0a).
+	A program for choosing substitutions models for phylogenetic inference.
+	Written by Simon Whelan.
+	Contributions from James Allen, Ben Blackburne and David Talavera.
+---------------------------------------------------------------------------------------------
+Data: <26fin3_4.phy>
+WARNING: 15/80 sequences could not be reliably identified.
+Inspect your data for excesses of weird or gap characters.: 80 sequences of length 732 (DataMatrix: 80 x 398)
+Checking for sparse (>85% gaps) sequences
+	Starting with 80 ... after removal there are 65 sequences
+Creating start tree ... estimated using bionj (0.522157s)
+Trying to work with: 26fin3_4.phy.output
+Optimisation settings: fast 
+Scanning for modelomatic.ini file ...
+	Amino acid models skipping rtREV, HIVb, HIVw
+	Codon models skipping F0, F1X4, F3X4, F64 done
+Working with genetic code: Universal
+>>> Doing model analysis <<< 
+RY Done  (3.49126s)
+NT Done  (7.64696s)
+AA Done  (34.8161s)...
+Codon Done  (0.199588s)
+
+Outputting results to <26fin3_4.phy.output>
+Successful exit
+
+The key lines are those starting with "Checking for sparse (>85% gaps) sequences" and "Scanning for modelomatic.ini file ...". The lines following the former show that only 65/80 sequence are used in the model analysis. Examining the data shows that those 15 sequences consist purely of 'n' characters and therefore hold no information. The lines following the latter show that the viral and codon models are going to be skipped during the analysis. Note that "Codon Done (0.199588s)" shows there is still some overhead checking the codon model function.
+
+The output is written to 26fin3_4.phy.output and shows that LG+4dG is the best fit model. 
+
+//
