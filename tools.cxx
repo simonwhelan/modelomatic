@@ -1080,9 +1080,9 @@ string GetDataLine(ifstream *in)	{
 	string::size_type loc;
 	do {
 		line = "#";
-		while(line[0] == '\r' || line[0] == '#' || line[0] =='\n' || line[0] == '\0') {
+		while(line[0] == '\r' || line[0] == '#' || line[0] =='\n' || line[0] == '\0' || line.find_first_not_of(' ') == std::string::npos) {
 			getline(*in,line);
-			if(in->eof() == 1) { cout << "\nUnexpected end of file\n\n"; exit(-1); }
+			if(in->eof() == 1) { cout << "\nUnexpected end of file in GetDataLine(...). Try adding a new line at the end of the data file\n\n"; cout << "\nLine was: " << line; exit(-1); }
 		}
 		loc = line.find("*");
 	} while (loc != string::npos);
