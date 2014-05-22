@@ -288,7 +288,7 @@ int main(int argc, char *argv[])	{
 	int ShowSeq = RandInt(0,NT1.m_iNoSeq-1);
 	cout << "\nOriginal data:		   " << PhyDat.pData()->m_iNoSeq << " " << PhyDat.pData()->m_iTrueSize << "\t" << PhyDat.pData()->m_vsTrueSeq[ShowSeq].substr(0,15);;
 
-
+/*
 	cout << "\nNT1    				" << NT1.m_iNoSeq << " " << NT1.m_iTrueSize << "\t" << NT1.m_vsTrueSeq[ShowSeq].substr(0,5);
 	cout << "\nNT2    				" << NT2.m_iNoSeq << " " << NT2.m_iTrueSize << "\t" << NT2.m_vsTrueSeq[ShowSeq].substr(0,5);;
 	cout << "\nNT3    				" << NT3.m_iNoSeq << " " << NT3.m_iTrueSize << "\t" << NT3.m_vsTrueSeq[ShowSeq].substr(0,5);;
@@ -296,6 +296,15 @@ int main(int argc, char *argv[])	{
 	cout << "\nNT13    			" << NT13.m_iNoSeq << " " << NT13.m_iTrueSize << "\t" << NT13.m_vsTrueSeq[ShowSeq].substr(0,10);;
 	cout << "\nNT23    			" << NT23.m_iNoSeq << " " << NT23.m_iTrueSize << "\t" << NT23.m_vsTrueSeq[ShowSeq].substr(0,10);;
 	cout << "\nNT123   			" << NT123.m_iNoSeq << " " << NT123.m_iTrueSize << "\t" << NT123.m_vsTrueSeq[ShowSeq].substr(0,15);;
+*/
+	cout << "\nTrying to initialise new model object";
+	int iModPos[3] = {0,0,1}, iBraPos[3] = {0,1,0};
+	vector <int> vModPos(3,0), vBraPos(3,0);
+	FOR(i,3) { vModPos[i] = iModPos[i]; vBraPos[i] = iBraPos[i]; }
+	CSiteCodon *CodonModel;
+	CodonModel = new CSiteCodon(PhyDat.pData(),&Tree,vModPos,vBraPos,JC);
+
+//			CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> BranchPar) : CBaseModel(D,T)	{
 
 	exit(-1);
 

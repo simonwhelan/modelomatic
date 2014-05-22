@@ -2962,7 +2962,71 @@ CWAGCoevo::~CWAGCoevo()	{
 	cout << "\nNeed to fix destructor for CWAGCoevo..."; exit(-1);
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Function for get a model pointer
+CBaseModel * GetMyModel(EModel ModelChoice, CData *Data, CTree *Tree)	{
 
+	// DNA model stores
+	CJC *JCModel = NULL;
+	CFEL *FELModel = NULL;
+	CK2P *K2PModel = NULL;
+	CHKY *HKYModel = NULL;
+	CREV *REVModel = NULL;
+	// Amino acid models	(NB: Some of these aren't in the sModelNames string so it's a bit rough and ready)
+	CEQU *EQUModel = NULL;
+	CWAG *WAGModel = NULL;
+	CJTT *JTTModel = NULL;
+	CDAY *DAYModel = NULL;
+
+	// Check data is of the appropriate form.
+	if(ModelChoice >= JC && ModelChoice <= REV) { assert(Data->m_DataType == DNA); }
+	else if(ModelChoice >= EQU && ModelChoice <= mtREV) { assert(Data->m_DataType == AA); }
+
+	switch(ModelChoice) {
+	case JC:
+		JCModel = new CJC(Data,Tree);
+		return JCModel;
+	case FEL:
+		FELModel = new CFEL(Data,Tree);
+		return FELModel;
+	case K2P:
+		K2PModel = new CK2P(Data,Tree);
+		return K2PModel;
+	case HKY:
+		HKYModel = new CHKY(Data,Tree);
+		return HKYModel;
+	case REV:
+		REVModel = new CREV(Data,Tree);
+		return REVModel;
+	case EQU:
+		EQUModel = new CEQU(Data,Tree);
+		return EQUModel;
+	case WAG:
+		WAGModel = new CWAG(Data,Tree);
+		return WAGModel;
+	case JTT:
+		JTTModel = new CJTT(Data,Tree);
+		return JTTModel;
+	case DAY:
+		DAYModel = new CDAY(Data,Tree);
+		return DAYModel;
+	default:
+		cout << "\nYou've asked for a model that I haven't implemented in GetMyModel(...) yet: " << ModelChoice << ". Bad luck :(\n\n"; exit(-1);
+	}
+
+	Error("Reached impossible point in GetMyModel(...)");
+	return NULL;
+/*
+	const string sModelNames[] = {	"JC","FEL","K2P","HKY","REV",
+							"RY","CovHKY",",CovREV","THMM_FULLDNA","HKYdG_THMM","THMM_DNA",
+							"EQU","WAG","JTT","DAY","mtREV",
+							"THMM_AA","WAGdG_THMM",
+							"Coevo_WAG",
+							"CodonM0",
+							"Unknown"};
+*/
+
+}
 
 
 

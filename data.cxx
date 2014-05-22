@@ -1041,6 +1041,8 @@ bool CData::GetCodonPositions(bool First, bool Second, bool Third)      {
         if(m_iTrueSize %3 != 0) { cout << "\nTrying to extract codon positions in GetCodonPositons(...) with data not divisible by 3. " << m_iTrueSize << "% 3 = " << m_iTrueSize % 3 << " ...\n"; Error("Boom"); }
         // Get Names
         Names = m_vsName;
+        // DEBUG STUFF IF NEEDED
+        cout << "\nInto CData::GetCodonPositions : Data returned will be of form (" << First << ","<< Second << "," << Third << ");";
         // Get sequences
         Sequences.assign(m_iNoSeq,"");
         for(i=0;i<m_iTrueSize;i+=3) {

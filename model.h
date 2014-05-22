@@ -246,9 +246,16 @@ private:
 
 ostream &operator<<(ostream &os, CBaseModel &Model);
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// General function that returns a pointer to class CBaseModel with the model you want
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+CBaseModel * GetMyModel(EModel ModelChoice, CData *Data, CTree *Tree);
+
 ////////////////////////////////////////////////////////////////
 //			DNA models.
 ////////////////////////////////////////////////////////////////
+
+// The model definitions
 class CJC : public CBaseModel	{
 public:
 	CJC(CData *Data, CTree *Tree);
@@ -503,11 +510,17 @@ public:
 //////////////////////////////////////////////////////////////////
 //		Pseudo-codon models with site specific models or branches
 // ---
-// ModelPar contains three numbers that specify how model parameters are shared between codon positions. { 0 , 1, 0} indicated that pos1 and pos3 have the same model {0} that is seperate to pos2 {1}
+// ModelPar contains three numbers that specify how model parameters are shared between codon positions. { 0 , 1, 0} indicated that pos1 and pos3 have the same model {0} that is seperate to pos2 {1}. There's a strong requirement that the numbers must be in order and maximum value 2;
 // BranchPar contains three numbers that specify how branch parameters are shared between codon positions.
 class CSiteCodon : public CBaseModel {
 public:
-	CSiteCodon(CData *Data, CTree *Tree, vector <int> ModelPar, vector <int> BranchPar);
+	// Constructor
+	CSiteCodon(CData *Data, CTree *Tree, vector <int> ModelPar, vector <int> BranchPar, EModel CoreModel);
+	// Destructor
+	~CSiteCodon();
+private:
+	vector <CData *> m_vpDataSites;					// Stores the data for site 0, 1, and 2; Will either have all three sites or be empty
+	vector <CTree *> m_vpTreeSites;					// Stores the trees for site 0,1, and 2; These may be pointers to a previous sites tree. For example, m_vpTreeSites[0] == m_vpTreeSites[2]. So be careful with memory changes!
 };
 
 /////////////////////////////////////////////////////////////////
