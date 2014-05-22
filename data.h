@@ -87,8 +87,8 @@ public:
 	void MakeCodonData();					// Changes DNA data into Codon data. No imposition of the genetic code
 	void ReduceCodonData(int GenCode);		// Reduces the state space of codon data to a more manageable size
 	void ExpandCodonData(int GenCode);		// Expands the state space of codon data back to a 64 state model
+	bool GetCodonPositions(bool First, bool Second, bool Third);            // Rewrite the data structure with a subset of the codon positions. Requires the DNA formatted data
 	int GenCode() { return m_iGenCode; }	// Returns the genetic code assigned to the data
-	bool GetCodonPositions(bool First, bool Second, bool Third);		// Rewrite the data structure with a subset of the codon positions. Requires the DNA formatted data
 	// Functions for getting likelihood scaling between amino acid and codon models
 	double GetAminoToCodonlnLScale(int GenCode, int *df);		// Decides what adjustment to do and returns the value
 	double GetAdjustmentScore(CData *AA_Data, CData *COD_Data, vector <double> AAFreq, vector <double> CodFreq, int GenCode = 0); // Returns eqn (6) from Seo and Kishino (Syst Biol. 2008) for a set of frequencies

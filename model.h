@@ -500,9 +500,15 @@ public:
 	CCodonM0(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, int GenCode = 0);
 };
 
-/////////////////////////////////////////////////////////////////
-//		Codon positon models
-/////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
+//		Pseudo-codon models with site specific models or branches
+// ---
+// ModelPar contains three numbers that specify how model parameters are shared between codon positions. { 0 , 1, 0} indicated that pos1 and pos3 have the same model {0} that is seperate to pos2 {1}
+// BranchPar contains three numbers that specify how branch parameters are shared between codon positions.
+class CSiteCodon : public CBaseModel {
+public:
+	CSiteCodon(CData *Data, CTree *Tree, vector <int> ModelPar, vector <int> BranchPar);
+};
 
 /////////////////////////////////////////////////////////////////
 // 		Coevolution models
