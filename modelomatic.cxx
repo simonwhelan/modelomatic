@@ -21,7 +21,7 @@
 
 #define CHECK_LNL_OUT 1
 #define VERSION_NUMBER "1.0a"
-#define DEVELOPER_VERSION 1
+#define DEVELOPER_VERSION_MAIN 0
 
 #if FUNC_COUNTERS == 1
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter, SPR_Log_Counter;
@@ -271,35 +271,6 @@ int main(int argc, char *argv[])	{
 	cout << "\nWorking with genetic code: " << GenCodeName[GeneticCode];
 
 	cout << "\n>>> Doing model analysis <<< \n" << flush;
-
-	///////////////////////////////////////////////////////////////////////////////////////////
-	// Development stuff goes here
-#if DEVELOPER_VERSION
-	cout << "\nExtracting codon positions";
-
-	CData NT1 = *PhyDat.pData(); NT1.GetCodonPositions(true,false,false);
-	CData NT2 = *PhyDat.pData(); NT2.GetCodonPositions(false,true,false);
-	CData NT3 = *PhyDat.pData(); NT3.GetCodonPositions(false,false,true);
-	CData NT12 = *PhyDat.pData(); NT12.GetCodonPositions(true,true,false);
-	CData NT13 = *PhyDat.pData(); NT13.GetCodonPositions(true,false,true);
-	CData NT23 = *PhyDat.pData(); NT23.GetCodonPositions(false,true,true);
-	CData NT123 = *PhyDat.pData(); NT123.GetCodonPositions(true,true,true);
-
-	int ShowSeq = RandInt(0,NT1.m_iNoSeq-1);
-	cout << "\nOriginal data:		   " << PhyDat.pData()->m_iNoSeq << " " << PhyDat.pData()->m_iTrueSize << "\t" << PhyDat.pData()->m_vsTrueSeq[ShowSeq].substr(0,15);;
-
-
-	cout << "\nNT1    				" << NT1.m_iNoSeq << " " << NT1.m_iTrueSize << "\t" << NT1.m_vsTrueSeq[ShowSeq].substr(0,5);
-	cout << "\nNT2    				" << NT2.m_iNoSeq << " " << NT2.m_iTrueSize << "\t" << NT2.m_vsTrueSeq[ShowSeq].substr(0,5);;
-	cout << "\nNT3    				" << NT3.m_iNoSeq << " " << NT3.m_iTrueSize << "\t" << NT3.m_vsTrueSeq[ShowSeq].substr(0,5);;
-	cout << "\nNT12    			" << NT12.m_iNoSeq << " " << NT12.m_iTrueSize << "\t" << NT12.m_vsTrueSeq[ShowSeq].substr(0,10);;
-	cout << "\nNT13    			" << NT13.m_iNoSeq << " " << NT13.m_iTrueSize << "\t" << NT13.m_vsTrueSeq[ShowSeq].substr(0,10);;
-	cout << "\nNT23    			" << NT23.m_iNoSeq << " " << NT23.m_iTrueSize << "\t" << NT23.m_vsTrueSeq[ShowSeq].substr(0,10);;
-	cout << "\nNT123   			" << NT123.m_iNoSeq << " " << NT123.m_iTrueSize << "\t" << NT123.m_vsTrueSeq[ShowSeq].substr(0,15);;
-
-	exit(-1);
-
-#endif
 
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Do the models

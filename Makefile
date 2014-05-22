@@ -6,7 +6,7 @@ CC      = gcc
 #CC      = x86_64-w64-mingw32-gcc -static        # CROSS PLATFORM COMPILER WINDOWS
 #CXX      = icpc
 #CC       = icc
-CFLAGS  = -DISUNIX -O3
+CFLAGS  = -DISUNIX -O3 -w
 LDFLAGS = 
 SRCS=modelomatic.cxx bionj.cxx       data.cxx        impsamp.cxx     interface.cxx   model.cxx       new_process.cxx optimise.cxx    parsimony.cxx   process.cxx     tools.cxx       tree.cxx        treelist.cxx ini/cpp/INIReader.cxx
 OBJS=$(SRCS:%.cxx=%.o) 
