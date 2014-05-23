@@ -125,9 +125,18 @@ int main(int argc, char *argv[])	{
         tmp_AA_Data.Translate();
 		CEQU EQU_PW(&tmp_AA_Data,NULL);
 		PWDists = GetPW(&EQU_PW,NULL,true);  // Get pairwise distances
-		CTree T_bionj(DoBioNJ(PWDists,PhyDat.pData()->m_vsName,true),tmp_AA_Data.m_iNoSeq);
-		cout << " estimated using bionj" << flush;
-		Tree = T_bionj;
+		if(PhyDat.pData()->m_iNoSeq > 2) {
+			CTree T_bionj(DoBioNJ(PWDists,PhyDat.pData()->m_vsName,true),tmp_AA_Data.m_iNoSeq);
+			Tree = T_bionj;
+			cout << " estimated using bionj" << flush;
+		} else {
+			temp_string ="(1:" + double_to_string(min(PWDists[1],0.5)) + ",2:0.0);";
+			CTree Pair_tree(temp_string,2);
+			Tree = Pair_tree;
+			cout << " no tree for a pair" << flush;
+		}
+
+
 	} else {
 		// Take tree from file
 		InTree += argv[2];
@@ -355,6 +364,8 @@ int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	// Optimise
 	RY.lnL();
 	RY_Model.OrilnL = FullOpt(&RY);
+	cout << "\nRun RY: " << RY;
+
 	RY_Model.lnL = RY_Model.OrilnL + RY2Cod_Adj;
 	RY_Model.Name = RY.Name();
 	RY_Model.TreeLength = RY.Tree()->GetTreeLength();
@@ -363,6 +374,10 @@ int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	RY_Model.Correction = Correction;
 	Models->push_back(RY_Model);
     cout<<"."<<flush;
+
+    exit(-1);
+
+
     if(ModelOut) { os << RY << endl << flush; }	// Output model details
 	// 2. RY+dG
 	RY.MakeGammaModel(0,4);

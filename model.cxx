@@ -322,6 +322,10 @@ vector <double *> CBaseModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 				OptVal.push_back(m_vpProc[i]->Tree()->OptimiserB(j));
 				if(m_vpProc[i]->Tree()->NoSeq() == 2) { break; }
 	}	}	}
+
+	m_vpProc[0]->Tree()->OutBra();
+	cout << "\nGetOptPar: " << *m_vpProc[0]->Tree() << ": " << *m_vpAllOptPar[0];
+
 	if(IntBranch == true)	{
 		FOR(i,(int)m_vpProc.size()) {
 			m_vbDoBranchDer[i] = true;

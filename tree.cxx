@@ -1164,6 +1164,7 @@ double CTree::GetTreeLength(bool first, int NTo, int NFr)	{
 	// Initialise function
 	if(first == true) {
 		length = 0;
+		if(m_iNoSeq == 2) { cout << "\nGetting tree length: " << B(0) << " cf. " << *this; return B(0); }	// Always just the first branch for 2 sequences
 		return GetTreeLength(false,GetStart(false),-1);
 	}
 	assert(NTo >= 0 && NTo < m_iNoNode);
