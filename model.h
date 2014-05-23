@@ -515,12 +515,23 @@ public:
 class CSiteCodon : public CBaseModel {
 public:
 	// Constructor
-	CSiteCodon(CData *Data, CTree *Tree, vector <int> ModelPar, vector <int> BranchPar, EModel CoreModel);
+	CSiteCodon(CData *Data, CTree *Tree, vector <int> ModelPar, vector <int> BranchPar, EModel CoreModel, bool WithGamma);
 	// Destructor
 	~CSiteCodon();
+	// Interaction functions
+	double lnL(bool ForceReal = false);				// Over-ride of the virtual function. Basically just calls NormaliseParameters, then calculates the likelihood as normal
+	void DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate = true);
+				// Override to call DoBraOpt. Just calls NormaliseParameters and then lets the function do its thing
+
+
 private:
+	// Variables
 	vector <CData *> m_vpDataSites;					// Stores the data for site 0, 1, and 2; Will either have all three sites or be empty
 	vector <CTree *> m_vpTreeSites;					// Stores the trees for site 0,1, and 2; These may be pointers to a previous sites tree. For example, m_vpTreeSites[0] == m_vpTreeSites[2]. So be careful with memory changes!
+	vector <int> m_viModelMap;						// Map of the models between sites. Always of size 3
+
+	//Functions
+	bool NormaliseParameters();		// Enforces the same parameters between the models sharing the same site number in m_viModelMap. If SetOptToo == true, then it will set the optimiser off for those parameters as well.
 };
 
 /////////////////////////////////////////////////////////////////
@@ -535,7 +546,7 @@ public:
 	~CBaseCoevo();
 	// Likelihood functions for working with single and double process
 	double lnL(bool ForceReal = false);	// perform a likelihood calculation
-	virtual double DoBralnL(int B, int NL,int NR);	// Do calculations for a single branch
+	double DoBralnL(int B, int NL,int NR);	// Do calculations for a single branch
 
 protected:
 	// Variables

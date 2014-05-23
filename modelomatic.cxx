@@ -298,12 +298,15 @@ int main(int argc, char *argv[])	{
 	cout << "\nNT123   			" << NT123.m_iNoSeq << " " << NT123.m_iTrueSize << "\t" << NT123.m_vsTrueSeq[ShowSeq].substr(0,15);;
 */
 	cout << "\nTrying to initialise new model object";
-	int iModPos[3] = {0,0,1}, iBraPos[3] = {0,1,0};
+	int iModPos[3] = {0,0,0}, iBraPos[3] = {0,1,2};
 	vector <int> vModPos(3,0), vBraPos(3,0);
 	FOR(i,3) { vModPos[i] = iModPos[i]; vBraPos[i] = iBraPos[i]; }
 	CSiteCodon *CodonModel;
-	CodonModel = new CSiteCodon(PhyDat.pData(),&Tree,vModPos,vBraPos,JC);
+	CodonModel = new CSiteCodon(PhyDat.pData(),&Tree,vModPos,vBraPos,REV,false);
 
+
+	cout << "\nCodonModel initialised, with lnL: " << CodonModel->lnL(true);
+	cout << "\n\nDone!" << flush;
 //			CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> BranchPar) : CBaseModel(D,T)	{
 
 	exit(-1);

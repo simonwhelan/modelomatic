@@ -1042,7 +1042,7 @@ bool CData::GetCodonPositions(bool First, bool Second, bool Third)      {
         // Get Names
         Names = m_vsName;
         // DEBUG STUFF IF NEEDED
-        cout << "\nInto CData::GetCodonPositions : Data returned will be of form (" << First << ","<< Second << "," << Third << ");";
+//        cout << "\nInto CData::GetCodonPositions : Data returned will be of form (" << First << ","<< Second << "," << Third << ");";
         // Get sequences
         Sequences.assign(m_iNoSeq,"");
         for(i=0;i<m_iTrueSize;i+=3) {
