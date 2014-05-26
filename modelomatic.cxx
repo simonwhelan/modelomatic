@@ -384,7 +384,7 @@ int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
     RY.Tree()->SetB(0,RY.Tree()->B(0)-0.002);
     cout << "\n\Removing a bit of branch length: " << *RY.Tree() << ": " << RY.lnL();
 
-//    exit(-1);
+    exit(-1);
 
 
     if(ModelOut) { os << RY << endl << flush; }	// Output model details
