@@ -130,8 +130,8 @@ int main(int argc, char *argv[])	{
 			Tree = T_bionj;
 			cout << " estimated using bionj" << flush;
 		} else {
-			temp_string ="(1:" + double_to_string(min(PWDists[1],0.5)) + ",2:0.0);";
-			CTree Pair_tree(temp_string,2);
+			temp_string ="(" + PhyDat.pData()->m_vsName[0] + ":" + double_to_string(min(PWDists[1],0.5)) + "," + PhyDat.pData()->m_vsName[1] + ":0.0);";
+			CTree Pair_tree(temp_string,2,false,PhyDat.pData());
 			Tree = Pair_tree;
 			cout << " no tree for a pair" << flush;
 		}
@@ -358,6 +358,9 @@ int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	Ret = RY_Data.CountMSAChars();
 	// 1. Get RYmodel
 	CRY RY(&RY_Data,Tree);
+
+	RY.Tree()->OutBra(); cout << "\nStarting with RY model: "<< *RY.Tree() << " == " << RY.lnL();
+
 	// Get the correction
 	double RY2Cod_Adj = Data->GetRYToCodonlnLScale(GeneticCode,&df);
 	if(df > 0) { Correction = L_EMP; }
@@ -375,7 +378,13 @@ int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	Models->push_back(RY_Model);
     cout<<"."<<flush;
 
-    exit(-1);
+    cout << "\nCurrent lnL: " << *RY.Tree() << ": " << RY.lnL();
+    RY.Tree()->SetB(0,RY.Tree()->B(0)+0.001);
+    cout << "\n\tAdding a bit of branch length: " << *RY.Tree() << ": " << RY.lnL();
+    RY.Tree()->SetB(0,RY.Tree()->B(0)-0.002);
+    cout << "\n\Removing a bit of branch length: " << *RY.Tree() << ": " << RY.lnL();
+
+//    exit(-1);
 
 
     if(ModelOut) { os << RY << endl << flush; }	// Output model details
@@ -403,6 +412,9 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	bool Fast = DoItFast;
 	CTree PlainTree, GammaTree;
 	// 1. JC
+
+	cout << "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Doing JC";
+
 	CJC *JC; JC = new CJC(Data,Tree); Model = JC;
 	if(DoItFast) { LazyBraOpt(Model,Model->lnL(),5,0.1); }
 	Models->push_back(DoModelRun(Model,0,L_NA));
@@ -415,6 +427,15 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	Alpha = JC->m_vpPar[0]->Val();
 	if(Fast) { GammaTree = *Model->Tree(); }
 	if(ModelOut) { os << *JC << endl << flush; }	// Output model details
+
+    cout << "\nCurrent lnL: " << *Model->Tree() << ": " << Model->lnL();
+    Model->Tree()->SetB(0,Model->Tree()->B(0)+0.001);
+    cout << "\n\tAdding a bit of branch length: " << *Model->Tree() << ": " << Model->lnL();
+    Model->Tree()->SetB(0,Model->Tree()->B(0)-0.002);
+    cout << "\n\Removing a bit of branch length: " << *Model->Tree() << ": " << Model->lnL();
+
+
+exit(-1);
         cout<<"."<<flush;
 	Model = NULL;
 //	cout << "\nTree JCdG: \t" << Tree->TreeLength() << "\t" << JC->lnL(true) << " cf. " << Models->at(count++).OrilnL;

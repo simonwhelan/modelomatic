@@ -316,18 +316,20 @@ vector <double *> CBaseModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 			m_vbDoBranchDer[i] = true;
 			// Skip adding extra parameters when trees are the same in different processes
 			if(i > 0 && m_vpProc[i]->Tree() == m_vpProc[0]->Tree()) { continue; }
-			FOR(j,m_vpProc[i]->Tree()->NoSeq()) {
-				m_vpProc[i]->Tree()->SetOptB(j,true);
-				m_vpAllOptPar.push_back(m_vpProc[i]->Tree()->pBra(j));
-				OptVal.push_back(m_vpProc[i]->Tree()->OptimiserB(j));
-				if(m_vpProc[i]->Tree()->NoSeq() == 2) { break; }
-	}	}	}
-
-	m_vpProc[0]->Tree()->OutBra();
-	cout << "\nGetOptPar: " << *m_vpProc[0]->Tree() << ": " << *m_vpAllOptPar[0];
-
+			if(m_vpProc[i]->NoSeq() >2) {
+				FOR(j,m_vpProc[i]->Tree()->NoSeq()) {
+					m_vpProc[i]->Tree()->SetOptB(j,true);
+					m_vpAllOptPar.push_back(m_vpProc[i]->Tree()->pBra(j));
+					OptVal.push_back(m_vpProc[i]->Tree()->OptimiserB(j));
+			}	} else { // If 2 sequences always branch zero
+				m_vpProc[i]->Tree()->SetOptB(0,true);
+				m_vpAllOptPar.push_back(m_vpProc[i]->Tree()->pBra(0));
+				OptVal.push_back(m_vpProc[i]->Tree()->OptimiserB(0));
+			}
+	}	}
 	if(IntBranch == true)	{
 		FOR(i,(int)m_vpProc.size()) {
+			if(m_vpProc[i]->NoSeq() == 2) { continue; }
 			m_vbDoBranchDer[i] = true;
 			// Skip adding extra parameters when trees are the same in different processes
 			if(i > 0 && m_vpProc[i]->Tree() == m_vpProc[0]->Tree()) { continue; }
@@ -345,14 +347,14 @@ vector <double *> CBaseModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 			OptVal.push_back(m_vpPar[i]->OptimiserValue());
 			m_vpAllOptPar.push_back(m_vpPar[i]);
 	}	}
-/*
+
 	cout << "\nGetting Opt Par ["<< m_vpAllOptPar.size();
 	cout << ":" << OptVal.size() <<"]";
 	FOR(i,m_vpAllOptPar.size()) {
 		cout << "\n\tPar["<<i<<"] " << m_vpAllOptPar[i]->Name() << " = " << m_vpAllOptPar[i]->Val() << " == " << *OptVal[i];
 	}
-	exit(-1);
-*/	return OptVal;
+//	exit(-1);
+	return OptVal;
 }
 
 // Count the number of optimised parameters

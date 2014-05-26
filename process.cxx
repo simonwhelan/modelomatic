@@ -299,6 +299,7 @@ void CQMat::Decompose(vector <double> Eqm,bool Scale,bool REV,double Rate)	{
 }
 // Makes the P(t)
 bool CQMat::MakePT(double T, double *PT)	{
+	cout << "\nMaking P(T="<<T<<")";
    int i,j,k,Char2 = m_iChar * m_iChar;
     double e1, e2, *P;
 	const double *pdV,*pdU;

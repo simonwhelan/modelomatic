@@ -1414,6 +1414,16 @@ bool CompareSplit(SSplit S1, SSplit S2) {
 
 ostream& operator<<(ostream& os, CTree &Tree)		{
 	Tree.ValidateTree();
+	if(Tree.m_iNoSeq == 2) {
+		os << "(";
+		if(Tree.m_bOutName && !Tree.m_vsName.empty()) { os << Tree.m_vsName[0]; } else { os << "1"; }
+		if(Tree.m_iOutBra == 1) { os << ":" << Tree.B(0); }
+		os << ",";
+		if(Tree.m_bOutName && !Tree.m_vsName.empty()) { os << Tree.m_vsName[1]; } else { os << "2"; }
+		if(Tree.m_iOutBra == 1) { os << ":0.0"; }
+		os << ")";
+		return os;
+	}
 	os << "(";
 	if(Tree.IsCutTree())	{
 		if(Tree.NoLinks(Tree.StartCalc()) == 0) { Error("Trying to start calc from bad node\n"); }
