@@ -54,9 +54,6 @@ double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double Cu
 #endif
 	// Get the parameter pointers.
 	vector <double *> vPar = Model->GetOptPar(DoBra,DoBra,DoPar,DoFreq);
-
-	cout << "\nModel parameters: "; FOR(i,vPar.size()) { cout << "["<<i<<"]: " << *vPar[i]; }
-
 	if( (!DoPar && DoBra) || (DoBra && vPar.size() == Model->Tree()->NoBra()) ) { OnlyBra = true; }
 	Model->PrepareFastCalc();
 	// If rqd, get the initial likelihood
