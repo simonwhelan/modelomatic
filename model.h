@@ -68,7 +68,7 @@ public:
 	bool ForceSeperateParOpt() { return m_bDoSepParOpt; };	// Difficult models insist that they to be optimised more carefully...
 	int OptNum(int ON = -1) { if(ON > 0) { m_iOptNum = ON; } return m_iOptNum; }
 	// Clever function for fast optimisation ofbranch lengths
-	double FastBranchOpt(double CurlnL, double Tol = 1.0E-7, bool *Conv = NULL, int NoIter = 5, bool CheckPars = true);	// Controller function
+	virtual double FastBranchOpt(double CurlnL, double Tol = 1.0E-7, bool *Conv = NULL, int NoIter = 5, bool CheckPars = true);	// Controller function
 	void SingleBranchOpt(int Br, double *BestlnL, double tol);				// Do a branch optimise for a single branch, calculates partial likelihoods so inefficient when traversing a tree
 	// Space update functions for model (used in stepwise addition routines
 	void Leaf_update(int NTo, int NFr, int Br, CTree *T, int First, bool DoFullUpdate = false);
@@ -147,7 +147,7 @@ public:
 	CBaseProcess *AddCoevoProcess(CData *Data, CTree *Tree, vector <double> *R =NULL, int init_psi = 0);
 	vector <CPar *> CreateOptPar();			// Transfers the optimised parameters to m_vpPar;
 	// Optimisation interaction functions
-	vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
+	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
 	int CountOptPar(bool ExtBranch = true, bool InBranch = true, bool Parameters = true, bool Eqm = false);
 	vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);		// Calculate the processes derivatives
 	double GetNumDerivative(double *Par, double lnL);
@@ -188,6 +188,7 @@ public:
 	double (*pLikelihood)(CBaseModel *M);			// Function that can be used to adjust the likelihood
 protected:
 	bool m_bDoSepParOpt;							// Whether the model insists that it needs extra optimisations
+	vector <bool> m_vbDoBranchDer;					// Whether processes require branch derivative calculations
 	// Functions relating to checking and/or optimising tree branches
 	void BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol);	// Recursive function
 	virtual void DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate = true);
@@ -212,7 +213,7 @@ private:
 	ECalcType m_CalcType;							// The type of calculation to be performed
 	bool m_bOptReady;								// Whether the model is ready for optimisation
 	bool m_bLockModel;								// Whether parameter values will ever be optimised
-	vector <bool>		m_vbDoBranchDer;			// Whether processes require branch derivative calculations
+
 	// Variables relating to centre point mapping
 	vector <int> m_viCPNodesCovered;				// Internal nodes created by the centre point
 	vector <int> m_viLeafMap;						// Leaf nodes created by the centre point
@@ -520,15 +521,19 @@ public:
 	~CSiteCodon();
 	// Interaction functions
 	double lnL(bool ForceReal = false);				// Over-ride of the virtual function. Basically just calls NormaliseParameters, then calculates the likelihood as normal
+	vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
+				// Override to get the parameters for the different components of the model
+	// Branch optimisation routines need to be stored separately because subsets of data need to be optimised separately
+	double FastBranchOpt(double CurlnL, double Tol = 1.0E-7, bool *Conv = NULL, int NoIter = 5, bool CheckPars = true);	// Controller function
 	void DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate = true);
 				// Override to call DoBraOpt. Just calls NormaliseParameters and then lets the function do its thing
-
 
 private:
 	// Variables
 	vector <CData *> m_vpDataSites;					// Stores the data for site 0, 1, and 2; Will either have all three sites or be empty
 	vector <CTree *> m_vpTreeSites;					// Stores the trees for site 0,1, and 2; These may be pointers to a previous sites tree. For example, m_vpTreeSites[0] == m_vpTreeSites[2]. So be careful with memory changes!
 	vector <int> m_viModelMap;						// Map of the models between sites. Always of size 3
+	vector <int> m_viTreeMap;						// Map of the trees between sites. Always of size 3.
 
 	//Functions
 	bool NormaliseParameters();		// Enforces the same parameters between the models sharing the same site number in m_viModelMap. If SetOptToo == true, then it will set the optimiser off for those parameters as well.

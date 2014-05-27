@@ -16,6 +16,7 @@ CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> B
 	CData *TempData;
 	vector <CTree *> vTempTrees;
 	vector <double> FreqCount;
+	string t_string;
 	// Some error checking on entry
 	assert(ModelPar.size() == 3); assert(BranchPar.size() == 3);
 	FOR(i,3) { assert(ModelPar[i] <= i); assert(InRange(ModelPar[i],0,3)); assert(BranchPar[i] <= i); assert(InRange(BranchPar[i],0,3)); }
@@ -43,14 +44,32 @@ CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> B
 		FOR(j,3) { if(ModelPar[j] == i) { FOR(k,4) { m_vpDataSites[j]->m_vFreq[k] = FreqCount[k];  } } }
 	}
 	// Create the tree objects
-	vTempTrees.assign(3,NULL); FOR(i,3) { vTempTrees[i] = new CTree(); *vTempTrees[i] = *T; }
+	vTempTrees.assign(3,NULL); FOR(i,3) {
+		vTempTrees[i] = new CTree(); *vTempTrees[i] = *T;
+		t_string = ""; FOR(j,3) { if(BranchPar[j] == i) { t_string = t_string + int_to_string(j+1); } }
+		FOR(j,vTempTrees[i]->NoBra()) {  vTempTrees[i]->pBra(j)->Name("site[" + t_string + "]::" + vTempTrees[i]->pBra(j)->Name()); }
+	}
 	m_vpTreeSites.assign(3,NULL);
-	FOR(i,3) { m_vpTreeSites[i] = vTempTrees[BranchPar[i]]; }
+	FOR(i,3) { m_vpTreeSites[i] = vTempTrees[BranchPar[i]]; }	// Could potentially cause a memory leak, but it's small fry... (I hope!)
 	FOR(i,3) { vTempTrees[i] = NULL; }
 	// Create the model objects
 	m_viModelMap = ModelPar;
-	FOR(i,3) { m_vpAssociatedModels.push_back(GetMyModel(CoreModel,m_vpDataSites[i],m_vpTreeSites[i])); }
+	m_viTreeMap = BranchPar;
+
+	FOR(i,3) {
+		m_vpAssociatedModels.push_back(GetMyModel(CoreModel,m_vpDataSites[i],m_vpTreeSites[i]));
+		t_string = ""; FOR(j,3) { if(m_viModelMap[j] == m_viModelMap[i]) { t_string = t_string + int_to_string(j+1); } }
+		FOR(j,(int)m_vpAssociatedModels[i]->m_vpPar.size()) { m_vpAssociatedModels[i]->m_vpPar[j]->Name("site[" + t_string + "]::" + m_vpAssociatedModels[i]->m_vpPar[j]->Name()); }
+
+	}
 	NormaliseParameters();
+
+	cout << "\nGrabbing parameters";
+	vector <double*> ParVals = GetOptPar(true,true,true,false);
+	cout << "\nParameters are: ";
+	FOR(i,ParVals.size()) {
+		cout << "\nPar["<<i<<"] == " << *ParVals[i] << " : " << *m_vpAllOptPar[i];
+	}
 
 
 //	CBaseModel *Tester = GetMyModel(CoreModel,D,T);
@@ -106,6 +125,8 @@ CSiteCodon::~CSiteCodon()	{
 		}
 		m_vpTreeSites.clear();
 	}
+	// Clear pointer information
+	m_viModelMap.clear(); m_viTreeMap.clear();
 
 }
 
@@ -169,5 +190,40 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 	cout << "\nHaven't sorted DoBraOpt just yet... I think I have to be smarter than I am at the moment..."; exit(-1);
 }
 
+/////////////////////////////////////////////
+// Override the DoBraOpt function
+vector <double *> CSiteCodon::GetOptPar(bool ExtBranch, bool IntBranch, bool Parameters, bool Eqm)	{
+	int site,i,j, grad_pointer = 0;
+	bool ProcEBra, ProcIBra, ProcPar, ProcEqm;
+	vector <double *> OptVal, PlaceHold;
+	vector <bool> TreeDone(3,false), ParDone(3,false);
+	// Error checking going in
+	assert(m_vpAssociatedModels.size() == 3);
+	// Clean the parameter space
+	FOR(i,(int)m_vpAllOptPar.size()) { m_vpAllOptPar[i] = NULL; } m_vpAllOptPar.clear();
+	m_vbDoBranchDer.clear();
+	// Loop through the individual site models collecting the necessary parameters as we go
+	FOR(site,3) {
+		// Work out what needs to be collected
+		ProcEBra = ExtBranch; ProcIBra = IntBranch; ProcPar = Parameters; ProcEqm = Eqm;
+		if(TreeDone[m_viTreeMap[site]] == false) {	TreeDone[m_viTreeMap[site]] = true; } else { ProcEBra = false; ProcIBra = false; }	// Only collect first instance of branches/parameters
+		if(ParDone[m_viModelMap[site]] == false) {	ParDone[m_viTreeMap[site]] = true; } else { ProcPar = false; ProcEqm = false; }
+		// Get the values
+		PlaceHold = m_vpAssociatedModels[site]->GetOptPar(ProcEBra,ProcIBra,ProcPar,ProcEqm);
+		assert(PlaceHold.size() == m_vpAssociatedModels[site]->m_vpAllOptPar.size());
+		FOR(i,(int)PlaceHold.size()) { OptVal.push_back(PlaceHold[i]); PlaceHold[i] = NULL; m_vpAllOptPar.push_back(m_vpAssociatedModels[site]->m_vpAllOptPar[i]); } PlaceHold.clear();
+		cout << "\nProcess["<<site<<"]: totalpar = " << OptVal.size();
+
+
+	}
+	/*	cout << "\nGetting Opt Par ["<< m_vpAllOptPar.size();
+		cout << ":" << OptVal.size() <<"]";
+		FOR(i,m_vpAllOptPar.size()) {
+			cout << "\n\tPar["<<i<<"] " << m_vpAllOptPar[i]->Name() << " = " << m_vpAllOptPar[i]->Val() << " == " << *OptVal[i];
+		}
+		cout << "\n---------";
+	*/
+	return OptVal;
+}
 
 

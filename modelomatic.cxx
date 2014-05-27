@@ -307,7 +307,7 @@ int main(int argc, char *argv[])	{
 	cout << "\nNT123   			" << NT123.m_iNoSeq << " " << NT123.m_iTrueSize << "\t" << NT123.m_vsTrueSeq[ShowSeq].substr(0,15);;
 */
 	cout << "\nTrying to initialise new model object";
-	int iModPos[3] = {0,0,0}, iBraPos[3] = {0,1,2};
+	int iModPos[3] = {0,1,1}, iBraPos[3] = {0,0,1};
 	vector <int> vModPos(3,0), vBraPos(3,0);
 	FOR(i,3) { vModPos[i] = iModPos[i]; vBraPos[i] = iBraPos[i]; }
 	CSiteCodon *CodonModel;
