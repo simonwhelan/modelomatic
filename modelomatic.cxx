@@ -318,6 +318,7 @@ int main(int argc, char *argv[])	{
 	cout << "\n\nDone!" << flush;
 //			CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> BranchPar) : CBaseModel(D,T)	{
 
+	CodonModel->FastBranchOpt(CodonModel->lnL(true));
 	exit(-1);
 
 #endif

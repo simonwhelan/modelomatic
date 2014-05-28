@@ -190,7 +190,7 @@ protected:
 	bool m_bDoSepParOpt;							// Whether the model insists that it needs extra optimisations
 	vector <bool> m_vbDoBranchDer;					// Whether processes require branch derivative calculations
 	// Functions relating to checking and/or optimising tree branches
-	void BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol);	// Recursive function
+	virtual void BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol);	// Recursive function
 	virtual void DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate = true);
 			// Do the actual optimisation. (NB: virtualised so that other model/branch specific parameters can be optimsised too)
 	virtual double DoBralnL(int B, int NL,int NR);						// Do calculations for a branch
@@ -199,6 +199,11 @@ protected:
 	void DoPartLOut(int NTo, int NFr, int Br, ostream &out,int Branch);
 	// Models associated with this model
 	vector <CBaseModel *> m_vpAssociatedModels;		// These models are associated with the current model. Only one can be main model
+	// Optimiser information
+	int m_iOptNum;									// Number of times the optimiser should be run
+	int m_iFastBralnL;								// Number of times FastBranchlnL is run;
+	int m_iFastBralnL_Bracket;						// Number of those runs that are associated with bracketing
+	int m_iFastBralnL_Calls;						// Number of DoBraOpt calls
 private:
 	//////////////////////////// Private variables ////////////////////////////////////
 	// Models associated with this model
@@ -229,11 +234,6 @@ private:
 	bool m_bOutputDetail;							// Amount of output detail
 	// Preoptimiser stuff
 	EModel m_PreOptModel;							// Model
-	// Optimiser information
-	int m_iOptNum;									// Number of times the optimiser should be run
-	int m_iFastBralnL;								// Number of times FastBranchlnL is run;
-	int m_iFastBralnL_Bracket;						// Number of those runs that are associated with bracketing
-	int m_iFastBralnL_Calls;						// Number of DoBraOpt calls
 	//////////////////////////// Private functions ////////////////////////////////////
 	void CleanPar();						// Clean the parameter vector
 	void CleanMemory();						// Clean the memory
@@ -525,8 +525,10 @@ public:
 				// Override to get the parameters for the different components of the model
 	// Branch optimisation routines need to be stored separately because subsets of data need to be optimised separately
 	double FastBranchOpt(double CurlnL, double Tol = 1.0E-7, bool *Conv = NULL, int NoIter = 5, bool CheckPars = true);	// Controller function
+	void BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol);	// Recursive function
 	void DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate = true);
 				// Override to call DoBraOpt. Just calls NormaliseParameters and then lets the function do its thing
+	double DoBralnL(int B, int NL,int NR);						// Do calculations for a branch
 
 private:
 	// Variables
@@ -534,6 +536,7 @@ private:
 	vector <CTree *> m_vpTreeSites;					// Stores the trees for site 0,1, and 2; These may be pointers to a previous sites tree. For example, m_vpTreeSites[0] == m_vpTreeSites[2]. So be careful with memory changes!
 	vector <int> m_viModelMap;						// Map of the models between sites. Always of size 3
 	vector <int> m_viTreeMap;						// Map of the trees between sites. Always of size 3.
+	vector <bool> m_vbUseInBraCalc;					// List of models to be used in each branch calculation
 
 	//Functions
 	bool NormaliseParameters();		// Enforces the same parameters between the models sharing the same site number in m_viModelMap. If SetOptToo == true, then it will set the optimiser off for those parameters as well.
