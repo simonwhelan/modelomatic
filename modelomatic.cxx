@@ -62,6 +62,8 @@ int main(int argc, char *argv[])	{
 		int GeneticCode = 0;
 		int count = 0;
 		int RY_count, DNA_count, AA_count, COD_count;
+		vector <SModelDetails> Models;
+
 		// Stuff from Leaphy
 		ALLOW_PREDICTLNL = false;
 		int i,j,NumModelReruns = 1;
@@ -294,9 +296,30 @@ int main(int argc, char *argv[])	{
 	CData NT23 = *PhyDat.pData(); NT23.GetCodonPositions(false,true,true);
 	CData NT123 = *PhyDat.pData(); NT123.GetCodonPositions(true,true,true);
 
-	int ShowSeq = RandInt(0,NT1.m_iNoSeq-1);
-	cout << "\nOriginal data:		   " << PhyDat.pData()->m_iNoSeq << " " << PhyDat.pData()->m_iTrueSize << "\t" << PhyDat.pData()->m_vsTrueSeq[ShowSeq].substr(0,15);;
+//	int ShowSeq = RandInt(0,NT1.m_iNoSeq-1);
+//	cout << "\nOriginal data:		   " << PhyDat.pData()->m_iNoSeq << " " << PhyDat.pData()->m_iTrueSize << "\t" << PhyDat.pData()->m_vsTrueSeq[ShowSeq].substr(0,15);;
 
+	CREV *RevTest = NULL;
+	RevTest = new CREV(&NT1,&Tree);
+	RevTest->lnL(true);
+	cout << "\n--------------------------------------------\nOptimising site 1: " << FullOpt(RevTest);  cout << " == " << RevTest->lnL(true);
+	cout << "\n" << *RevTest;
+	delete RevTest;
+
+	RevTest = new CREV(&NT2,&Tree);
+	RevTest->lnL(true);
+	cout << "\n--------------------------------------------\nOptimising site 2: " << FullOpt(RevTest);  cout << " == " << RevTest->lnL(true);
+	cout << "\n" << *RevTest;
+	delete RevTest;
+
+	RevTest = new CREV(&NT3,&Tree);
+	RevTest->lnL(true);
+	cout << "\n--------------------------------------------\nOptimising site 3: " << FullOpt(RevTest);  cout << " == " << RevTest->lnL(true);
+	cout << "\n" << *RevTest;
+	delete RevTest;
+
+
+//	exit(-1);
 /*
 	cout << "\nNT1    				" << NT1.m_iNoSeq << " " << NT1.m_iTrueSize << "\t" << NT1.m_vsTrueSeq[ShowSeq].substr(0,5);
 	cout << "\nNT2    				" << NT2.m_iNoSeq << " " << NT2.m_iTrueSize << "\t" << NT2.m_vsTrueSeq[ShowSeq].substr(0,5);;
@@ -307,7 +330,7 @@ int main(int argc, char *argv[])	{
 	cout << "\nNT123   			" << NT123.m_iNoSeq << " " << NT123.m_iTrueSize << "\t" << NT123.m_vsTrueSeq[ShowSeq].substr(0,15);;
 */
 	cout << "\nTrying to initialise new model object";
-	int iModPos[3] = {0,1,1}, iBraPos[3] = {0,0,1};
+	int iModPos[3] = {0,1,2}, iBraPos[3] = {0,1,2};
 	vector <int> vModPos(3,0), vBraPos(3,0);
 	FOR(i,3) { vModPos[i] = iModPos[i]; vBraPos[i] = iBraPos[i]; }
 	CSiteCodon *CodonModel;
@@ -318,7 +341,15 @@ int main(int argc, char *argv[])	{
 	cout << "\n\nDone!" << flush;
 //			CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> BranchPar) : CBaseModel(D,T)	{
 
-	CodonModel->FastBranchOpt(CodonModel->lnL(true));
+//	CodonModel->FastBranchOpt(CodonModel->lnL(true));	cout << "\nFinished branch opt: " << CodonModel->lnL(true);
+
+	cout << "\nTrying optimiser...";
+	double IThink = FullOpt(CodonModel);
+	cout << "\nFull Opt gives lnl: " << CodonModel->lnL(true) << " cf. " << IThink;
+	Models.push_back(DoModelRun(CodonModel,0,L_EQU,0));
+
+	cout << "\n------------ Models -------------\n" << *CodonModel;
+	// DoModelRun(CBaseModel *M, int NoPar, Lcorrection Lcor, double Adj
 	exit(-1);
 
 #endif
@@ -332,7 +363,6 @@ int main(int argc, char *argv[])	{
 		out = new ofstream(TreeName.c_str());
 		//ofstream out(TreeName.c_str());
 	}
-	vector <SModelDetails> Models;
 	RY_count = GetRYModels(&RY_Data,&Tree,&Models,GeneticCode, *out);
         cout<<"\rRY Done ";
         end = clock();
@@ -736,8 +766,11 @@ SModelDetails DoModelRun(CBaseModel *M, int NoPar, Lcorrection Lcor, double Adj)
 //	cout << "\n-----------------------------------------------\nModel: " << M->Name();
 	if(DoItFast) {
 		if(M->m_pData->m_DataType == DNA || M->m_pData->m_DataType == COD || M->m_pData->m_DataType == COD_RED) { NoIter = 10; }
+//		cout << "\n>>>>>>>>>>>>>>>>>>>>>>>>>> LazyBraOpt1 <<<<<<<<<<<<<<<<<<<<<<< ";
 		CurlnL = LazyBraOpt(M,CurlnL,1,MATIC_BRANCH_ACC);
+//		cout << "\n>>>>>>>>>>>>>>>>>>>>>>>>>> LazyParOpt <<<<<<<<<<<<<<<<<<<<<<< ";
 		CurlnL = LazyOpt(M,true,false,false,CurlnL,false,NoIter);
+//		cout << "\n>>>>>>>>>>>>>>>>>>>>>>>>>> LazyBraOpt2 <<<<<<<<<<<<<<<<<<<<<<< ";
 		ModDet.OrilnL = LazyBraOpt(M,CurlnL,1,MATIC_BRANCH_ACC);
 	} else {
 		ModDet.OrilnL = FullOpt(M,true,true);

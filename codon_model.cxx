@@ -22,8 +22,8 @@ CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> B
 	FOR(i,3) { assert(ModelPar[i] <= i); assert(InRange(ModelPar[i],0,3)); assert(BranchPar[i] <= i); assert(InRange(BranchPar[i],0,3)); }
 	assert(InRange(CoreModel,JC,RY_model)); // Check it's a DNA model
 
-	cout << "\nWorking with core model: " << CoreModel;
-	cout << "\nInitialising okay..." << endl << ModelPar << endl << BranchPar;
+//	cout << "\nWorking with core model: " << CoreModel;
+//	cout << "\nInitialising okay..." << endl << ModelPar << endl << BranchPar;
 
 	// Create data for first, second, and third codon position
 	FOR(i,3) {
@@ -47,7 +47,10 @@ CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> B
 	vTempTrees.assign(3,NULL); FOR(i,3) {
 		vTempTrees[i] = new CTree(); *vTempTrees[i] = *T;
 		t_string = ""; FOR(j,3) { if(BranchPar[j] == i) { t_string = t_string + int_to_string(j+1); } }
-		FOR(j,vTempTrees[i]->NoBra()) {  vTempTrees[i]->pBra(j)->Name("site[" + t_string + "]::" + vTempTrees[i]->pBra(j)->Name()); }
+		FOR(j,vTempTrees[i]->NoBra()) {
+			vTempTrees[i]->pBra(j)->Name("site[" + t_string + "]::" + vTempTrees[i]->pBra(j)->Name());	// Name the branches
+			vTempTrees[i]->SetB( j , max( 0.001 , vTempTrees[i]->B(j) + RandDouble(0.0,0.03) - 0.015) ,true,true );								// Slightly randomise the start branch to ensure better optimisation
+		}
 	}
 	m_vpTreeSites.assign(3,NULL);
 	FOR(i,3) { m_vpTreeSites[i] = vTempTrees[BranchPar[i]]; }	// Could potentially cause a memory leak, but it's small fry... (I hope!)
@@ -64,13 +67,14 @@ CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> B
 	}
 	NormaliseParameters();
 
+	/*
 	cout << "\nGrabbing parameters";
 	vector <double*> ParVals = GetOptPar(true,true,true,false);
 	cout << "\nParameters are: ";
 	FOR(i,ParVals.size()) {
 		cout << "\nPar["<<i<<"] == " << *ParVals[i] << " : " << *m_vpAllOptPar[i];
 	}
-
+*/
 
 //	CBaseModel *Tester = GetMyModel(CoreModel,D,T);
 
@@ -197,19 +201,20 @@ double CSiteCodon::lnL(bool ForceReal) {
 double CSiteCodon::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIter, bool CheckPars) 	{
 	int site,i,j,k;
 	vector <bool> TreeDone(3,false);
-	double working_tol, BestlnL, newlnL;
-cout << "\nCSiteCodon::FastBranchOpt(...)";
+	double working_tol, BestlnL, newlnL, RetVal;
+//cout << "\nCSiteCodon::FastBranchOpt(...) with " << lnL(true); FOR(i,3) { cout << " ["<<i<<"]: " << m_vpAssociatedModels[i]->lnL(true); }
 
 	// Checking everything okay going in
 	assert(m_vbUseInBraCalc.empty()); assert(m_vpAssociatedModels.size() == 3);
 	assert(m_viModelMap.size() ==3 && m_viTreeMap.size() == 3); FOR(i,3) { assert(InRange(m_viTreeMap[i],0,3)); }
 	// Loop through the sites and see what branches need to be optimised
 	NormaliseParameters();
-	cout << "\nTreeMap: " << m_viTreeMap;
+//	cout << "\nTreeMap: " << m_viTreeMap;
+	RetVal = 0.0;
 	FOR(site,3) {
-		cout << "\n\tDoing branch set["<<site<<"] == " << m_viTreeMap[site];
+//		cout << "\n\tDoing branch set["<<site<<"] == " << m_viTreeMap[site];
 		// Check whether the trees been done yet
-		if(TreeDone[m_viTreeMap[site]]) { cout << " ... skipping"; continue; } TreeDone[m_viTreeMap[site]] = true;
+		if(TreeDone[m_viTreeMap[site]]) { continue; } TreeDone[m_viTreeMap[site]] = true;
 		// If not, find the other processes associated with it. Also initialises the model ready for computation
 		m_vbUseInBraCalc.assign(3,false); CurlnL = 0;
 		FOR(j,3) {
@@ -219,8 +224,6 @@ cout << "\nCSiteCodon::FastBranchOpt(...)";
 		}	}
 		if(tol > 1.0E-3) { working_tol = tol; } else { working_tol = 1.0E-3; }
 
-		cout << "\n\t" << m_vbUseInBraCalc << " == lnL: " << CurlnL;
-
 		///////////////////////////////////////////////////////////////////
 		// Only do cyclical optimisation with multiple branches
 		if(Tree()->NoBra() == 1) {
@@ -229,23 +232,27 @@ cout << "\nCSiteCodon::FastBranchOpt(...)";
 		}
 		FOR(i,NoIter)	{
 			BestlnL = newlnL = CurlnL;							// 1. Do the first calculation
-//	#if FASTBRANCHOPT_DEBUG == 1
+	#if FASTBRANCHOPT_DEBUG == 1
 	//#if DEVELOPER_BUILD == 1
 			cout << "\n\n--- Round " << i<< ". " << newlnL << " (tol: "<< working_tol << ") ---";;
-			cout << "\nOriginal branches:  "; int j; FOR(j,Tree()->NoBra()) { cout << Tree()->B(j) << " "; }
+			cout << "\nOriginal branches:  "; int j; FOR(j,m_vpAssociatedModels[site]->Tree()->NoBra()) { cout << m_vpAssociatedModels[site]->Tree()->B(j) << " "; }
 			cout << flush;
-//	#endif
+	#endif
 			BranchOpt(-1,m_vpAssociatedModels[site]->Tree()->StartCalc(),-1, &BestlnL,working_tol);	// 2. Run the fast optimisation routine
-			BestlnL = lnL();
+			BestlnL = lnL(true);	// This is also important as it correctly cleans up the space and reassigns things
 			if(working_tol > tol) { working_tol = max(tol,working_tol/10); }
 	//#if DEVELOPER_BUILD == 1
-//	#if FASTBRANCHOPT_DEBUG == 1
+	#if FASTBRANCHOPT_DEBUG == 1
 			cout << "; " << BestlnL << " == " << lnL() << "; diff = " << BestlnL - lnL();
 			cout << "\nTree: " << *Tree();
 			if(fabs(BestlnL - lnL()) > tol) { cout << "\nBig Error..."; exit(-1); }
-//	#endif
+	#endif
+//			cout << "\nIter["<<i<< "]: best: " << BestlnL << " cf. " << newlnL << " and diff: " << fabs(BestlnL - newlnL) << " cf. tol=" << tol;
 			if(fabs(BestlnL - newlnL) < tol) { break; }				// 3. Control exit
+			if(newlnL - BestlnL > tol * 100) { cout << "\nDetected an increase in likelihood for CSiteCodon::FastBranchOpt(...) -- new = " << newlnL << " cf. best = " << BestlnL << " diff = " << newlnL - BestlnL; exit(-1); }
+			CurlnL = BestlnL;
 		}
+		RetVal += BestlnL;
 		if(Conv != NULL) { if(i==NoIter) { *Conv = false; } else { *Conv = true; } }
 	//	cout << "\nReturning: " << BestlnL << " cf. " << lnL() << " fabs: " << fabs(BestlnL - lnL()); // exit(-1);
 		assert(BestlnL < 0);
@@ -253,7 +260,7 @@ cout << "\nCSiteCodon::FastBranchOpt(...)";
 		m_vbUseInBraCalc.clear();
 	}
 	CurlnL = 0; FOR(i,3) { CurlnL += m_vpAssociatedModels[i]->lnL(true); } 	// There's a better way to get this number without recalculating everything
-	cout << "\nDone with CSiteCodon::FastBranchOpt(...) -- Returning: " << CurlnL;
+//	cout << "\n\t ... Done and returning: " << CurlnL << " cf. " << RetVal << " == " << CurlnL - RetVal; FOR(i,3) { cout << " [" << i<< "]: " << m_vpAssociatedModels[i]->lnL(true); }
 	return CurlnL;
 }
 
@@ -272,22 +279,43 @@ const double resphi = 2 - phi;
 
 
 void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate) {
-	NormaliseParameters();
+
 	int i;
-	double *p_x,x1,x2,x3,x1_lnL = 1.0,x2_lnL = -fabs(*BestlnL),x3_lnL = 1.0, xi,temp;
+	double *p_x,x1,x2,x3,x1_lnL = 1.0,x2_lnL = -fabs(*BestlnL),x3_lnL = 1.0, xi,temp, ori_x, ori_lnL;
 	tol = max(tol,FULL_LIK_ACC);
 	double dx = DX;
 	CPar *Par;
 	// Some stuff to check at the beginning
+	NormaliseParameters();
 	assert(m_vpAssociatedModels.size() == 3 && m_viTreeMap.size() == 3 && m_vbUseInBraCalc.size() == 3);
 	FOR(i,3) { if(m_vbUseInBraCalc[i]) { p_x = m_vpAssociatedModels[i]->Tree()->OptimiserB(Br); Par = m_vpAssociatedModels[i]->Tree()->pBra(Br); break; } }
 	assert(i!=3);
-	cout << "\nBranch["<<Br<<"] has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo); cout << " Using parameter: " << *Par << " == " << *p_x;
 //	cout << "\nReturning from CBaseModel::DoBraOpt (including branch updates)";
 //	RETURN_DOBRAOPT;
 //	cout << "\nDoing branch["<<Br<<"]: sent bestlnL: " << *BestlnL << " cf. DoBralnL(Br,NFr,NTo): " << DoBralnL(Br,NFr,NTo); //  << " cf. real " << lnL(); exit(-1);
-	*BestlnL = DoBralnL(Br,NFr,NTo);
-	x2 = *p_x;
+	ori_x = x2 = *p_x;
+//	cout << "\n---\nBranch["<<Br<<"] has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " cf. best: " << *BestlnL; cout << " Using parameter: " << *Par << " == " << *p_x << " == " << ori_x;
+//	if(fabs(DoBralnL(Br,NFr,NTo) - *BestlnL) > 0.001) { cout.precision(12); cout << "\nError: DoBralnL("<<Br<<","<<NFr<< "," << NTo << "): " << DoBralnL(Br,NFr,NTo) << " cf. " << *BestlnL; cout << " ... and full lnL: " << lnL(true); exit(-1); }
+	ori_lnL = *BestlnL; // = DoBralnL(Br,NFr,NTo);
+	// ------------------------------------- Catch for when at lower bounds branch length and whether to proceed ------------------------------------
+	if(x2 < DX) {	// There's some annoying behaviour with low bounds
+//		cout << "\n--- Caught small branch length ---";
+//		do { *p_x += DX; *p_x = ori_x; Par->UpdatePar(); cout << "\n\tp_x = " << *p_x << " cf. " << ori_x; } while(fabs(*p_x - ori_x > DBL_EPSILON));
+		x1 = *p_x = ori_x; x1_lnL = ori_lnL; // = DoBralnL(Br,NFr,NTo);	// This extra call should be unnecessary, but for some reason it's needed...
+		*p_x +=DX; x2 = *p_x; x2_lnL = DoBralnL(Br,NFr,NTo);
+		if(x1_lnL > x2_lnL)	{	// The return point if it's really at the lower bound
+//			cout << "\nReal low bound -- ori_x = " << ori_x << " => " << ori_lnL << " cf. x2 = " << x2 << " => " << x2_lnL;
+			*p_x = ori_x; *BestlnL = ori_lnL;
+//			cout << " --> p_x = " << *p_x << " => " << DoBralnL(Br,NFr,NTo);
+			RETURN_DOBRAOPT;
+		}
+//		cout << "\nori_lnL[x=" << x1 << " = " << x1_lnL << " cf. x2_lnL[x="<<x2<<"] = " << x2_lnL << " ; diff = " << fabs(ori_lnL - x2_lnL);
+		*p_x = x1 = ori_x; x1_lnL = ori_lnL; // DoBralnL(Br,NFr,NTo);
+//		cout << "\n ... and now: x1_ln[x=" << *p_x << "] = " << x1_lnL;
+		assert(x2_lnL > x1_lnL);	// Final sanity check
+//		system("sleep 3");
+	}
+
 	// ----------------------------------- Bracketing routine -------------------------------------
 	// Get left bracketing
 	while(x2_lnL < x1_lnL)	{
@@ -301,12 +329,7 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 			x1_lnL = 1.0;
 		}
 		dx *= GS_DELTA;
-		if(!Par->CheckLowBound()) { break; }
-	}
-	// ------------------------------------- Catch for when lower bounds branch length ------------------------------------
-	if(fabs(x1 - x2) < DX) {
-		*p_x = x2 = DX; x2_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
-		if(x1_lnL > x2_lnL) { *p_x = x1; 	*BestlnL = x1_lnL; RETURN_DOBRAOPT; }
+		if(!Par->CheckLowBound()) { x1 = *p_x; break; }
 	}
 	// Get right bracketing
 	if(x3_lnL > 0.0)	{
@@ -325,9 +348,9 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 			if(!Par->CheckUpBound()) { break; }
 	}	}
 	if(x1 < 0 || x2 < 0 || x3 < 0 || *p_x < 0) { cout << "\nHave detected an error for DoBraOpt: x1: " << x1 << " x2: " <<  x2 << " x3: " <<  x3 <<" x: " <<  *p_x << "!!!"; exit(-1); }
-	cout << "\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
-	cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
-	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
+//	cout << "\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
+//	cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")"; *p_x = x2; cout << " checking " << DoBralnL(Br,NFr,NTo);
+//	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
 	// Do various checks to make sure it looks like a hill
 	if(!Par->CheckBound()) { *p_x = x2; *BestlnL = x2_lnL; RETURN_DOBRAOPT; }
 	if(x1_lnL > max(x2_lnL,x3_lnL)) {
@@ -340,7 +363,7 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 	else if (x3_lnL > x2_lnL)		{ *p_x = x3; *BestlnL = x3_lnL; RETURN_DOBRAOPT; }
 	// New Goldensection
 	assert(x2_lnL + FLT_EPSILON > x1_lnL && x2_lnL + FLT_EPSILON> x3_lnL);
-	cout << "\nInto Goldensection";
+//	cout << "\nInto Goldensection (" << x1 << "," << x2 << "," << x3 << ")";
 	FOR(i,20) {
 		// New value
 		if(x3 - x2 > x2 - x1) 	{ *p_x = xi = x2 + resphi * (x3-x2); }
@@ -349,7 +372,7 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 		if(fabs(x3_lnL - x1_lnL) < tol) { /* cout << "\nBreaking at tol=" << tol << " fabs(" << x3_lnL << " - " << x1_lnL << ")";  */ *p_x = x2 = (x1+x3)/2; break; }
 		// Search
 		temp = DoBralnL(Br,NFr,NTo);
-		cout << "\n\t[i="<<i<<"] xi:" << xi << ": " << temp;
+//		cout << "\n\t[i="<<i<<"] xi:" << xi << ": " << temp;
 		if(temp > x2_lnL) {
 			if(x3 - x2 > x2 - x1) 	{ x1 = x2; x1_lnL = x2_lnL;  x2 = xi; x2_lnL = temp; }
 			else					{ x3 = x2; x3_lnL = x2_lnL;  x2 = xi; x2_lnL = temp; }
@@ -357,7 +380,7 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 			if(x3 - x2 > x2 - x1)	{ x3 = xi; x3_lnL = temp; }
 			else					{ x1 = xi; x1_lnL = temp; }
 		}
-		cout << " [x1:" << x1 << ", x2:" << x2 << ", x3:" << x3 << ","<< max(x1_lnL,max(x2_lnL,x3_lnL)) << "]" << flush;
+//		cout << " [x1:" << x1 << ", x2:" << x2 << ", x3:" << x3 << ","<< max(x1_lnL,max(x2_lnL,x3_lnL)) << "]" << flush;
 	}
 
 /*
@@ -368,7 +391,10 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
 */	// Finish by doing the calculation again to correctly update the partial likelihoods
 	m_iFastBralnL_Calls++;
-	*BestlnL = DoBralnL(Br,NFr,NTo);
+
+	if(x2_lnL > ori_lnL) { *p_x = x2; *BestlnL = x2_lnL; } else { if(fabs(x2_lnL - ori_lnL) > tol) { cout << "\nWeird... optimiser (tol=" << tol << ") made worse likelihood in DoBraOpt(...)\n"; cout << " should have: " << ori_lnL << " and have " << DoBralnL(Br,NFr,NTo) << " diff = " << DoBralnL(Br,NFr,NTo) - ori_lnL; } *p_x = ori_x; *BestlnL = ori_lnL;  }
+//	*BestlnL = DoBralnL(Br,NFr,NTo); // Can probably avoid this...
+//	cout << "\nRETURNING p_x = " << *p_x << ": " << *BestlnL << " cf. " << DoBralnL(Br,NFr,NTo);
 //	exit(-1);
 	RETURN_DOBRAOPT;
 
@@ -427,6 +453,7 @@ double CSiteCodon::DoBralnL(int B, int NF,int NT)	{
 //	cout << "\nInto DoBralnL(B=" << B << "; NF: " << NF << "; NT: " << NT << ") :: m_vbUseInBraCalc " << m_vbUseInBraCalc;
 	// Check going in
 	assert(m_vpAssociatedModels.size() == 3 && m_viTreeMap.size() == 3 && m_vbUseInBraCalc.size() == 3);
+//	cout << "\nUsing sites ";
 	FOR(site,3) {
 		if(!m_vbUseInBraCalc[site]) { continue; }	// Skip processes not needed for this likelihood
 		// Get the memory
@@ -447,10 +474,12 @@ double CSiteCodon::DoBralnL(int B, int NF,int NT)	{
 		}
 	//	cout << "\n>>>>>>>>>>>>>>>>>>>> DoBralnL(Branch="<<B<<") returning: "<< logL;
 		m_iFastBralnL++;
+//		cout << " ["<< site<<"]+= " << logL;
 		RetlogL += logL;
 		// Clear up after the process
 		FOR(i,CProbSize) { delete P[i]; } delete [] P;
 	}
+//	cout << " == " << RetlogL;
 	return RetlogL;
 }
 
@@ -477,7 +506,7 @@ vector <double *> CSiteCodon::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 		PlaceHold = m_vpAssociatedModels[site]->GetOptPar(ProcEBra,ProcIBra,ProcPar,ProcEqm);
 		assert(PlaceHold.size() == m_vpAssociatedModels[site]->m_vpAllOptPar.size());
 		FOR(i,(int)PlaceHold.size()) { OptVal.push_back(PlaceHold[i]); PlaceHold[i] = NULL; m_vpAllOptPar.push_back(m_vpAssociatedModels[site]->m_vpAllOptPar[i]); } PlaceHold.clear();
-		cout << "\nProcess["<<site<<"]: totalpar = " << OptVal.size();
+//		cout << "\nProcess["<<site<<"]: totalpar = " << OptVal.size();
 
 
 	}
@@ -491,4 +520,30 @@ vector <double *> CSiteCodon::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 	return OptVal;
 }
 
+/////////////////////////////////////////////////////////////////////////
+// Derivative calculations
+vector <double> CSiteCodon::GetDerivatives(double CurlnL, bool *pOK)	{
+	int i;
+	bool OK = true, ForceNumBra = false;
+	vector <double> Grads;
+	vector <double> temp;
+	double temp_lnL;
+	if(m_vpAllOptPar.empty())  { return Grads; }
+	assert(m_vpAssociatedModels.size() == 3);
+//	cout << "\nInto GetDer";
+	if(IsRMSDCalc())	{	////////////////////////// Do RMSD derivatives ///////////////////////
+		FOR(i,(int)m_vpAllOptPar.size()) {
+			Grads.push_back(m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL)));
+			if(Grads[i] > RMSD_GRAD_LIM)		{ OK = false; Grads[i] = RMSD_GRAD_LIM; }
+			else if(Grads[i] < -RMSD_GRAD_LIM)	{ OK = false; Grads[i] = -RMSD_GRAD_LIM; }
+	}	} else {			////////////////////////// Do likelihood derivatives /////////////////
+		FOR(i,(int)m_vpAllOptPar.size())	{
+//			cout << "\n\tOptimising: " << m_vpAllOptPar[i]->Name();
+			m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL)); }
+		// Store the gradients
+		FOR(i,(int)m_vpAllOptPar.size()) { Grads.push_back(m_vpAllOptPar[i]->grad()); }
+	}
+	if(pOK != NULL) { *pOK = OK; }
+	return Grads;
+}
 

@@ -486,7 +486,9 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 			temp.assign((int)m_vpAllOptPar.size(),0.0);
 			// Initialise
 			FOR(i,(int)m_vpAllOptPar.size()) { m_vpAllOptPar[i]->InitialiseDerivativeType(); }
+
 			///////////////////////////////////////////////////////////////////
+			// For analytical derivatives
 			// 1. Set up the Q matrices
 			PreparelnL();
 			// 2. Build all the partial likelihoods and get the processes sitewise likelihood

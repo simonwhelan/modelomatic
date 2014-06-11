@@ -50,7 +50,7 @@ public:
 	void RemovePar(string Name);				// Removes a parameter
 	void RedoScale(bool Force = false);			// Rescale all the parameters in the model
 	void RandomiseParameters(bool ExtBranch, bool IntBranch, bool Parameters, bool Eqm);	// Randomise the optimised parameter values
-	bool IsViable();							// Checks whether all the memory and
+	virtual bool IsViable();							// Checks whether all the processes are okay. Not really fully implemented...
 	////////////////////////////////////////////////////////////
 	// Some calculation based functions
 	void CreateProcessSpace(bool force = false);	// Function that creates space for all the sub functions
@@ -149,7 +149,7 @@ public:
 	// Optimisation interaction functions
 	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
 	int CountOptPar(bool ExtBranch = true, bool InBranch = true, bool Parameters = true, bool Eqm = false);
-	vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);		// Calculate the processes derivatives
+	virtual vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);		// Calculate the processes derivatives
 	double GetNumDerivative(double *Par, double lnL);
 	virtual CBaseModel *PreOptModel()	{ return NULL; }								// Returns the 'preoptimisation' model for complex models (e.g. THMMs)
 	virtual void ApplyPreOptModel(CBaseModel *PreOpt)		{  }						// Applies the pre-opt model to the data
@@ -520,6 +520,7 @@ public:
 	// Destructor
 	~CSiteCodon();
 	// Interaction functions
+	vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);
 	double lnL(bool ForceReal = false);				// Over-ride of the virtual function. Basically just calls NormaliseParameters, then calculates the likelihood as normal
 	vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
 				// Override to get the parameters for the different components of the model
