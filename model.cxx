@@ -1375,10 +1375,12 @@ const double resphi = 2 - phi;
 // Brent version of DoBraOpt
 void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, double *BestlnL,double tol, bool AllowUpdate)	{
 	int i;
-	double *p_x = Tree()->OptimiserB(Br),x1,x2=*p_x,x3,x1_lnL = 1.0,x2_lnL = -fabs(*BestlnL),x3_lnL = 1.0, xi,temp;
+	double *p_x = Tree()->OptimiserB(Br),x1,x2,x3,x1_lnL = 1.0,x2_lnL = -fabs(*BestlnL),x3_lnL = 1.0, xi,temp, ori_x, ori_lnL;
 	tol = max(tol,FULL_LIK_ACC);
 	double dx = DX;
 	CPar *Par  = Tree()->pBra(Br);
+	ori_x = x2 = *p_x;
+	ori_lnL = *BestlnL;
 
 #if DEVELOPER_BUILD == 1
 	cout << "\nBranch["<<Br<<"] has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo);
@@ -1386,7 +1388,19 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	RETURN_DOBRAOPT;
 #endif
 //	cout << "\nDoing branch["<<Br<<"]: sent bestlnL: " << *BestlnL << " cf. DoBralnL(Br,NFr,NTo): " << DoBralnL(Br,NFr,NTo); //  << " cf. real " << lnL(); exit(-1);
-	*BestlnL = DoBralnL(Br,NFr,NTo);
+	//*BestlnL = DoBralnL(Br,NFr,NTo);
+	// ------------------------------------- Catch for when at lower bounds branch length and whether to proceed ------------------------------------
+	if(x2 < DX) {	// There's some annoying behaviour with low bounds
+//		cout << "\n--- Caught small branch length ---";
+		x1 = *p_x = ori_x; x1_lnL = ori_lnL; // = DoBralnL(Br,NFr,NTo);	// This extra call should be unnecessary, but for some reason it's needed...
+		*p_x +=DX; x2 = *p_x; x2_lnL = DoBralnL(Br,NFr,NTo);
+		if(x1_lnL > x2_lnL)	{	// The return point if it's really at the lower bound
+			*p_x = ori_x; *BestlnL = ori_lnL;
+			RETURN_DOBRAOPT;
+		}
+		*p_x = x1 = ori_x; x1_lnL = ori_lnL; // DoBralnL(Br,NFr,NTo);
+		assert(x2_lnL > x1_lnL);	// Final sanity check
+	}
 	// ----------------------------------- Bracketing routine -------------------------------------
 	// Get left bracketing
 	while(x2_lnL < x1_lnL)	{
@@ -1401,11 +1415,6 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 		}
 		dx *= GS_DELTA;
 		if(!Par->CheckLowBound()) { break; }
-	}
-	// ------------------------------------- Catch for when lower bounds branch length ------------------------------------
-	if(fabs(x1 - x2) < DX) {
-		*p_x = x2 = DX; x2_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
-		if(x1_lnL > x2_lnL) { *p_x = x1; 	*BestlnL = x1_lnL; RETURN_DOBRAOPT; }
 	}
 	// Get right bracketing
 	if(x3_lnL > 0.0)	{
@@ -1517,7 +1526,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
 */	// Finish by doing the calculation again to correctly update the partial likelihoods
 	m_iFastBralnL_Calls++;
-	*BestlnL = DoBralnL(Br,NFr,NTo);
+	if(x2_lnL > ori_lnL) { *p_x = x2; *BestlnL = x2_lnL; } else { if(fabs(x2_lnL - ori_lnL) > tol) { cout << "\nWeird... optimiser (tol=" << tol << ") made worse likelihood in CBaseModel::DoBraOpt(...)\n"; cout << " should have: " << ori_lnL << " and have " << DoBralnL(Br,NFr,NTo) << " diff = " << DoBralnL(Br,NFr,NTo) - ori_lnL; } *p_x = ori_x; *BestlnL = ori_lnL;  }
 	RETURN_DOBRAOPT;
 }
 

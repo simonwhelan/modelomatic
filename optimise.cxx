@@ -41,7 +41,7 @@ const string OptFile = "opt.output";
 // Standard likelihood optimising routine
 double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double CurlnL,bool FullLikAcc, int NoIterations, double lnL2Beat, double lnL_tol, bool DoOutput,bool TightFullOpt)	{
 	int i;
-	cout << "\nInto FullOpt for Model = <" << Model->m_sName << ">  DoPar: " << DoPar << ", DoBra: " << DoBra << ", DoFreq: " << DoFreq << endl;
+//	cout << "\nInto FullOpt for Model = <" << Model->m_sName << ">  DoPar: " << DoPar << ", DoBra: " << DoBra << ", DoFreq: " << DoFreq << endl;
 	double ACC = lnL_tol, gtol = FULL_GTOL;
 	bool OnlyBra = false;
 	// Deal with parsimony

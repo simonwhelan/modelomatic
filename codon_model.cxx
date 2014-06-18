@@ -290,9 +290,6 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 	assert(m_vpAssociatedModels.size() == 3 && m_viTreeMap.size() == 3 && m_vbUseInBraCalc.size() == 3);
 	FOR(i,3) { if(m_vbUseInBraCalc[i]) { p_x = m_vpAssociatedModels[i]->Tree()->OptimiserB(Br); Par = m_vpAssociatedModels[i]->Tree()->pBra(Br); break; } }
 	assert(i!=3);
-//	cout << "\nReturning from CBaseModel::DoBraOpt (including branch updates)";
-//	RETURN_DOBRAOPT;
-//	cout << "\nDoing branch["<<Br<<"]: sent bestlnL: " << *BestlnL << " cf. DoBralnL(Br,NFr,NTo): " << DoBralnL(Br,NFr,NTo); //  << " cf. real " << lnL(); exit(-1);
 	ori_x = x2 = *p_x;
 //	cout << "\n---\nBranch["<<Br<<"] has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " cf. best: " << *BestlnL; cout << " Using parameter: " << *Par << " == " << *p_x << " == " << ori_x;
 //	if(fabs(DoBralnL(Br,NFr,NTo) - *BestlnL) > 0.001) { cout.precision(12); cout << "\nError: DoBralnL("<<Br<<","<<NFr<< "," << NTo << "): " << DoBralnL(Br,NFr,NTo) << " cf. " << *BestlnL; cout << " ... and full lnL: " << lnL(true); exit(-1); }
@@ -300,20 +297,14 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 	// ------------------------------------- Catch for when at lower bounds branch length and whether to proceed ------------------------------------
 	if(x2 < DX) {	// There's some annoying behaviour with low bounds
 //		cout << "\n--- Caught small branch length ---";
-//		do { *p_x += DX; *p_x = ori_x; Par->UpdatePar(); cout << "\n\tp_x = " << *p_x << " cf. " << ori_x; } while(fabs(*p_x - ori_x > DBL_EPSILON));
 		x1 = *p_x = ori_x; x1_lnL = ori_lnL; // = DoBralnL(Br,NFr,NTo);	// This extra call should be unnecessary, but for some reason it's needed...
 		*p_x +=DX; x2 = *p_x; x2_lnL = DoBralnL(Br,NFr,NTo);
 		if(x1_lnL > x2_lnL)	{	// The return point if it's really at the lower bound
-//			cout << "\nReal low bound -- ori_x = " << ori_x << " => " << ori_lnL << " cf. x2 = " << x2 << " => " << x2_lnL;
 			*p_x = ori_x; *BestlnL = ori_lnL;
-//			cout << " --> p_x = " << *p_x << " => " << DoBralnL(Br,NFr,NTo);
 			RETURN_DOBRAOPT;
 		}
-//		cout << "\nori_lnL[x=" << x1 << " = " << x1_lnL << " cf. x2_lnL[x="<<x2<<"] = " << x2_lnL << " ; diff = " << fabs(ori_lnL - x2_lnL);
 		*p_x = x1 = ori_x; x1_lnL = ori_lnL; // DoBralnL(Br,NFr,NTo);
-//		cout << "\n ... and now: x1_ln[x=" << *p_x << "] = " << x1_lnL;
 		assert(x2_lnL > x1_lnL);	// Final sanity check
-//		system("sleep 3");
 	}
 
 	// ----------------------------------- Bracketing routine -------------------------------------
@@ -389,10 +380,10 @@ void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,dou
 	cout << "\n---\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
 	cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
 	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
-*/	// Finish by doing the calculation again to correctly update the partial likelihoods
+*/
 	m_iFastBralnL_Calls++;
 
-	if(x2_lnL > ori_lnL) { *p_x = x2; *BestlnL = x2_lnL; } else { if(fabs(x2_lnL - ori_lnL) > tol) { cout << "\nWeird... optimiser (tol=" << tol << ") made worse likelihood in DoBraOpt(...)\n"; cout << " should have: " << ori_lnL << " and have " << DoBralnL(Br,NFr,NTo) << " diff = " << DoBralnL(Br,NFr,NTo) - ori_lnL; } *p_x = ori_x; *BestlnL = ori_lnL;  }
+	if(x2_lnL > ori_lnL) { *p_x = x2; *BestlnL = x2_lnL; } else { if(fabs(x2_lnL - ori_lnL) > tol) { cout << "\nWeird... optimiser (tol=" << tol << ") made worse likelihood in CSiteCodon::DoBraOpt(...)\n"; cout << " should have: " << ori_lnL << " and have " << DoBralnL(Br,NFr,NTo) << " diff = " << DoBralnL(Br,NFr,NTo) - ori_lnL; } *p_x = ori_x; *BestlnL = ori_lnL;  }
 //	*BestlnL = DoBralnL(Br,NFr,NTo); // Can probably avoid this...
 //	cout << "\nRETURNING p_x = " << *p_x << ": " << *BestlnL << " cf. " << DoBralnL(Br,NFr,NTo);
 //	exit(-1);
