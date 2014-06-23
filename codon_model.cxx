@@ -538,3 +538,25 @@ vector <double> CSiteCodon::GetDerivatives(double CurlnL, bool *pOK)	{
 	return Grads;
 }
 
+////////////////////////////////////////////////////////////////////////////
+// Empirical codon models
+CEMPCodonREST::CEMPCodonREST(CData *D, CTree *Tree, bool PlusFreq, int GenCode) : CBaseModel(D,Tree) {
+	int i;
+	string m_sName = sModelNames[(int)CodonEMPRest];
+	assert(GenCode == 0); 						// Currently only available for universal genetic code
+	// Do genetic code
+	D->MakeCodonData();
+	// Reduce the model and the data to the correct genetic code
+	m_pData->ReduceCodonData(GenCode);
+
+	// Sort out the eqm distribution (should probably be dealt with else where, but this works
+	if(PlusFreq) {		// The '+F' option comparable to amino acid empirical models. Note only works with F64
+		assert(D->m_vFreq.size() == 61);
+		FOR(i,61) { D->m_vFreq[i] = dECMrestFreq[i]; }
+	}
+	// Add the process
+	m_vpProc.push_back(AddCodonProcess(D,Tree,pCodonEMPRest,F64,GenCode));
+	FinalInitialisation();
+}
+
+

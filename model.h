@@ -508,6 +508,15 @@ public:
 	CCodonM0(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, int GenCode = 0);
 };
 
+class CEMPCodonREST : public CBaseModel {
+public:
+	CEMPCodonREST(CData *Data, CTree *Tree, bool PlusFreq, int GenCode = 0);
+};
+
+class CEMPCodonUNREST : public CBaseModel {
+public:
+	CEMPCodonUNREST(CData *Data, CTree *Tree, bool PlusFreq, int GenCode = 0);
+};
 //////////////////////////////////////////////////////////////////
 //		Pseudo-codon models with site specific models or branches
 // ---

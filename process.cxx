@@ -2844,6 +2844,9 @@ CAAProcess::CAAProcess(CData *D, CTree *T, string Name, bool AddF, double *S_ij,
 
 /* ******************************* Basic codon processes ************************************** */
 CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode) : CBaseProcess(D,T)	{
+	int i, j, k, count;
+	CQPar *Par = NULL;
+	string sFrom, sTo,Name;
 	assert(D != NULL); assert(D->m_DataType == COD_RED);
 	MakeBasicSpace(D->m_iChar); m_sABET = D->m_sABET;
 	// Store the genetic code
@@ -2857,6 +2860,30 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 		AddMultiChangeZeros(GenCode);
 		AddOmega(GenCode);
 		Kappa(COD);
+		break;
+	case pCodonEMPRest:
+		cout << "\nMaking RESTRAINED empirical codon model";
+		Add_CodRedQMat("CodonEMP",D->m_iChar);
+		count = 0;
+		FOR(i,m_iChar) {
+			FOR(j,i)	{
+				// Get the names of the states
+				sFrom = sTo = "";
+				FOR(k,3) { sFrom = sFrom + m_sABET[(j*3)+k]; sTo = sTo + m_sABET[(i*3)+k]; }
+				Name = sFrom + "<->" + sTo;
+
+//					cout << "\nCreating transition " << Name << " == " << dECMrest[count] << flush;
+
+				Par = new CQPar(Name,m_iChar,dECMrest[count++],false,0.0,BIG_NUMBER);
+					Par->AddQij(i,j);
+				Par->SetOptimise(false);
+				m_vpPar.push_back(Par);
+					Par = NULL;
+		}	}
+		assert(count == 1830);
+		break;
+	case CodonEMPUnrest:
+		cout << "\nMaking UNRESTRAINED empirical codon model"; exit(-1);
 		break;
 	default:
 		Error("\nAttempting to create Codon process from unknown model...");

@@ -66,14 +66,14 @@ enum EModel {	JC,FEL,K2P,HKY,REV,								// Standard nucleotide
 				EQU,WAG,JTT,DAY,mtREV,							// Standard amino acid
 				THMM_AA,WAGdG_THMM,								// Unusual amino acid
 				Coevo_WAG,										// Coevolution models
-				CodonM0,										// Codon
+				CodonM0, CodonEMPRest, CodonEMPUnrest,			// Codon
 				UNKNOWN};
 const string sModelNames[] = {	"JC","FEL","K2P","HKY","REV",
 						"RY","CovHKY",",CovREV","THMM_FULLDNA","HKYdG_THMM","THMM_DNA",
 						"EQU","WAG","JTT","DAY","mtREV",
 						"THMM_AA","WAGdG_THMM",
 						"Coevo_WAG",
-						"CodonM0",
+						"CodonM0", "CodonEMPRest", "CodonEMPUnrest",
 						"Unknown"};
 enum ERateTypes {same,varyall,gammarates};			// Defines the type of rate variation occurring in THMMs
 ostream &operator <<(ostream &os,EModel M);

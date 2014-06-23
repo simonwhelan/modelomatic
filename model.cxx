@@ -2859,7 +2859,6 @@ CCodonProcess *CBaseModel::AddCodonProcess(CData *D,CTree *T,CodonProc Model, EC
 	CCodonProcess *Proc;
 	Proc = new CCodonProcess(D,T,Model,CE,GenCode);
 	return Proc;
-
 }
 
 CCodonM0::CCodonM0(CData *D, CTree *T, ECodonEqm CE, int GenCode) : CBaseModel(D,T)	{
