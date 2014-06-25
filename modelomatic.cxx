@@ -864,14 +864,9 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
 
 int GetFullCodonModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out)	{
 	int i, j, k;
-	CEMPCodonREST *NewModel;
+	CEMPCodonREST *NewModel1; CEMPCodonUNREST *NewModel2;
 	CData CodData = *Data;
 	assert(GeneticCode == 0);
-	NewModel = new CEMPCodonREST(&CodData, Tree, false, 0);
-	cout << "\nModel made..." << flush;
-	cout << "\nNew lnL: " << NewModel->lnL(true);
-	DoModelRun(NewModel,63,L_NA);
-	cout << "\nOptimised lnL: " << NewModel->lnL(true);
 
 	CCodonM0 *CodModel;
 	CodData = *Data;
@@ -879,6 +874,22 @@ int GetFullCodonModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,
 	cout << "\nOld lnL: " << CodModel->lnL(true);
 	DoModelRun(CodModel,63,L_NA);
 	cout << "\nOptimised lnL: " << CodModel->lnL(true);
+
+	CodData = *Data;
+	NewModel1 = new CEMPCodonREST(&CodData, Tree, false, 0);
+	cout << "\nRestrained model made..." << flush;
+	cout << "\nNew lnL: " << NewModel1->lnL(true);
+	DoModelRun(NewModel1,63,L_NA);
+	cout << "\nOptimised lnL: " << NewModel1->lnL(true);
+	delete NewModel1;
+
+	CodData = *Data;
+	NewModel2 = new CEMPCodonUNREST(&CodData, Tree, false, 0);
+	cout << "\nUnrestrained model made..." << flush;
+	cout << "\nNew lnL: " << NewModel2->lnL(true);
+	DoModelRun(NewModel2,63,L_NA);
+	cout << "\nOptimised lnL: " << NewModel2->lnL(true);
+	delete NewModel2;
 
 
 	cout << "\nSuccessful exit...";

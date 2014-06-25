@@ -517,6 +517,12 @@ class CEMPCodonUNREST : public CBaseModel {
 public:
 	CEMPCodonUNREST(CData *Data, CTree *Tree, bool PlusFreq, int GenCode = 0);
 };
+
+class CAAEMPCodon : public CBaseModel {		// Codon model based on an amino acid model
+public:
+	CAAEMPCodon(CData *D, CTree *Tree, ECodonEqm CE = F3X4, int GenCode = 0);
+};
+
 //////////////////////////////////////////////////////////////////
 //		Pseudo-codon models with site specific models or branches
 // ---

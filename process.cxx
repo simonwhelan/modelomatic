@@ -2854,6 +2854,7 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 	// Do the model equilibrium distribution
 	AddCodonEqm(GenCode,m_pData->m_iChar,CE,false);
 	// Define the model parameters
+	cout << "\nAdding codon process" << flush;
 	switch(Model)	{
 	case pM0:
 		Add_CodRedQMat("M0",D->m_iChar);
@@ -2882,11 +2883,45 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 		}	}
 		assert(count == 1830);
 		break;
-	case CodonEMPUnrest:
-		cout << "\nMaking UNRESTRAINED empirical codon model"; exit(-1);
+	case pCodonEMPUnrest:
+		cout << "\nMaking UNRESTRAINED empirical codon model" << flush;
+		Add_CodRedQMat("CodonEMP",D->m_iChar);
+		count = 0;
+		FOR(i,m_iChar) {
+			FOR(j,i)	{
+				// Get the names of the states
+				sFrom = sTo = "";
+				FOR(k,3) { sFrom = sFrom + m_sABET[(j*3)+k]; sTo = sTo + m_sABET[(i*3)+k]; }
+				Name = sFrom + "<->" + sTo;
+//					cout << "\nCreating transition " << Name << " == " << dECMunrest[count] << flush;
+				Par = new CQPar(Name,m_iChar,dECMunrest[count++],false,0.0,BIG_NUMBER);
+					Par->AddQij(i,j);
+				Par->SetOptimise(false);
+				m_vpPar.push_back(Par);
+					Par = NULL;
+		}	}
+		assert(count == 1830);
 		break;
+	case pAAEMP:	// Amino acid empirical codon model
+		Add_CodRedQMat("CodonAAEMP",D->m_iChar);
+		FOR(i,m_iChar) {
+			FOR(j,i)	{
+				// Get the names of the states
+				sFrom = sTo = "";
+				FOR(k,3) { sFrom = sFrom + m_sABET[(j*3)+k]; sTo = sTo + m_sABET[(i*3)+k]; }
+				Name = sFrom + "<->" + sTo;
+//					cout << "\nCreating transition " << Name << " == " << dECMunrest[count] << flush;
+				Par = new CQPar(Name,m_iChar,dECMunrest[count++],false,0.0,BIG_NUMBER);
+					Par->AddQij(i,j);
+				Par->SetOptimise(false);
+				m_vpPar.push_back(Par);
+					Par = NULL;
+		}	}
+		assert(count == 1830);
+
 	default:
 		Error("\nAttempting to create Codon process from unknown model...");
+		exit(-1);
 	}
 }
 /////////////////////////////////////////////////////////////////////////////////////////

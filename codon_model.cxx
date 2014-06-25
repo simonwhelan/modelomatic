@@ -559,4 +559,44 @@ CEMPCodonREST::CEMPCodonREST(CData *D, CTree *Tree, bool PlusFreq, int GenCode) 
 	FinalInitialisation();
 }
 
+CEMPCodonUNREST::CEMPCodonUNREST(CData *D, CTree *Tree, bool PlusFreq, int GenCode) : CBaseModel(D,Tree) {
+	int i;
+	string m_sName = sModelNames[(int)CodonEMPRest];
+	assert(GenCode == 0); 						// Currently only available for universal genetic code
+	// Do genetic code
+	D->MakeCodonData();
+	// Reduce the model and the data to the correct genetic code
+	m_pData->ReduceCodonData(GenCode);
 
+	// Sort out the eqm distribution (should probably be dealt with else where, but this works
+	if(PlusFreq) {		// The '+F' option comparable to amino acid empirical models. Note only works with F64
+		assert(D->m_vFreq.size() == 61);
+		FOR(i,61) { D->m_vFreq[i] = dECMunrestFreq[i]; }
+	}
+	// Add the process
+	m_vpProc.push_back(AddCodonProcess(D,Tree,pCodonEMPUnrest,F64,GenCode));
+	FinalInitialisation();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// A codon model built from an empirical amino acid model
+CAAEMPCodon::CAAEMPCodon(CData *D, CTree *Tree, ECodonEqm CE,  int GenCode) : CBaseModel(D,Tree) {
+	m_sName = sModelNames[(int)CodonM0];
+	// Do genetic code
+	D->MakeCodonData();
+	// Reduce the model and the data to the correct genetic code
+	m_pData->ReduceCodonData(GenCode);
+
+	m_sName += "." + int_to_string(GenCode) + ".";
+	// Do frequencies
+	switch(CE) {
+	case cEQU: m_sName += "EQU";	break;
+	case F1X4: m_sName += "F1X4";	break;
+	case F3X4: m_sName += "F3X4";	break;
+	case F64:  m_sName += "F64";	break;
+	default:   Error("\nUnknown CE option in CCodonM0::CCodonM0\n\n");
+	}
+	// Add the process
+	m_vpProc.push_back(AddCodonProcess(D,T,pM0,CE,GenCode));
+	FinalInitialisation();
+}

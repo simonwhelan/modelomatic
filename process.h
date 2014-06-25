@@ -665,7 +665,7 @@ protected:
 
 enum DNAProc	{pRY,pJC,pFEL,pK2P,pHKY,pREV,pCOV,pDNA_THMM,pBRACOV,DNA_OTHER};
 enum AAProc		{pEQU,pJTT,pWAG,pDAY,pMTREV,AA_OTHER};
-enum CodonProc  {pM0, pCodonEMPRest, pCodonEMPUnrest};
+enum CodonProc  {pM0, pCodonEMPRest, pCodonEMPUnrest, pAAEMP};
 
 class CDNAProcess : public CBaseProcess	{
 public:
