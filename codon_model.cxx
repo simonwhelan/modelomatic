@@ -10,6 +10,16 @@
 
 #include "model.h"
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Site specific codon models
+// ---
+// Nucleotide models distributed across the 3 codon positions. Can have single or joined models across the codon positions
+// The way it's set up BranchPar and ModelPar specify the sets of model and branch parameters and how they're shared between codon positions
+// T.ex: {0,0,1} means positions 1 and 2 share parameters and position 3 has its own parameters
+//
+// The BranchPar and ModelPar can specify -1 at a position and this codon position will not be optimised or included in the calculation,
+//		but the likelihood adjustment factor will be calculated and computed in all comparisons.
+//
 // The model will be set up inefficiently to start with. The main CBaseModel object will have nothing to optimise in it
 CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> BranchPar, EModel CoreModel, bool Gamma) : CBaseModel(D,T)	{
 	int i,j,k;
@@ -19,9 +29,12 @@ CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> B
 	string t_string;
 	// Some error checking on entry
 	assert(ModelPar.size() == 3); assert(BranchPar.size() == 3);
-	FOR(i,3) { assert(ModelPar[i] <= i); assert(InRange(ModelPar[i],0,3)); assert(BranchPar[i] <= i); assert(InRange(BranchPar[i],0,3)); }
+	FOR(i,3) {
+		assert(ModelPar[i] <= i); assert(InRange(ModelPar[i],-1,3)); assert(BranchPar[i] <= i); assert(InRange(BranchPar[i],-1,3));
+		if(ModelPar[i] == -1) { assert(BranchPar[i] == -1); }
+	}
 	assert(InRange(CoreModel,JC,RY_model)); // Check it's a DNA model
-
+	m_dlnLAdjustment = -BIG_NUMBER;			// Initialise the adjustment factor
 //	cout << "\nWorking with core model: " << CoreModel;
 //	cout << "\nInitialising okay..." << endl << ModelPar << endl << BranchPar;
 
@@ -35,17 +48,21 @@ CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> B
 		m_vpDataSites.push_back(TempData);
 		TempData = NULL;
 	}
+
 	// Fix the frequencies in the data for those data that share a model
 	FOR(i,3) { // Do it for each model
+		if(ModelPar[i] == -1) { continue; } // Skip sites not included
 		FreqCount.clear(); FreqCount.assign(4,0.0);
 		FOR(j,3) { if(ModelPar[j] == i) { FOR(k,4) { FreqCount[k] += m_vpDataSites[j]->m_vFreq[k]; } } }
 		if(Sum(&FreqCount) < FLT_EPSILON) { continue; }
 		FreqCount = NormaliseVector(FreqCount);	// Safe to just average the frequencies because the counts will be the same
 		FOR(j,3) { if(ModelPar[j] == i) { FOR(k,4) { m_vpDataSites[j]->m_vFreq[k] = FreqCount[k];  } } }
 	}
+
 	// Create the tree objects
 	vTempTrees.assign(3,NULL); FOR(i,3) {
 		vTempTrees[i] = new CTree(); *vTempTrees[i] = *T;
+		if(ModelPar[i] == -1) { continue; }
 		t_string = ""; FOR(j,3) { if(BranchPar[j] == i) { t_string = t_string + int_to_string(j+1); } }
 		FOR(j,vTempTrees[i]->NoBra()) {
 			vTempTrees[i]->pBra(j)->Name("site[" + t_string + "]::" + vTempTrees[i]->pBra(j)->Name());	// Name the branches
@@ -53,20 +70,28 @@ CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> B
 		}
 	}
 	m_vpTreeSites.assign(3,NULL);
-	FOR(i,3) { m_vpTreeSites[i] = vTempTrees[BranchPar[i]]; }	// Could potentially cause a memory leak, but it's small fry... (I hope!)
+	FOR(i,3) { if(BranchPar[i]!=-1) { m_vpTreeSites[i] = vTempTrees[BranchPar[i]]; } else { m_vpTreeSites[i] = vTempTrees[2]; } }	// Could potentially cause a memory leak, but it's small fry... (I hope!)
 	FOR(i,3) { vTempTrees[i] = NULL; }
 	// Create the model objects
 	m_viModelMap = ModelPar;
 	m_viTreeMap = BranchPar;
-
 	FOR(i,3) {
 		m_vpAssociatedModels.push_back(GetMyModel(CoreModel,m_vpDataSites[i],m_vpTreeSites[i]));
+		if(m_viModelMap[i] == -1) { continue; }
 		t_string = ""; FOR(j,3) { if(m_viModelMap[j] == m_viModelMap[i]) { t_string = t_string + int_to_string(j+1); } }
 		FOR(j,(int)m_vpAssociatedModels[i]->m_vpPar.size()) { m_vpAssociatedModels[i]->m_vpPar[j]->Name("site[" + t_string + "]::" + m_vpAssociatedModels[i]->m_vpPar[j]->Name()); }
 
 	}
 	NormaliseParameters();
+	// Finish by calculating the standard adjustment factor. This could be added to other routines, but kept here for clarity.
+	m_dlnLAdjustment = 0;
+	FOR(i,3)	{
+		if(m_viModelMap[i] == -1) {
+			assert(m_viTreeMap[i] == -1);
+			m_dlnLAdjustment += m_vpDataSites[i]->GetNT2MissinglnLScale();
+	}	}
 
+	cout << "\nAnd the adjustment factor is: " << m_dlnLAdjustment << flush;
 	/*
 	cout << "\nGrabbing parameters";
 	vector <double*> ParVals = GetOptPar(true,true,true,false);
@@ -150,6 +175,8 @@ bool CSiteCodon::NormaliseParameters()	{
 	// Loop through the sites and do the model parameters
 	FOR(site,3) {
 //		cout << "\n --- Site " << site << " --- ";
+		// Skip sites where the model is not applied
+		if(m_viModelMap[site] == -1) { assert(m_viTreeMap[site] == -1); continue; }
 		// Case when the model's not been seen before
 		if(Checks[m_viModelMap[site]] == -1) {
 //			cout << "\nFirst instance of Model[" << m_viModelMap[site] << "] at site " << site;
@@ -179,14 +206,24 @@ bool CSiteCodon::NormaliseParameters()	{
 double CSiteCodon::lnL(bool ForceReal) {
 	int i;
 	double logL = 0.0;
+	bool AddAdj = false;
 	NormaliseParameters();
 	assert(m_vpAssociatedModels.size() == 3);
 	if(m_vbUseInBraCalc.empty()) {
-		FOR(i,(int) m_vpAssociatedModels.size()) { logL += m_vpAssociatedModels[i]->lnL(ForceReal); }
+		FOR(i,(int) m_vpAssociatedModels.size()) {
+			if(m_viModelMap[i] == -1) { AddAdj = true; continue; }
+			logL += m_vpAssociatedModels[i]->lnL(ForceReal);
+		}
 	} else {	// Should only happen for FastBranch calculations. Here for debugging
 		assert(m_vbUseInBraCalc.size()==3);
-		FOR(i,(int) m_vpAssociatedModels.size()) { if(m_vbUseInBraCalc[i]) { logL += m_vpAssociatedModels[i]->lnL(ForceReal); } }
-	}
+		FOR(i,(int) m_vpAssociatedModels.size()) {
+
+			if(m_vbUseInBraCalc[i]) {
+				if(m_viModelMap[i] == -1) { AddAdj = true; continue; }
+				logL += m_vpAssociatedModels[i]->lnL(ForceReal);
+			}
+	}	}
+	if(AddAdj) logL += m_dlnLAdjustment;
 	return logL;
 }
 
@@ -202,22 +239,24 @@ double CSiteCodon::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 	int site,i,j,k;
 	vector <bool> TreeDone(3,false);
 	double working_tol, BestlnL, newlnL, RetVal;
-//cout << "\nCSiteCodon::FastBranchOpt(...) with " << lnL(true); FOR(i,3) { cout << " ["<<i<<"]: " << m_vpAssociatedModels[i]->lnL(true); }
+cout << "\nCSiteCodon::FastBranchOpt(...) with " << flush; cout << lnL(true); FOR(i,3) { if(m_viTreeMap[i] != -1) {  cout << " ["<<i<<"]: " << m_vpAssociatedModels[i]->lnL(true); } } cout << " ... done" << flush;
 
 	// Checking everything okay going in
 	assert(m_vbUseInBraCalc.empty()); assert(m_vpAssociatedModels.size() == 3);
-	assert(m_viModelMap.size() ==3 && m_viTreeMap.size() == 3); FOR(i,3) { assert(InRange(m_viTreeMap[i],0,3)); }
+	assert(m_viModelMap.size() ==3 && m_viTreeMap.size() == 3); FOR(i,3) { assert(InRange(m_viTreeMap[i],-1,3)); }
 	// Loop through the sites and see what branches need to be optimised
 	NormaliseParameters();
 //	cout << "\nTreeMap: " << m_viTreeMap;
 	RetVal = 0.0;
 	FOR(site,3) {
+		if(m_viTreeMap[site] == -1) { continue; }
 //		cout << "\n\tDoing branch set["<<site<<"] == " << m_viTreeMap[site];
 		// Check whether the trees been done yet
 		if(TreeDone[m_viTreeMap[site]]) { continue; } TreeDone[m_viTreeMap[site]] = true;
 		// If not, find the other processes associated with it. Also initialises the model ready for computation
 		m_vbUseInBraCalc.assign(3,false); CurlnL = 0;
 		FOR(j,3) {
+			if(m_viTreeMap[site] == -1) { m_vbUseInBraCalc[j] = false; continue; }
 			if(m_viTreeMap[site] == m_viTreeMap[j]) {
 				m_vbUseInBraCalc[j] = true; CurlnL += m_vpAssociatedModels[j]->lnL(true);
 				FOR(k,m_vpAssociatedModels[site]->m_vpProc.size()) { m_vpAssociatedModels[site]->m_vpProc[k]->PrepareBraDer(); }
@@ -259,9 +298,9 @@ double CSiteCodon::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		// Finish up for this subset of data
 		m_vbUseInBraCalc.clear();
 	}
-	CurlnL = 0; FOR(i,3) { CurlnL += m_vpAssociatedModels[i]->lnL(true); } 	// There's a better way to get this number without recalculating everything
+	CurlnL = 0; FOR(i,3) { if(m_viTreeMap[i] == -1) { continue; } CurlnL += m_vpAssociatedModels[i]->lnL(true); } 	// There's a better way to get this number without recalculating everything
 //	cout << "\n\t ... Done and returning: " << CurlnL << " cf. " << RetVal << " == " << CurlnL - RetVal; FOR(i,3) { cout << " [" << i<< "]: " << m_vpAssociatedModels[i]->lnL(true); }
-	return CurlnL;
+	return CurlnL + m_dlnLAdjustment;
 }
 
 /////////////////////////////////////////////
@@ -484,11 +523,15 @@ vector <double *> CSiteCodon::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 	vector <bool> TreeDone(3,false), ParDone(3,false);
 	// Error checking going in
 	assert(m_vpAssociatedModels.size() == 3);
+
+//	cout << "\nInto CSiteCodon::GetOptPar(...)" << flush;
+
 	// Clean the parameter space
 	FOR(i,(int)m_vpAllOptPar.size()) { m_vpAllOptPar[i] = NULL; } m_vpAllOptPar.clear();
 	m_vbDoBranchDer.clear();
 	// Loop through the individual site models collecting the necessary parameters as we go
 	FOR(site,3) {
+		if(m_viTreeMap[site] == -1) { continue; }
 		// Work out what needs to be collected
 		ProcEBra = ExtBranch; ProcIBra = IntBranch; ProcPar = Parameters; ProcEqm = Eqm;
 		if(TreeDone[m_viTreeMap[site]] == false) {	TreeDone[m_viTreeMap[site]] = true; } else { ProcEBra = false; ProcIBra = false; }	// Only collect first instance of branches/parameters
@@ -500,14 +543,14 @@ vector <double *> CSiteCodon::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 //		cout << "\nProcess["<<site<<"]: totalpar = " << OptVal.size();
 
 
-	}
-	/*	cout << "\nGetting Opt Par ["<< m_vpAllOptPar.size();
+	} /*
+		cout << "\nGetting Opt Par ["<< m_vpAllOptPar.size();
 		cout << ":" << OptVal.size() <<"]";
 		FOR(i,m_vpAllOptPar.size()) {
 			cout << "\n\tPar["<<i<<"] " << m_vpAllOptPar[i]->Name() << " = " << m_vpAllOptPar[i]->Val() << " == " << *OptVal[i];
 		}
-		cout << "\n---------";
-	*/
+		cout << "\n---------" << flush;
+*/
 	return OptVal;
 }
 
@@ -581,6 +624,9 @@ CEMPCodonUNREST::CEMPCodonUNREST(CData *D, CTree *Tree, bool PlusFreq, int GenCo
 ///////////////////////////////////////////////////////////////////////////////////////////
 // A codon model built from an empirical amino acid model
 CAAEMPCodon::CAAEMPCodon(CData *D, CTree *Tree, ECodonEqm CE,  int GenCode) : CBaseModel(D,Tree) {
+	// Maths in development...
+	cout << "\nAA empirical model is not ready yet... "; exit(0);
+	/* Code below comes from M0 and needs modifying
 	m_sName = sModelNames[(int)CodonM0];
 	// Do genetic code
 	D->MakeCodonData();
@@ -599,4 +645,5 @@ CAAEMPCodon::CAAEMPCodon(CData *D, CTree *Tree, ECodonEqm CE,  int GenCode) : CB
 	// Add the process
 	m_vpProc.push_back(AddCodonProcess(D,T,pM0,CE,GenCode));
 	FinalInitialisation();
+	*/
 }

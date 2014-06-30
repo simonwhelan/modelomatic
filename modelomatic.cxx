@@ -332,30 +332,30 @@ int main(int argc, char *argv[])	{
 	cout << "\nNT123   			" << NT123.m_iNoSeq << " " << NT123.m_iTrueSize << "\t" << NT123.m_vsTrueSeq[ShowSeq].substr(0,15);;
 */
 
-	/*
-	cout << "\nTrying to initialise new model object";
-	int iModPos[3] = {0,1,2}, iBraPos[3] = {0,1,2};
+
+	cout << "\nTrying to initialise new model object" << flush;
+	int iModPos[3] = {0,1,-1}, iBraPos[3] = {0,1,-1};
 	vector <int> vModPos(3,0), vBraPos(3,0);
 	FOR(i,3) { vModPos[i] = iModPos[i]; vBraPos[i] = iBraPos[i]; }
 	CSiteCodon *CodonModel;
+
 	CodonModel = new CSiteCodon(PhyDat.pData(),&Tree,vModPos,vBraPos,REV,false);
 
-
+	cout << "\nModel initialised" << flush;
 	cout << "\nCodonModel initialised, with lnL: " << CodonModel->lnL(true);
 	cout << "\n\nDone!" << flush;
-//			CSiteCodon::CSiteCodon(CData *D, CTree *T, vector <int> ModelPar, vector <int> BranchPar) : CBaseModel(D,T)	{
 
 //	CodonModel->FastBranchOpt(CodonModel->lnL(true));	cout << "\nFinished branch opt: " << CodonModel->lnL(true);
 
-	cout << "\nTrying optimiser...";
-//	double IThink = FullOpt(CodonModel);
-//	cout << "\nFull Opt gives lnl: " << CodonModel->lnL(true) << " cf. " << IThink;
+	cout << "\nTrying optimiser..." << flush;
+	double IThink = FullOpt(CodonModel);
+	cout << "\nFull Opt gives lnl: " << CodonModel->lnL(true) << " cf. " << IThink << flush;
 	Models.push_back(DoModelRun(CodonModel,15,L_EQU,0));
 	cout << "\nAnd after model run " << CodonModel->lnL(true);
 
 //	cout << "\n------------ Models -------------\n" << *CodonModel;
 	// DoModelRun(CBaseModel *M, int NoPar, Lcorrection Lcor, double Adj
-	*/
+exit(-1);
 
 	GetFullCodonModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
 

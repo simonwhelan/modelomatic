@@ -1472,6 +1472,31 @@ double CData::OldGetAminoToCodonlnLScale(int GeneticCode)	{
 	return RetValue;
 }
 
+// Simple function for nucleotide sequences
+double CData::GetNT2MissinglnLScale()	{
+	int site,sp;
+	double Adj = 0.0;
+
+	vector <int> FreqCount(4,0);
+
+	assert(m_DataType == DNA);
+	assert(fabs(Sum(&m_vFreq) -1.0) < 1.0E-5);
+	FOR(site,m_iSize)	{
+		FOR(sp,m_iNoSeq) {
+			if(m_ariSeq[sp][site] == m_iChar) { continue; } // skip gaps
+			FreqCount[m_ariSeq[sp][site]] += m_ariPatOcc[site];
+			Adj += log(m_vFreq[ m_ariSeq[sp][site] ]) * m_ariPatOcc[site];
+		}
+	}
+
+	cout << "\nFreqs  " << m_vFreq;
+	cout << "\nCounts " << FreqCount;
+
+
+
+	return Adj;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////
 // Function that produces corrects a set of codon frequencies so that they match a set of amino acid frequencies
 // For a codon c_{i,j} and the corresponding amino acid a_c_{i,j} we know

@@ -41,7 +41,7 @@ const string OptFile = "opt.output";
 // Standard likelihood optimising routine
 double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double CurlnL,bool FullLikAcc, int NoIterations, double lnL2Beat, double lnL_tol, bool DoOutput,bool TightFullOpt)	{
 	int i;
-//	cout << "\nInto FullOpt for Model = <" << Model->m_sName << ">  DoPar: " << DoPar << ", DoBra: " << DoBra << ", DoFreq: " << DoFreq << endl;
+	cout << "\nInto FullOpt for Model = <" << Model->m_sName << ">  DoPar: " << DoPar << ", DoBra: " << DoBra << ", DoFreq: " << DoFreq << endl << flush;
 	double ACC = lnL_tol, gtol = FULL_GTOL;
 	bool OnlyBra = false;
 	// Deal with parsimony
@@ -67,12 +67,12 @@ double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double Cu
 	}	}
 	// Get the optimised likelihood
 	if(ACC > gtol) { gtol = ACC; }
-//	cout << "\nInto optimiser for " << Model->Name() << " = " << CurlnL << " cf. " << Model->lnL() << " cff. " << Model->lnL(true);
+	cout << "\nInto optimiser for " << Model->Name() << " = " << CurlnL << " cf. " << Model->lnL() << " cff. " << Model->lnL(true) << flush;
 //	if(fabs(CurlnL - Model->lnL(true)) > 0.001) { cout << "\nAnd it's broken already...\n\n"; exit(-1); }
 //	cout << "\nModel: " << Model->Name() << ", Options: [" << DoPar << "," << DoBra << "," << DoFreq << "," << CurlnL << "," << FullLikAcc << "," << NoIterations << "," << lnL2Beat << "," << lnL_tol << "]";
 //	DoOutput = true; cout << "\nOptimising: " << flush; FOR(i,(int)vPar.size()) { cout << "\t" << *vPar[i] << flush; }
 	if(!vPar.empty()) {
-//		cout << "\nAttempting to optimise...";
+		cout << "\nAttempting to optimise..." << flush;
 		if(NoIterations == DEFAULT_OPTNUM) { NoIterations = Model->OptNum(); }
 		CurlnL = MulD_Optimise(CurlnL,gtol,ACC,vPar,Model,NoIterations,DoOutput,OnlyBra,2,true,-lnL2Beat,7,true,TightFullOpt); }
 	// Clean up and return

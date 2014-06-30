@@ -657,7 +657,8 @@ void CBaseModel::PrepareFastCalc()	{
 	if(!ALLOW_FAST_CALC) { return; }
 	vector <int> C;
 	int i,j;
-	FOR(i,(int)m_vpProc.size()) { if(m_vpProc[i]->Tree()->IsCutTree()) { return; } }
+	// Return for cut trees and for when there is no tree, which occurs in special models
+	FOR(i,(int)m_vpProc.size()) { if(m_vpProc[i]->Tree() == NULL) { return; } if(m_vpProc[i]->Tree()->IsCutTree()) { return; } }
 	FOR(i,(int)m_vpProc.size()) {
 		// Check whether tree has changed for processes
 		if(m_vpProc[i]->Tree()->FastCalcOK() == false) {

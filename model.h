@@ -553,7 +553,7 @@ private:
 	vector <int> m_viModelMap;						// Map of the models between sites. Always of size 3
 	vector <int> m_viTreeMap;						// Map of the trees between sites. Always of size 3.
 	vector <bool> m_vbUseInBraCalc;					// List of models to be used in each branch calculation
-
+	double m_dlnLAdjustment;						// Store of the likelihood adjustment factor
 	//Functions
 	bool NormaliseParameters();		// Enforces the same parameters between the models sharing the same site number in m_viModelMap. If SetOptToo == true, then it will set the optimiser off for those parameters as well.
 };

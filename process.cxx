@@ -1169,8 +1169,10 @@ void CBaseProcess::CopyNode(int NodeFr, int NTo)	{
 void CBaseProcess::PrepareFastCalc(vector <int> *C)	{
 	int NodeBase,i;
 	assert(MainTree()->FastCalcOK() == false && m_bCompressedSpace == false);
+	assert(m_vSpace.size() == m_vBackSp.size());
 	// Some entry conditions
 	if(!ALLOW_FAST_CALC) { return; }
+	if(m_vSpace.empty() || m_vBackSp.empty()) { return; }	// Can't prepare calculation when the space isn't ready...
 	if(IsSubTree() || m_pTree->IsCutTree()) { return; }
 //	cout << "\n <--------------------- Fast calc ------------------->";
 	// If required get the compressed data (shouldn't be required because its passed by model)

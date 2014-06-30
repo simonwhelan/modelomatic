@@ -89,10 +89,11 @@ public:
 	void ExpandCodonData(int GenCode);		// Expands the state space of codon data back to a 64 state model
 	bool GetCodonPositions(bool First, bool Second, bool Third);            // Rewrite the data structure with a subset of the codon positions. Requires the DNA formatted data
 	int GenCode() { return m_iGenCode; }	// Returns the genetic code assigned to the data
-	// Functions for getting likelihood scaling between amino acid and codon models
+	// Functions for getting likelihood scaling between amino acid and codon models, among other adjustments
 	double GetAminoToCodonlnLScale(int GenCode, int *df);		// Decides what adjustment to do and returns the value
 	double GetAdjustmentScore(CData *AA_Data, CData *COD_Data, vector <double> AAFreq, vector <double> CodFreq, int GenCode = 0); // Returns eqn (6) from Seo and Kishino (Syst Biol. 2008) for a set of frequencies
 	double GetRYToCodonlnLScale(int GenCode, int *df);			// Returns the equivalent to eqn (6) from Seo and Kishino, Syst Biol. 2008, but for RY to codons
+	double GetNT2MissinglnLScale();							// Returns the probability of observing some nucleotide data based purely on the frequencies (NB *NOT* the multinomial, but individual nucleotides)
 	double OldGetAminoToCodonlnLScale(int GeneticCode); // Old amino acid version for error checking.
 	// Some stuff relating to tree HMMs
 	CData *MakeMatchData();				// Returns the data for a match state TreeHMM
