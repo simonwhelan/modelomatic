@@ -138,7 +138,7 @@ public:
 	void ZeroSpace();						// Sets all the space in the model to 0.0
 	CDNAProcess *AddDNAProcess(CData *Data,CTree *Tree, DNAProc Model, string name = "");
 	CAAProcess  *AddAAProcess(CData *Data, CTree *Tree, AAProc Model, bool AddF);
-	CCodonProcess *AddCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode);
+	CCodonProcess *AddCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode, string File=sRadicalFileName);
 	string AddFullDNATHMMProcess(int NoProc, EHIDDEN_TYPE DoHidden, ETHMM_EQM_TYPE DoFreqs, bool DoKappa, ERateTypes DoRates,vector <double> Rates);	// Returns a suitable name for the model
 	string AddFullDNATHMMProcess(int NoProc, EHIDDEN_TYPE DoHidden, ETHMM_EQM_TYPE DoFreqs, bool DoKappa, ERateTypes DoRates);							// Returns a suitable name for the model
 	string AddAATHMMProcess(double Alfa, int CatGam, double SigAlpha, double pInv, double SigInv, bool VarySig, bool VarypInv); // Returns the name of a THMM_AA
@@ -507,6 +507,17 @@ class CCodonM0 : public CBaseModel {
 public:
 	CCodonM0(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, int GenCode = 0);
 };
+
+// Codon model implementing Dr/Dc type models
+// /omega is now split into two subcategories according to a matrix (Currently input as binary 20x20 matrix sRadicalFileName="Radical.mat" where 1 indicates a radical change and 0 indicates a conservative change)
+// Model then is the same as M0, but has two categories of /omega_Rad and /omega_Con
+class CCodonDrDc : public CBaseModel {
+public:
+	CCodonDrDc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	vector <int> m_viRadMat;
+};
+
+double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType);
 
 class CEMPCodonREST : public CBaseModel {
 public:

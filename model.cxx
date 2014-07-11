@@ -2856,9 +2856,9 @@ CEMP::CEMP(CData *D, CTree *T, string Name, bool AddF, double *S_ij, double *pi_
 ////////////////////////////////////////////
 // Controllers for Codon models
 
-CCodonProcess *CBaseModel::AddCodonProcess(CData *D,CTree *T,CodonProc Model, ECodonEqm CE, int GenCode)	{
+CCodonProcess *CBaseModel::AddCodonProcess(CData *D,CTree *T,CodonProc Model, ECodonEqm CE, int GenCode, string RadicalFile)	{
 	CCodonProcess *Proc;
-	Proc = new CCodonProcess(D,T,Model,CE,GenCode);
+	Proc = new CCodonProcess(D,T,Model,CE,GenCode,RadicalFile);
 	return Proc;
 }
 

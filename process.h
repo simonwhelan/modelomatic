@@ -452,6 +452,7 @@ public:
 	void MakeGamma() { m_bIsGamma = true; }					// Flags that the process has a gamma distributed rate associated with it
 	// Miscellaneous space access and output functions
 	void OutQ(int QNum = -1,ostream &os = cout);								// Output the Q matrices for the process
+	CQMat *GetQMat(int MatNum) { assert(InRange(MatNum,0,(int)m_vpQMat.size())); return m_vpQMat[MatNum]; }
 	ostream &SiteOut(ostream &os, int Node, int PosBeg = -1, int PosEnd = -1);	// Output function to output details of a site
 	void OutPT(ostream &os, int Branch);										// Output the PT for a branch
 	void ZeroSpace();															// Function that removes all values currently held in the space
@@ -665,7 +666,9 @@ protected:
 
 enum DNAProc	{pRY,pJC,pFEL,pK2P,pHKY,pREV,pCOV,pDNA_THMM,pBRACOV,DNA_OTHER};
 enum AAProc		{pEQU,pJTT,pWAG,pDAY,pMTREV,AA_OTHER};
-enum CodonProc  {pM0, pCodonEMPRest, pCodonEMPUnrest, pAAEMP};
+enum CodonProc  {pM0, pM0DrDc, pCodonEMPRest, pCodonEMPUnrest, pAAEMP};
+
+const string sRadicalFileName = "Radical.mat"; 	// Default file name used by Dr/Dc models
 
 class CDNAProcess : public CBaseProcess	{
 public:
@@ -695,11 +698,12 @@ public:
 class CCodonProcess : public CBaseProcess {
 public:
 	// Constructor function
-	CCodonProcess(CData *Data, CTree *Tree, CodonProc Model,ECodonEqm CE,int GenCode = 0);
+	CCodonProcess(CData *Data, CTree *Tree, CodonProc Model,ECodonEqm CE,int GenCode = 0, string RadicalFile=sRadicalFileName);
 	// Destructor function
 	~CCodonProcess();
 	// Parameter specific bits and pieces
 	CQPar * AddOmega(int GenCode);
+	CQPar * AddDrDcOmega(int GenCode, vector <int> RadFile, int Val2Add);
 	void AddMultiChangeZeros(int GenCode);
 	// Functions for getting overall rates of certain types of events
 	double ObsSynRate();					// Gets the observed rate of synonymous substitutions
@@ -711,6 +715,5 @@ public:
 private:
 	int	m_iGenCode;							// Stores the genetic code
 };
-
 
 #endif

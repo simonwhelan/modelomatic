@@ -647,3 +647,82 @@ CAAEMPCodon::CAAEMPCodon(CData *D, CTree *Tree, ECodonEqm CE,  int GenCode) : CB
 	FinalInitialisation();
 	*/
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// A codon model for conservative and radical amino acid changes, defined by matrix Radical.mat
+CCodonDrDc::CCodonDrDc(CData *Data, CTree *Tree, ECodonEqm CE, string RadicalFile, int GenCode) : CBaseModel(Data,Tree) {
+	int i, j;
+	m_sName = sModelNames[(int)CodonM0_DrDc];
+	// Do genetic code
+	Data->MakeCodonData();
+	// Reduce the model and the data to the correct genetic code
+	m_pData->ReduceCodonData(GenCode);
+	m_sName += "." + int_to_string(GenCode) + ".";
+	// Do frequencies
+	switch(CE) {
+	case cEQU: m_sName += "EQU";	break;
+	case F1X4: m_sName += "F1X4";	break;
+	case F3X4: m_sName += "F3X4";	break;
+	case F64:  m_sName += "F64";	break;
+	default:   Error("\nUnknown CE option in CCodonM0::CCodonM0\n\n");
+	}
+	// Add the process
+	m_vpProc.push_back(AddCodonProcess(Data,Tree,pM0DrDc,CE,GenCode,RadicalFile));
+
+	// Store the RadicalFile matrix
+	m_viRadMat.assign(20*20,-1);
+	FINOPEN(Radin, RadicalFile.c_str());
+		FOR(i,20)	{
+			FOR(j,i)	{
+				Radin >> m_viRadMat[(i*20)+j];
+				if(!InRange(m_viRadMat[(i*20)+j],0,2)) { cout << "\nError reading Radical Matrix from: " << RadicalFile << " at ["<<i << "," << j << "] = " << m_viRadMat[(i*20)+j] << "\nMatrix so far: " << MatOut(20,m_viRadMat); exit(-1); }
+				m_viRadMat[(j*20)+i] = m_viRadMat[(i*20)+j];
+			}
+		}
+	Radin.close();
+
+	FinalInitialisation();
+
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// A function to calculate how often we would expect to observe particular changes
+// Should provide numbers comparable to Kr/Kc
+double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType) {
+	int i,j,i_count, CurChar_i, CurChar_j;
+	bool RedData = false;	// Whether data is reduced from 64 codons
+	double ExpObs = 0.0;
+	vector <double> eqm;
+
+//	cout << "\n------------------------ Calculating overall obs for ChangeType: " << ChangeType << " ------------------- ";
+
+	// Some input checking
+	assert(InRange(ChangeType,0,2));
+	assert(Mat != NULL); assert(InRange(GenCode,0,NumGenCode));
+	i_count = 0.0; FOR(i,64) { if(GenCodes[GenCode][i] != -1) { i_count++; } }
+	assert(Mat->Char() == i_count || Mat->Char() == 64);
+	if(Mat->Char() != 64) { RedData = true; }
+	// Do the counting
+	eqm = Mat->Eqm();
+	assert(eqm.size() == Mat->Char());
+	CurChar_i = 0;
+	FOR(i,64)	{
+		CurChar_j = CurChar_i+1;
+		if(GenCodes[GenCode][i] == -1) { if(!RedData) { CurChar_i++; } continue; }
+		for(j=i+1;j<64;j++) {
+			if(GenCodes[GenCode][j] == -1) { if(!RedData) { CurChar_j++; } continue; }
+			if(GenCodes[GenCode][i] != GenCodes[GenCode][j] && RadMat[(GenCodes[GenCode][i]*20)+GenCodes[GenCode][j]] == ChangeType) {
+//				cout << "\nGetting " << State(COD,i) << "[" << GenCodes[GenCode][i] << "] -> " << State(COD,j) << "[" << GenCodes[GenCode][j] << "] == RadMat: " <<  RadMat[(GenCodes[GenCode][i]*20)+GenCodes[GenCode][j]] << " == " << ChangeType;
+				ExpObs += eqm[CurChar_i] * *Mat->Q(CurChar_i,CurChar_j);			// i -> j
+				ExpObs += eqm[CurChar_j] * *Mat->Q(CurChar_j,CurChar_i);			// j -> i
+			}
+			CurChar_j++;
+		}
+		CurChar_i++;
+	}
+//	cout << "\nOverall obs for ChangeType[" << ChangeType << "]: " << ExpObs << "\n//";
+	return ExpObs;
+}
+
+
+

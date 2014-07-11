@@ -2845,10 +2845,11 @@ CAAProcess::CAAProcess(CData *D, CTree *T, string Name, bool AddF, double *S_ij,
 }
 
 /* ******************************* Basic codon processes ************************************** */
-CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode) : CBaseProcess(D,T)	{
+CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode, string RadicalFile) : CBaseProcess(D,T)	{
 	int i, j, k, count;
 	CQPar *Par = NULL;
 	string sFrom, sTo,Name;
+	vector <int> RadMat(20*20,-1);
 	assert(D != NULL); assert(D->m_DataType == COD_RED);
 	MakeBasicSpace(D->m_iChar); m_sABET = D->m_sABET;
 	// Store the genetic code
@@ -2857,6 +2858,31 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 	AddCodonEqm(GenCode,m_pData->m_iChar,CE,false);
 	// Define the model parameters
 	cout << "\nAdding codon process" << flush;
+
+	if(Model == pM0DrDc) {
+		cout << "\nMaking random Radical matrix -> <Random.mat>";
+		ofstream outrand("Random.mat");
+		FOR(i,20) {
+			outrand << "\n";
+			FOR(j,i) { outrand << RandInt(0,2) << "  "; }
+		}
+		outrand.close();
+		// Input RadicalFile
+		cout << "\nInputting Radical amino acids from file: <" << RadicalFile << ">";
+		FINOPEN(Radin, RadicalFile.c_str());
+		FOR(i,20)	{
+			FOR(j,i)	{
+				Radin >> RadMat[(i*20)+j];
+				if(!InRange(RadMat[(i*20)+j],0,2)) { cout << "\nError reading Radical Matrix from: " << RadicalFile << " at ["<<i << "," << j << "] = " << RadMat[(i*20)+j] << "\nMatrix so far: " << MatOut(20,RadMat); exit(-1); }
+				RadMat[(j*20)+i] = RadMat[(i*20)+j];
+			}
+		}
+		Radin.close();
+//		cout << "\nRadical Matrix" << endl <<  MatOut(20, RadMat);
+//		cout << "\n\nDone";
+
+	}
+
 	switch(Model)	{
 	case pM0:
 		Add_CodRedQMat("M0",D->m_iChar);
@@ -2920,14 +2946,31 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 					Par = NULL;
 		}	}
 		assert(count == 1830);
+	case pM0DrDc:
+		cout << "\nMaking new Dr/Dc matrix with input from <"<<RadicalFile<<">!";
+		// Read in Radical Mat
+
+
+		Add_CodRedQMat("M0_DrDc",D->m_iChar);
+		AddMultiChangeZeros(GenCode);
+		AddDrDcOmega(GenCode,RadMat,0);
+		AddDrDcOmega(GenCode,RadMat,1);
+		Kappa(COD);
+		break;
 
 	default:
 		Error("\nAttempting to create Codon process from unknown model...");
 		exit(-1);
 	}
+//	PrepareLikelihood(true,true);
+//	CreatePTMats();
+//	cout << "\nMaking P(t) matrices and yields Q Mat of:";
+//	OutQ();
+//	cout << "\n\/\/";
+
 }
 /////////////////////////////////////////////////////////////////////////////////////////
-// Function for adding omega
+// Function for adding omega in M0 type manner
 CQPar * CCodonProcess::AddOmega(int GenCode)	{
 	int i,j, CurChar_i, CurChar_j;
 	CQPar *Par;
@@ -2954,6 +2997,54 @@ CQPar * CCodonProcess::AddOmega(int GenCode)	{
 		}
 	}
 	m_vpPar.push_back(Par);
+	return Par;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Function for adding omega in Dr/Dc type manner
+// Radical Matrix consists of 0/1
+CQPar * CCodonProcess::AddDrDcOmega(int GenCode, vector <int> RadMat, int Val2Add)	{
+	int i,j, CurChar_i, CurChar_j;
+	string Name = "Omega";
+	CQPar *Par;
+	// Check entry conditions
+	assert(InRange(GenCode,0,11));
+	FOR(i,20*20) { assert(InRange(RadMat[i],-1,2)); }
+	assert(InRange(Val2Add,0,2));
+	// Initialise
+	if(Val2Add == 0) { Name += "_Conservative"; } else { Name += "_Radical"; }
+	Par = new CQPar(Name,m_iChar,INITIAL_OMEGA + RandDouble(-0.05,0.05),true,MIN_OMEGA);
+
+//	Par = new CQPar(Name,m_iChar,INITIAL_OMEGA,true,MIN_OMEGA);
+
+
+	// Some DEBUG code
+//	if(Val2Add == 0) { Par->SetVal(10); }
+//	else { Val2Add = 25; }
+
+	// Assign the parameters
+	if(m_iChar == 64) { // When the Genetic code hasn't been applied
+		assert(m_vpQMat[0]->Char() == 64 && m_pData->m_DataType == COD);
+		FOR(i,m_iChar)	{ for(j=i+1;j<m_iChar;j++) { if(GenCodes[GenCode][i] != GenCodes[GenCode][j] && GenCodes[GenCode][j] != -1 && RadMat[(GenCodes[GenCode][i]*20)+GenCodes[GenCode][j]] == Val2Add) { Par->AddQij(i,j); } } }
+	} else {
+		assert(m_vpQMat[0]->Char() < 64 && m_pData->m_DataType == COD_RED);
+		CurChar_i = 0;
+		FOR(i,64)	{
+			CurChar_j = CurChar_i+1;
+			if(GenCodes[GenCode][i] == -1) { continue; }
+			for(j=i+1;j<64;j++) {
+				if(GenCodes[GenCode][j] == -1) { continue; }
+				if(GenCodes[GenCode][i] != GenCodes[GenCode][j] && RadMat[(GenCodes[GenCode][i]*20)+GenCodes[GenCode][j]] == Val2Add) { Par->AddQij(CurChar_i,CurChar_j); }
+				CurChar_j++;
+			}
+			CurChar_i++;
+		}
+	}
+	m_vpPar.push_back(Par);
+
+//	cout << "\nAdded Parameter: " << Par->Name();
+//	cout << "\n" << Par->m_viQMap;
+
 	return Par;
 }
 

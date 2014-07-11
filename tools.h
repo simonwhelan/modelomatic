@@ -66,14 +66,14 @@ enum EModel {	JC,FEL,K2P,HKY,REV,								// Standard nucleotide
 				EQU,WAG,JTT,DAY,mtREV,							// Standard amino acid
 				THMM_AA,WAGdG_THMM,								// Unusual amino acid
 				Coevo_WAG,										// Coevolution models
-				CodonM0, CodonEMPRest, CodonEMPUnrest,			// Codon
+				CodonM0, CodonM0_DrDc, CodonEMPRest, CodonEMPUnrest,			// Codon
 				UNKNOWN};
 const string sModelNames[] = {	"JC","FEL","K2P","HKY","REV",
 						"RY","CovHKY",",CovREV","THMM_FULLDNA","HKYdG_THMM","THMM_DNA",
 						"EQU","WAG","JTT","DAY","mtREV",
 						"THMM_AA","WAGdG_THMM",
 						"Coevo_WAG",
-						"CodonM0", "CodonEMPRest", "CodonEMPUnrest",
+						"CodonM0", "CodonM0_DrDc","CodonEMPRest", "CodonEMPUnrest",
 						"Unknown"};
 enum ERateTypes {same,varyall,gammarates};			// Defines the type of rate variation occurring in THMMs
 ostream &operator <<(ostream &os,EModel M);
@@ -214,8 +214,17 @@ int eigenRealSym(double A[], int n, double Root[], double Offdiag[]);
 // Matrix outputter
 ostream &VecOut(int n, double *Vec, char delim = '\t',ostream &os = cout);
 ostream &MatOut(int n, double *Mat, char delim = '\t',ostream &os = cout);
-ostream &MatOut(int n, vector <double> Mat, char delim = '\t', ostream &os = cout);
 ostream &MatOut(int n,double **Mat,char delim = '\t', ostream &os = cout);
+template <class MatType> ostream &MatOut(int n, vector <MatType> Mat, char delim = '\t', ostream &os = cout) {
+	int i,j;
+	assert(n*n == Mat.size());
+	FOR(i,n) {
+		os << endl;
+		FOR(j,n) { os << Mat[(i*n)+j] << delim; }
+	}
+	return os;
+}
+
 // Standard matrix multipliers
 void VMat(double *a,double *b, double *c, int n);					// a[1*SIZE], b[SIZE*SIZE], c[1*SIZE]  ......  c = a*b
 void MulMat(double *a, double *b, double *c, int n, int m, int k);

@@ -298,6 +298,44 @@ int main(int argc, char *argv[])	{
 //	int ShowSeq = RandInt(0,NT1.m_iNoSeq-1);
 //	cout << "\nOriginal data:		   " << PhyDat.pData()->m_iNoSeq << " " << PhyDat.pData()->m_iTrueSize << "\t" << PhyDat.pData()->m_vsTrueSeq[ShowSeq].substr(0,15);;
 
+	vector <int> RadMat(20*20,-1);
+	FINOPEN(Radin, sRadicalFileName.c_str());
+	FOR(i,20)	{
+		FOR(j,i)	{
+			Radin >> RadMat[(i*20)+j];
+			if(!InRange(RadMat[(i*20)+j],0,2)) { cout << "\nError reading Radical Matrix from: " << sRadicalFileName << " at ["<<i << "," << j << "] = " << RadMat[(i*20)+j] << "\nMatrix so far: " << MatOut(20,RadMat); exit(-1); }
+			RadMat[(j*20)+i] = RadMat[(i*20)+j];
+		}
+	}
+	Radin.close();
+//		cout << "\nRadical Matrix" << endl <<  MatOut(20, RadMat);
+//		cout << "\n\nDone";
+
+
+	double cVal,rVal;
+	CCodonM0 *M0Test = NULL;
+	CData Cod1 = *PhyDat.pData();
+	M0Test = new CCodonM0(&Cod1,&Tree);
+	FullOpt(M0Test);
+	cout << "\nRun M0: " << M0Test->lnL(true);
+	cout << "\nModel: " << *M0Test;
+
+	cVal = GetAminoAcidCountFromCodon( M0Test->m_vpProc[0]->GetQMat(0), 0, RadMat, 0);		// Conservative
+	rVal = GetAminoAcidCountFromCodon( M0Test->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
+	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+
+	CCodonDrDc *M0New = NULL;
+	CData Cod2 = *PhyDat.pData();
+	M0New = new CCodonDrDc(&Cod2,&Tree);
+	FullOpt(M0New);
+	cout << "\nRun M0: " << M0New->lnL(true);
+	cout << "\nModel: " << *M0New;
+
+	cVal = GetAminoAcidCountFromCodon( M0New->m_vpProc[0]->GetQMat(0), 0, RadMat, 0);		// Conservative
+	rVal = GetAminoAcidCountFromCodon( M0New->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
+	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+	exit(-1);
+
 	CREV *RevTest = NULL;
 	double Lsum = 0.0;
 	RevTest = new CREV(&NT1,&Tree);
