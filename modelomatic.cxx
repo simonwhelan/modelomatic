@@ -316,6 +316,7 @@ int main(int argc, char *argv[])	{
 	CCodonM0 *M0Test = NULL;
 	CData Cod1 = *PhyDat.pData();
 	M0Test = new CCodonM0(&Cod1,&Tree);
+//	FullOpt(M0Test,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
 	FullOpt(M0Test);
 	cout << "\nRun M0: " << M0Test->lnL(true);
 	cout << "\nModel: " << *M0Test;
@@ -323,6 +324,15 @@ int main(int argc, char *argv[])	{
 	cVal = GetAminoAcidCountFromCodon( M0Test->m_vpProc[0]->GetQMat(0), 0, RadMat, 0);		// Conservative
 	rVal = GetAminoAcidCountFromCodon( M0Test->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
 	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+
+	exit(-1);
+
+	// Do some parameter checking
+	cout << "\nChecking parameters: ";
+	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
+
+//	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
+//	CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os)	{
 
 	CCodonDrDc *M0New = NULL;
 	CData Cod2 = *PhyDat.pData();
@@ -334,6 +344,11 @@ int main(int argc, char *argv[])	{
 	cVal = GetAminoAcidCountFromCodon( M0New->m_vpProc[0]->GetQMat(0), 0, RadMat, 0);		// Conservative
 	rVal = GetAminoAcidCountFromCodon( M0New->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
 	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+
+	// Do some parameter checking
+	cout << "\nChecking parameters: ";
+	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
+
 	exit(-1);
 
 	CREV *RevTest = NULL;

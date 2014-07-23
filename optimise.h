@@ -33,8 +33,8 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,CBaseModel *Model,int NoIterations, bool DoBasicOutput = false,bool OnlyBranches = false, int OptTol = 2, bool NewOne = true, double lnL2Best = BIG_NUMBER,int NoBranchOpt = NUM_FAST_BRA_OPT, bool AllowOnlyParOpt = true,bool TryReallyHard = true);
 double DoOnlyParOpt(double OrilnL,double gtol ,double ltol,vector <double *> x,CBaseModel *Model,int NI,int OptTol, int MaxIter = 3);
 double PredictlnL(double *Last, int n);	// Function that predicts what the optimal likelihood will be after examining n previous likelihoods
-bool CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os = cout);
-bool HardCheckOpt(CBaseModel *M, double lnL, double *x, double Tol, int ParNum,ostream &os = cout);	//	Hard checks that parameter *x is at an optima within +- Tol
+bool CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os = cout, bool ForceShow = false);
+bool HardCheckOpt(CBaseModel *M, double lnL, double *x, double Tol, int ParNum,ostream &os = cout, bool ForceShow = false);	//	Hard checks that parameter *x is at an optima within +- Tol
 double SubSetlnsrch(double Prob, vector <double *> x,double *step_xi, vector <double> g,double lnL,CBaseModel *M);		// Optimises a subset of x, each with probability Prob (i.e. binomial)
 double Get2ndDer(CPar *Par,CBaseModel *M, double lnL = -BIG_NUMBER); // Get the numerical second derivative of a parameter
 

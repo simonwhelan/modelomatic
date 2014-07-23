@@ -11,7 +11,7 @@ extern vector <double> PWDists;		// Pairwise distances
 #define DERIVATIVE_DEBUG 0			// Whether to debug the derivative function
 #define MODEL_DEBUG	0				// Turns on some checkers that might throw up where errors are occurring
 #define LIKELIHOOD_FUNC_DEBUG 0		// Whether to debug the likelihood function
-#define FASTBRANCHOPT_DEBUG 0		// Whether to debug the FastBranchOpt function
+#define FASTBRANCHOPT_DEBUG 1		// Whether to debug the FastBranchOpt function
 #define ALLOW_BRANCH_OPTIMISE 1		// Specifies whether fast branch optimisation is allowed... (Should always be 1!)
 
 ////////////////////////////////////////////////////////////////////////////

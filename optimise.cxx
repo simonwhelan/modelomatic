@@ -1436,9 +1436,23 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 	cout << "\nEntering lnsrch (n="<<n<<"): lnL = " << fold << " cf. " << Model->lnL();
 #endif
 	if(test < 0.99) { alamin = FLT_EPSILON/test; } else { alamin = 100 * FLT_EPSILON; }
+/*
+	cout << "\nOriginal: ";
+	cout << "\nOrips:"; FOR(i,n) { cout << "\t" << pold[i]; }
+	cout << "\nSteps:"; FOR(i,n) { cout << "\t" << alam*p[i]; }
+*/
+
     // Start main loop
     for(;;)	{
-    	// Hard debug code...
+/*    	// Hard debug code...
+    	cout << "\nChecking each step (alam = " << alam << ")";
+    	FOR(i,n) { *x[i] = pold[i]; }
+    	cout << "\nReset: ori=" << fold << " cf. " << -Model->lnL(true) << " -- diff: " << fold + Model->lnL(true);
+    	FOR(i,n) {
+    		cout << "\n\tPar[" << i << "] " << *x[i] << " + " << (alam * p[i]) << " -> " << pold[i] + (alam * p[i]);
+    		*x[i] = pold[i] + (alam * p[i]); cout << " == " << -Model->lnL(true) << " ; imp: " << Model->lnL(true) + fold;
+    		*x[i] = pold[i];
+    	}
 /*
     	cout << "\nOrips:"; FOR(i,n) { cout << "\t" << pold[i]; }
     	cout << "\nSteps:"; FOR(i,n) { cout << "\t" << alam*p[i]; }
@@ -1464,7 +1478,12 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
  	    // If reached convergence in terms of movement through parameter space
 		if(alam < alamin || fabs(fold - *f) < FULL_LIK_ACC)	{
 			FOR(i,n) { *x[i] = pold[i]; } *f = fold;
-//			cout << " Converged -- Returning: " << fold << " == " << Model->lnL() << " *f: " << *f;
+			cout << "\nConverged alam = " << alam;
+				cout << "\nNew:"; FOR(i,n) { cout << "\t" << pold[i]; }
+			cout << " Converged -- Returning: " << fold << " == " << Model->lnL() << " *f: " << *f;
+			cout << "\nAnd:"; FOR(i,n) { cout << "\t" << pold[i]; }
+			cout << "\nDiff: " << fabs(Model->lnL() + fold);
+//			if(fabs(Model->lnL() + fold) > 0.00001) { cout << "\n\nYUCK!";  exit(-1); }
 			return -Model->lnL();
 		// Only exit if there is an increase in likelihood...
 		} else if(fold - *f > FULL_LIK_ACC) {
@@ -1493,8 +1512,8 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 				FOR(i,n) { *x[i] = pold[i] + best_a * p[i]; }
 				*f = -Model->lnL();  // Redoing parameters can be unstable due to rounding errors. Extra function call here.
 			}
-//			cout << "\n\t\tReturning from lnsrch: fp: " << *f << "; lnL: " << Model->lnL() << "; Imp: " << ori_f - *f;
-//			cout << " return 1: " << *f;
+			cout << "\n\t\tReturning from lnsrch: fp: " << *f << "; lnL: " << Model->lnL() << "; Imp: " << ori_f - *f;
+			cout << " return 1: " << *f;
 			return alam;
 		}
 		// Otherwise adjust the alam
@@ -1715,17 +1734,17 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		sum = 0.0; FOR(i,n) { if(fabs(xi[i]) > sum) { sum = fabs(xi[i]); } }
 		if(sum > step_max)	{ sum /= step_max; FOR(i,n) { xi[i] /= sum; } }
 		// Perform the line search
-#if DEBUG_MULD_OPT > 1
+//#if DEBUG_MULD_OPT > 1
 		cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< INTO LINESEARCH: exp: " << -fp << "; lnL: " << Model->lnL() << "  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
-#endif
+//#endif
 
 //		cout << "\nInto lnsrch " <<fold << " -> " << fp; //   << " --> real_lnL: " << -Model->lnL(true) << " (diff=" << abs(Model->lnL(true) + fp) << ")";
 
 		alpha = lnsrch(x,fp,g,xi,pold,&fret,Do_GS,Model); fp = fret;
 //		cout << " --lnsrch-->" << fp;
-#if DEBUG_MULD_OPT > 1
+//#if DEBUG_MULD_OPT > 1
 		cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< OUT OF LINESRCH: exp: " << -fp << "; lnL: " << Model->lnL() << "  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
-#endif
+//#endif
 
 		if(alpha < DBL_EPSILON || GradOK == false) { ResetHess = true; }
 		if(its == NumberIter - 1) { break; }	// No point doing all this if about to step out.
@@ -2014,15 +2033,15 @@ double DoOnlyParOpt(double OrilnL,double gtol ,double ltol,vector <double *> x,C
 /////////////////////////////////////////////////////////////////////////
 // Check that a parameter is at a true optima
 
-bool CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os)	{
+bool CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os, bool ForceShow)	{
 	int i;
 	bool RetVal = true;
 	if(os != cout) { os << "\nHard checking parameter estimates:"; }
-	FOR(i,(int)x.size()) { if(!HardCheckOpt(M,lnL,x[i],Tol,i,os)) { RetVal = false; }	}
+	FOR(i,(int)x.size()) { if(!HardCheckOpt(M,lnL,x[i],Tol,i,os,ForceShow)) { RetVal = false; }	}
 	return RetVal;
 }
 
-bool HardCheckOpt(CBaseModel *M, double lnL, double *x, double Tol, int ParNum,ostream &os)	{
+bool HardCheckOpt(CBaseModel *M, double lnL, double *x, double Tol, int ParNum,ostream &os, bool ForceShow)	{
 	double l_lnL,r_lnL, x_ori = *x;
 	double i;
 	// Get left likelihood
@@ -2031,7 +2050,7 @@ bool HardCheckOpt(CBaseModel *M, double lnL, double *x, double Tol, int ParNum,o
 	*x = x_ori + Tol; r_lnL = M->lnL();
 	*x = x_ori;	// Reset value
 	// Do some debug output if required
-	if(os!= cout) {
+	if(os!= cout || ForceShow) {
 		int prec = os.precision(); os.precision(8);
 		os << "\n\tPar ["<<ParNum <<"] " << M->m_vpAllOptPar[ParNum]->Name() << ": " << *x << " == " << lnL;
 		for(i=1;i<1000;i*=10) {
