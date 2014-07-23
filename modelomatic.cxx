@@ -20,7 +20,7 @@
 #include <set>
 
 #define CHECK_LNL_OUT 1
-#define VERSION_NUMBER "1.0a"
+#define VERSION_NUMBER "1.0beta"
 #define DEVELOPER_VERSION_MAIN 0
 
 #if FUNC_COUNTERS == 1
@@ -108,7 +108,13 @@ int main(int argc, char *argv[])	{
 	PhyDat.SetIn(argv[1]); PhyDat.GetData();
 	assert(PhyDat.pData()->m_DataType == DNA);
 	cout << ": " << PhyDat.pData()->m_iNoSeq << " sequences of length " << PhyDat.pData()->m_iTrueSize << " (DataMatrix: " << PhyDat.pData()->m_iNoSeq << " x " << PhyDat.pData()->m_iSize << ")" << flush;
+	PhyDat.pData()->CleanToDNACodon();	// Make sure gaps are codon compatible early, otherwise it causes problems with Trim and other functions
 	PhyDat.pData()->RemoveSparseSeqs(true,NULL);
+	// 3. Set genetic code is done first so translation will work for bionj tree
+	if(argc>4) {
+		assert(InRange(atoi(argv[4]),0,NumGenCode));
+		GeneticCode = atoi(argv[4]);
+	}
 	// 1. Create a tree (default: bionj)
 	cout << "\nCreating start tree ... " << flush;
 	bDoBioNJ = true;
@@ -122,7 +128,7 @@ int main(int argc, char *argv[])	{
 		// PhyDat.pData()->RemoveSparseSeqs(true,NULL); //PhyDat.pData()->CondenseGaps();
 		// Create a bionj starting tree
         CData tmp_AA_Data = *PhyDat.pData();
-        tmp_AA_Data.Translate();
+        tmp_AA_Data.Translate(GeneticCode);
 		CEQU EQU_PW(&tmp_AA_Data,NULL);
 		PWDists = GetPW(&EQU_PW,NULL,true);  // Get pairwise distances
 		if(PhyDat.pData()->m_iNoSeq > 2) {
@@ -158,11 +164,6 @@ int main(int argc, char *argv[])	{
 		outfilestring = argv[1]; outfilestring += ".output";
 		cout << "\nTrying to work with: " << outfilestring;
 		PhyDat.SetOut(outfilestring.c_str());
-	}
-	// 3. Set genetic code if required
-	if(argc>4) {
-		assert(InRange(atoi(argv[4]),0,NumGenCode));
-		GeneticCode = atoi(argv[4]);
 	}
 	// 4. If needed do the DoItTrim option
    	// Check whether if is meant to be running fast
@@ -263,7 +264,6 @@ int main(int argc, char *argv[])	{
 	GetModels();
 	cout << " done";
 	// 9. Create the other data sets
-	PhyDat.pData()->CleanToDNACodon();
 	CData NT_Data = *PhyDat.pData();
 	CData AA_Data = *PhyDat.pData();
 	CData AA_Temp = *PhyDat.pData();  AA_Temp.Translate(GeneticCode);	// Error check the translation for stop codons and so on

@@ -44,7 +44,7 @@ CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos)
     ifstream input(file.c_str());
    	getline(input,store);
    	input.close();
-   	if(input.eof()) { cout << "\nUnexpected end of file..."; if(!AllowFail) { Error(); } }
+   	if(input.eof()) { cout << "\nUnexpected end of file at beginning of file......"; if(!AllowFail) { Error(); } }
    	Toks = Tokenise(store);
 	if(Toks[0].find("#NEXUS") != string::npos) {
 		InputNexus(file);
@@ -155,7 +155,7 @@ bool ReadData(string File, vector <string > &Names, vector <string > &Seqs, bool
     // All file types start with #sequences #length
 
 	getline(input,store);
-	if(input.eof()) { cout << "\nUnexpected end of file..."; if(AllowFail) { return false; } else { Error(); } }
+	if(input.eof()) { cout << "\nUnexpected end of file at beginning of file..."; if(AllowFail) { return false; } else { Error(); } }
 	Toks = Tokenise(store);
 	if(Toks.size() < 2) { cout << "\nFirst line of datafile should contain: #seq	#length"; if(AllowFail) { return false; } Error(); }
 	NoSeq = atoi(Toks[0].c_str()); Size = atoi(Toks[1].c_str());
@@ -193,7 +193,7 @@ bool ReadData(string File, vector <string > &Names, vector <string > &Seqs, bool
 			// Get the sequence
 			CumSize = 0; while(CumSize < Size)	{
 				store = GetDataLine(&input); store = EatWhiteSpace(store);
-				if(input.eof()) { cout << "\nUnexpected end of file..."; if(AllowFail) { return false; } else { Error(); } }
+				if(input.eof()) { cout << "\nUnexpected end of file... Try adding a return at the end of the data file?\n"; if(AllowFail) { return false; } else { Error(); } }
 				Seqs[i] += store; CumSize += (int)store.size();
 			}
 			if((int) Seqs[i].size() != Size) { cout << "\nSequence["<<i<<"] " << Names[i] << " of length " << Seqs[i].size() << ", expected " << Size << "\n" << Seqs[i] << "\n\n"; }
@@ -213,9 +213,9 @@ bool ReadData(string File, vector <string > &Names, vector <string > &Seqs, bool
 				// Get the data and check
 				Seqs[i] += store;
 				if(i == 0)	{ CumSize += LastSize = (int)store.size(); }
-				else		{ if((int)store.size() != LastSize) { cout << "\nData for species["<<i<<"] " << Names[i] << " of unexpected length...\n" << store << "\n\n"; if(AllowFail) { return false; } Error(); } }
+				else		{ if((int)store.size() != LastSize) { cout << "\nData for species["<<i<<"] " << Names[i] << " of unexpected length... [Obs: " << store.size() << " LastSize: " << LastSize << " cf. Exp: " << Size << ">\n" << store << "\nThis can be caused by strange line end characters between file header and sequences\n"; if(AllowFail) { return false; } Error(); } }
 				if(CumSize < Size || i < NoSeq - 1) { Toks = Tokenise(GetDataLine(&input)); }
-				if(input.eof()) { cout << "\nUnexpected end of file..."; if(AllowFail) { return false; } else { Error(); } }
+				if(input.eof()) { cout << "\nUnexpected end of file... Try adding a return at the end of the data file?\n"; if(AllowFail) { return false; } else { Error(); } }
 			}
 		}
 	}
