@@ -11,7 +11,7 @@ extern vector <double> PWDists;		// Pairwise distances
 #define DERIVATIVE_DEBUG 0			// Whether to debug the derivative function
 #define MODEL_DEBUG	0				// Turns on some checkers that might throw up where errors are occurring
 #define LIKELIHOOD_FUNC_DEBUG 0		// Whether to debug the likelihood function
-#define FASTBRANCHOPT_DEBUG 1		// Whether to debug the FastBranchOpt function
+#define FASTBRANCHOPT_DEBUG 0		// Whether to debug the FastBranchOpt function
 #define ALLOW_BRANCH_OPTIMISE 1		// Specifies whether fast branch optimisation is allowed... (Should always be 1!)
 
 ////////////////////////////////////////////////////////////////////////////
@@ -470,7 +470,7 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 #else
 	// If required, get the current likelihood
 //	cout << "\n\n>>>>>>>>>>GetDerivatives: " << CurlnL;CurlnL = lnL(); cout << " cf. " << CurlnL;
-	if(CurlnL - DBL_EPSILON < -BIG_NUMBER) { CurlnL = lnL(); }
+//	if(CurlnL - DBL_EPSILON < -BIG_NUMBER) { CurlnL = lnL(); }
 #endif
 	if(IsRMSDCalc())	{	////////////////////////// Do RMSD derivatives ///////////////////////
 		FOR(i,(int)m_vpAllOptPar.size()) {
@@ -1365,6 +1365,7 @@ void CBaseModel::SingleBranchOpt(int Br, double *BestlnL, double tol) {
 
 // Optimise a single branch providing the partial likelihoods are correctly assigned
 #define RETURN_DOBRAOPT Par = NULL; PreparePT(Br); \
+/*		cout << "\n\tReturning Branch: " << Tree()->B(Br) << "; best_lnL: " << *BestlnL << " (x1: " << x1_lnL << "; x2: " << x2_lnL << "; x3: " << x3_lnL << ")"; */ \
 	if(AllowUpdate) { if(IsExtBra) { FOR(i,(int)m_vpAssociatedModels.size()) { m_vpAssociatedModels[i]->Leaf_update(NTo,NFr,Br,Tree(),First,true); } Leaf_update(NTo,NFr,Br,Tree(),First,true); } \
 	else { FOR(i,(int)m_vpAssociatedModels.size()) { m_vpAssociatedModels[i]->Bran_update(NTo,NFr,Br,Tree(),First,true,false); } Bran_update(NTo,NFr,Br,Tree(),First,true,false); }}  return;
 #define GS_DELTA 5
@@ -1384,70 +1385,93 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	ori_lnL = *BestlnL;
 
 #if DEVELOPER_BUILD == 1
-	cout << "\nBranch["<<Br<<"] has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo);
-	cout << "\nReturning from CBaseModel::DoBraOpt (including branch updates)";
-	RETURN_DOBRAOPT;
+	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
+//	cout << "\nReturning from CBaseModel::DoBraOpt (including branch updates)";
+//	RETURN_DOBRAOPT;
 #endif
 //	cout << "\nDoing branch["<<Br<<"]: sent bestlnL: " << *BestlnL << " cf. DoBralnL(Br,NFr,NTo): " << DoBralnL(Br,NFr,NTo); //  << " cf. real " << lnL(); exit(-1);
 	//*BestlnL = DoBralnL(Br,NFr,NTo);
-	// ------------------------------------- Catch for when at lower bounds branch length and whether to proceed ------------------------------------
-	if(x2 < DX) {	// There's some annoying behaviour with low bounds
-//		cout << "\n--- Caught small branch length ---";
-		x1 = *p_x = ori_x; x1_lnL = ori_lnL; // = DoBralnL(Br,NFr,NTo);	// This extra call should be unnecessary, but for some reason it's needed...
-		*p_x +=DX; x2 = *p_x; x2_lnL = DoBralnL(Br,NFr,NTo);
-		if(x1_lnL > x2_lnL)	{	// The return point if it's really at the lower bound
-			*p_x = ori_x; *BestlnL = ori_lnL;
-			RETURN_DOBRAOPT;
-		}
-		*p_x = x1 = ori_x; x1_lnL = ori_lnL; // DoBralnL(Br,NFr,NTo);
-		assert(x2_lnL > x1_lnL);	// Final sanity check
-	}
+	// ------------------------------------- Catch entry into bounds ------------------------------------
+	if(!Par->CheckLowBound()) {	// Check lower bound
+		x1 = x2; x1_lnL = *BestlnL;
+		x2 = *p_x = Par->LowBound() + (DX * 1.1);
+		x2_lnL = DoBralnL(Br,NFr,NTo); x2 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
+		if(x1_lnL + tol > x2_lnL) { // At genuine low bound
+			*p_x = x1; *BestlnL = x1_lnL; RETURN_DOBRAOPT;
+	}	}
+	if(!Par->CheckUpBound()) {	// Check upper bound
+		x3 = x2; x3_lnL = *BestlnL;
+		x2 = *p_x = Par->UpBound() - (DX * 1.1);
+		x2_lnL = DoBralnL(Br,NFr,NTo); x2 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
+		if(x3_lnL + tol > x2_lnL) { // At genuine up bound
+			*p_x = x3; *BestlnL = x3_lnL; RETURN_DOBRAOPT;
+	}	}
 	// ----------------------------------- Bracketing routine -------------------------------------
 	// Get left bracketing
+//	cout << "\nDoing left";
+	dx = DX;	// Set original dx;
 	while(x2_lnL < x1_lnL)	{
-		dx = DX;
 		*p_x = x1 = max(0,x2 - (dx * 100));
-		x1_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
-//		cout << "L[" << *p_x << "]" << flush;
-		if(x1_lnL > x2_lnL)	{
+		x1_lnL = DoBralnL(Br,NFr,NTo); x1 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
+//		cout << "\n\Left: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+		// If at low bound organise around it and check for exit conditions
+		if(!Par->CheckLowBound()) {
+//			cout << "\nCheck Low bound break";
+			if(x2_lnL > x1_lnL) { break; } // Have curvature around x2. All okay
+			// Otherwise need to try and check what's going on with the bounded parameter
+			x3 = x2; x3_lnL = x2_lnL;
+			x2 = *p_x = Par->LowBound() + (1.1 * DX);
+			x2_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
+			if(x1_lnL + tol > x2_lnL ) { *p_x = x1; *BestlnL = x1_lnL; RETURN_DOBRAOPT; } // True maxima at bound
+			break;
+		}
+		if(x1_lnL > x2_lnL)	{	// When moving left improves likelihood, then keep cycling
 			x3 = x2; x3_lnL = x2_lnL;
 			x2 = x1; x2_lnL = x1_lnL;
 			x1_lnL = 1.0;
 		}
 		dx *= GS_DELTA;
-		if(!Par->CheckLowBound()) { break; }
 	}
+//	cout << "\n\tafter left: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+//	cout << "\nDoing right";
 	// Get right bracketing
-	if(x3_lnL > 0.0)	{
-
+	dx = DX;	// Set original dx;
+	if(x3_lnL > 0.0)	{		// Search for right bound if it's needed
 		while(x2_lnL < x3_lnL)	{
 			*p_x = x3 = max(0,max(x2 + (dx* 100),0.01));
-			x3_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
-			x3 = *p_x;
-//			cout << "R[" << *p_x << "]" << flush;
-//			cout << "\nRight: " << x3 << " == " << x3_lnL;
+			x3_lnL = DoBralnL(Br,NFr,NTo); x3 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
+//			cout << "\n\tRight: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+			if(!Par->CheckBound())	{
+//				cout << "\nCheck Up bound break";
+				if(x2_lnL > x1_lnL) { break; } // Have curvature around x2. All okay
+				// Otherwise need to try and check what's going on with the bounded parameter
+				x1 = x2; x1_lnL = x2_lnL;
+				x2 = *p_x = Par->UpBound() - (1.1 * DX);
+				x2_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
+				if(x3_lnL + tol > x2_lnL) { *p_x = x3; *BestlnL = x3_lnL; RETURN_DOBRAOPT; } // True maxima at bound
+				break;
+			}
 			if(x3_lnL > x2_lnL)	{
 				x1 = x2; x1_lnL = x2_lnL;
 				x2 = x3; x2_lnL = x3_lnL;
 				x3_lnL = 1.0;
 			}
 			dx *= GS_DELTA;
-			if(!Par->CheckUpBound()) { break; }
 	}	}
+	// Do some error checking
+	if(x1_lnL > x2_lnL || x3_lnL > x2_lnL) {
+		cout.precision(10);
+		cout << "\nBounding failed in DoBraOpt(...)... ";
+		cout << "\n\tafter Right: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+		cout << "\nReturning with no improvement and please report to Simon Whelan";
+		if(x1_lnL > x2_lnL) { *p_x = x1; *BestlnL = x1_lnL; } else { *p_x = x3; *BestlnL = x3_lnL; }
+	}
+	// Some output for debugging if needed
+//	cout << "\n\tafter Right: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
 //	if(x1 < 0 || x2 < 0 || x3 < 0 || *p_x < 0) { cout << "\nHave detected an error for DoBraOpt: x1: " << x1 << " x2: " <<  x2 << " x3: " <<  x3 <<" x: " <<  *p_x << "!!!"; exit(-1); }
 //	cout << "\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
 //	cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
 //	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
-	// Do various checks to make sure it looks like a hill
-	if(!Par->CheckBound()) { *p_x = x2; *BestlnL = x2_lnL; RETURN_DOBRAOPT; }
-	if(x1_lnL > max(x2_lnL,x3_lnL)) {
-		// Deal with the U shape case
-		if(x3_lnL > x2_lnL) {
-			if(x1_lnL > x3_lnL) { *p_x = x1; DoBraOpt(First,NTo,NFr,Br,IsExtBra,BestlnL,tol); }
-			else				{ *p_x = x3; DoBraOpt(First,NTo,NFr,Br,IsExtBra,BestlnL,tol); }
-		} else { *p_x = x1; *BestlnL = x1_lnL; RETURN_DOBRAOPT; }
-	}
-	else if (x3_lnL > x2_lnL)		{ *p_x = x3; *BestlnL = x3_lnL; RETURN_DOBRAOPT; }
 #if DO_BRENT == 1
 	// ------------------------------------ Brent's algorithm (adapted from Numerical Recipes in C) -----------------------
 	assert(x2_lnL > x1_lnL && x2_lnL > x3_lnL);

@@ -218,6 +218,7 @@ int main(int argc, char *argv[])	{
 		TrimJC->lnL(); LazyOpt(TrimJC,false,true,false);
 		delete TrimJC;
 		cout << " done" << flush;
+
 		// Now build the greedy tree
 		cout << "\n          \tObtaining greedy start tree with " << TrimTree << " sequences ..." << flush;
 		Tree  = FindGreedySubTree(&Tree,TrimTree);
@@ -285,7 +286,8 @@ int main(int argc, char *argv[])	{
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Development stuff goes here
 #if DEVELOPER_VERSION_MAIN
-	cout << "\nDoing codon based analysis"; cout.precision(10);
+	cout << "\nDoing codon based analysis"; cout.precision(10); // exit(-1);
+
 
 	CData NT1 = *PhyDat.pData(); NT1.GetCodonPositions(true,false,false);
 	CData NT2 = *PhyDat.pData(); NT2.GetCodonPositions(false,true,false);
@@ -328,8 +330,8 @@ int main(int argc, char *argv[])	{
 	exit(-1);
 
 	// Do some parameter checking
-	cout << "\nChecking parameters: ";
-	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
+//	cout << "\nChecking parameters: ";
+//	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
 
 //	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
 //	CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os)	{
@@ -346,8 +348,8 @@ int main(int argc, char *argv[])	{
 	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
 
 	// Do some parameter checking
-	cout << "\nChecking parameters: ";
-	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
+//	cout << "\nChecking parameters: ";
+//	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
 
 	exit(-1);
 

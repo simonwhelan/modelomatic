@@ -499,7 +499,7 @@ bool CPar::CheckUpBound(bool ForceBounds)	{
 	if(CheckOkay == false) { return true; }
 	CheckOkay = false;
 //	if(m_dRealValue > m_ardBounds[1] + 1.0E-6) {
-	if(fabs(m_dRealValue - m_ardBounds[1]) < 1.0E-6 || m_dRealValue > m_ardBounds[0] + 1.0E-6) {
+	if(fabs(m_dRealValue - m_ardBounds[1]) < 1.0E-6 || m_dRealValue > m_ardBounds[1] - 1.0E-6) {
 		if(ForceBounds == true) { SetVal(m_ardBounds[1]); }
 		CheckOkay = true;
 		return false;

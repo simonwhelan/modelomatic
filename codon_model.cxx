@@ -319,6 +319,8 @@ const double resphi = 2 - phi;
 
 void CSiteCodon::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate) {
 
+	cout << "CSITECODON::DOBRAOPT NEEDS FIXING..."; exit(-1);
+
 	int i;
 	double *p_x,x1,x2,x3,x1_lnL = 1.0,x2_lnL = -fabs(*BestlnL),x3_lnL = 1.0, xi,temp, ori_x, ori_lnL;
 	tol = max(tol,FULL_LIK_ACC);
