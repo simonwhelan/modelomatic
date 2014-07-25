@@ -335,6 +335,7 @@ CPar::CPar(string Name,double Value, bool Optimise, double LowBound, double UpBo
 	m_dGrad = 0.0; m_bIsBranch = false;
 	// Do the bounds
 	SetBounds(LowBound,UpBound);
+	StoreOptBounds(LowBound,UpBound);	// Default bounds are the optimisation bounds
 	// Set default scaling routines
 	pDoUpdate = NULL;
 	m_Operator = Type;
@@ -368,6 +369,8 @@ CPar & CPar::operator=(CPar &Par)	{
 	m_bLockedScale = Par.m_bLockedScale;
 	pDoUpdate = Par.pDoUpdate;
 	m_Operator = Par.m_Operator;
+	m_ardOptBounds[0] = Par.m_ardOptBounds[0];
+	m_ardOptBounds[1] = Par.m_ardOptBounds[1];
 	return *this;
 }
 

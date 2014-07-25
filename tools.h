@@ -452,6 +452,9 @@ public:
 	double LowBound() { return m_ardBounds[0]; }					// Returns the lower bound
 	double UpBound() { return m_ardBounds[1]; }						// Returns the upper bound
 	double BoundDist();													// Get distance from bounds
+	bool StoreOptBounds(double Low, double Up) { assert(Up + FLT_EPSILON > Low); m_ardOptBounds[0] = max(Low,m_ardBounds[0]); m_ardOptBounds[1] = min(Up,m_ardBounds[1]);  }
+	double OptLow() { return m_ardOptBounds[0]; }
+	double OptUp() { return m_ardOptBounds[1]; }
 
 	// 2. The update function -- Probably the most important parameter function
 	bool UpdatePar(bool force = false, bool RedoScale = false);		// Function to decide whether to update parameters
@@ -500,6 +503,7 @@ private:
 	ParOp m_Operator;			// What the parameter does
 	CScaledParVal m_dScaledValue;	// The value of the parameter used in optimisation (see class definition above)
 	double m_ardBounds[2];		// The [0] Upbound and the [1] Lowbound
+	double m_ardOptBounds[2];	// The [0] lower and [1] upper bounds used in the last round of optimisation. Good starting points for next round
 	bool m_bOpt;				// Whether to optimise the parameter
 	bool m_bAllowScale;			// Whether Scaler is allowed
 	bool m_bSpecial;			// Whether the parameter is categorised as special (often used for probability scaling)

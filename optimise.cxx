@@ -1418,7 +1418,7 @@ double GoldenSection(double OrilnL, double *x, CPar *Par,CBaseModel *M)	{
 // check	= Rather than return a value (0 = OK:1 = BAD)
 //////////////////////////////////////////
 
-#define INIT_ALAM 0.5
+#define INIT_ALAM 0.25
 
 double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], double pold[], double *f, bool Do_GS,CBaseModel *Model)	{
    	int i, j, n = (int)x.size(), num_run = 10;
@@ -1437,12 +1437,14 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 	cout << "\nEntering lnsrch (n="<<n<<"): lnL = " << fold << " cf. " << Model->lnL();
 #endif
 	if(test < 0.99) { alamin = FLT_EPSILON/test; } else { alamin = 100 * FLT_EPSILON; }
-/*
+
+	double checker;
 	cout << "\nEntering lnsrch (n="<<n<<"): lnL = " << fold << " cf. " << Model->lnL();
 	cout << "\nOriginal: ";
 	cout << "\nOrips:    "; FOR(i,n) { cout << "\t" << pold[i]; }
-	cout << "\nSteps:    "; FOR(i,n) { cout << "\t" << alam*p[i]; }
-	double checker;
+	checker = 0; cout << "\nSteps:    "; FOR(i,n) { cout << "\t" << alam*p[i]; checker += alam*p[i]; }
+	cout << "\nTotal step: " << checker ;
+	/*
 	cout << "\nDirection:"; FOR(i,n) {
 		if(fabs(p[i]) < 3*DX) { cout << "\tdone"; continue; }
 		if(p[i]>0) 	{ *x[i] = pold[i] + (3*DX); checker = Model->lnL(); }
@@ -1452,7 +1454,6 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 		*x[i] = pold[i];
 	}
 */
-
     // Start main loop
     for(;;)	{
 /*    	// Hard debug code...
@@ -1483,6 +1484,7 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 		FOR(i,n) { *x[i] = pold[i] + (alam * p[i]); }
 		// Perform calculation
 		*f = -Model->lnL(); v2 = v1; v1 = *f; a2 = a1; a1 = alam;
+		cout << "\n\t\talam: " << alam << ":  " << *f;
 #if DEBUG_MULD_OPT > 1
 		cout << "\n\t\tlnsrch: alam="<<alam << "; func=" << *f; if(x.size() == 1) { cout << " x= " << *x[0]; }
 #endif
@@ -1623,7 +1625,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 	double PredictedlnL;
 	vector <double> g, temp_g; g.assign(x.size(),0.0);
 	vector <double *> temp_x;
-	bool flag, ResetHess, Do_GS, GradOK;
+	bool flag, ResetHess, Do_GS, GradOK, DoingSubset = false;
 	if(n == 0)
 	if(n <= 0) { return -BIG_NUMBER; }
 
@@ -1675,17 +1677,13 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 			cout << "." << flush;
 		}
 
-
 		// Some initialisation
 		ResetHess = false; Do_GS = false; step_max = BIG_STEP_MAX;
 		// Decide whether to do Golden Section search in line search
 		if(its < THOROUGH_LINE_SEARCH)  { Do_GS = true; }
 		if(fabs(fold - fp) > 0.25) { step_max = SMALL_STEP_MAX; }
 		fold = fp;
-		// Manage the maximum step. No step can be greater than max 3 times the parameter (or the size of *x[i] if less than 0.1)
-//		if(n == 1) { step_max = 10.0; }
-//		sum = 0.0; FOR(i,n) { if(fabs(xi[i]) > sum) { sum = fabs(xi[i]); } }
-//		if(sum > step_max)	{ sum /= step_max; FOR(i,n) { xi[i] /= sum; } }
+
 		// --------------------------------- Perform the line search ----------------------------------
 		// Debug information
 		cout << "\n<<<<<< ITER " << its << ": " << fp << " >>>>>>>>";
@@ -1698,13 +1696,13 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		// Before performing line-search decide whether only a subset of parameters are worth examining
 		// This is decided when there are very large gradients relative to all other gradients.
 		double GOOD_IMPROVE = 0.5;
-		double BIG_GRADIENT_MULTIPLIER = 0.3;
+		double BIG_GRADIENT_MULTIPLIER = 0.33;
 //		cout << "\nLast improvement: " << last_improvement;
-		if(last_improvement > GOOD_IMPROVE || NumberIter - its < 3) { // If the last improvement was good then try looking at subsets of parameters
-			cout << "\nChecking for weird gradients";
+		if((last_improvement > GOOD_IMPROVE || NumberIter - its < 3) && its < 10) { // If the last improvement was good then try looking at subsets of parameters
 			max_g = 0.0; FOR(i,(int)g.size()) { max_g = max(fabs(g[i]),max_g); } max_g = max(max_g,10);
-			FOR(i,(int)g.size()) { if(max_g * BIG_GRADIENT_MULTIPLIER > fabs(g[i])) { cout << " " << i; xi[i] = 0.0; ResetHess = true; } } // Set small gradients to step size zero; Will need to reset the Hessian
+			FOR(i,(int)g.size()) { if(fabs(max_g * BIG_GRADIENT_MULTIPLIER) > fabs(g[i])) { g[i] = xi[i] = 0.0; DoingSubset = true; } } // Set small gradients to step size zero; Will need to reset the Hessian
 		} else { // If we're close to an optima then gradient should agree with direction. Sign of a screwed up Hessian when it doesn't
+			if(DoingSubset) { ResetHess = true; DoingSubset = false; }	// Finished with subsets, so reset the Hessian and get going again
 			flag = false;
 			FOR(i,(int)g.size()) {
 				if(g[i] > 0 && xi[i] > 0) { xi[i] *= -1; flag = true; } // if(fabs(xi[i]) > 0.01) { xi[i] = -0.01;  } }
@@ -1713,16 +1711,14 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 			if(flag == true) { HessWarning ++; }
 		}
 
-//		cout << "\nInto lnsrch " <<fold << " -> " << fp; //   << " --> real_lnL: " << -Model->lnL(true) << " (diff=" << abs(Model->lnL(true) + fp) << ")";
-
+		if(DoingSubset) { cout << "\nWorking with subset: "; FOR(i,(int)g.size()) { if(fabs(g[i]) > FLT_EPSILON) { cout << Model->m_vpAllOptPar[i]->Name() << " "; } } }
 		double temp_fp_s = fp; cout << "\n\tLinesearch --  fp: " << fp;
 
 		last_improvement = fp;
 		alpha = lnsrch(x,fp,g,xi,pold,&fret,Do_GS,Model); fp = fret;
 		last_improvement = last_improvement - fp;
-		cout << " -> fp: " << fp << " imp(" << temp_fp_s - fp << ")";
 
-//		cout << " --lnsrch-->" << fp;
+		cout << " -> fp: " << fp << " imp(" << temp_fp_s - fp << ")";
 
 		if(alpha < DBL_EPSILON || GradOK == false) { ResetHess = true; }
 		if(its == NumberIter - 1) { break; }	// No point doing all this if about to step out.
@@ -1835,7 +1831,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		// Set warning if gradients and steps are not decreasing.
 		// This is an assumption for using the hessian
 		// Reset the hessian when this occurs
-		flag = true;
+/*		flag = true;
 		if(inc > 0.5) {
 			FOR(i,n)	{
 				if((fabs(dg[i] - g[i])  < 1.0E-3 && g[i] > 1.0E-3))	{
@@ -1844,7 +1840,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 					flag = false;
 		}	}	}
 		if(flag == false) { HessWarning++; if(HessWarning >=5) { ResetHess = true; } } else { HessWarning = 0; }
-
+*/
 		// Reset the hessian if Expected convergence on condition that
 		// i) haven't got it, or ii) expecting to exit next iteration
 		// iii) The warning regarding the dot product has passed a threshold
