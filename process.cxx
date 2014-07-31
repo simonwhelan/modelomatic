@@ -1923,7 +1923,7 @@ void CBaseProcess::BranNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First
 
 // Update routines that allow the backward calculations
 void CBaseProcess::LeafNode_Update(int NTo, int NFr, int Br, CTree *pTree, int First, bool DoCompleteUpdate)	{
-//	cout << "\nDoing LeafNode_Update...";
+	cout << "\nDoing LeafNode_Update...";
 	bool CharCheck,LeafSeq = true;
 	int i,site,Seq, SiteScale = 0;	// Counters
 	double Vec[MAX_CHAR], Value, *p_a = NULL, *p_b = NULL;
@@ -1956,34 +1956,46 @@ void CBaseProcess::LeafNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 
 	// Note: You can't speed up these computations the same way as you can speed up forwards
 	FOR(site,m_iSize)	{
+		if(site == 120) { cout << "\n\tDoing [site=120] "; }
 		// If not a gap then calculations are non-trivial
 		/////////////////////////////////////////////////////////////////////
 		if(m_pSubTree == NULL || LeafSeq == true)	{ // Gap check statement
 			if(m_pData->m_ariSeq[Seq][site] != m_iDataChar) { CharCheck = true; } else { CharCheck = false; }
 		} else { CharCheck = true; }
 		if(CharCheck == true) {
+			if(site == 120) {
+				cout << "\n\tGot PT(" << Br << "=" << Tree()->B(Br) << "): ";
+				FOR(i,m_iChar) { cout << PT(Br)[(m_iChar*m_pData->m_ariSeq[Seq][site]) + i] << " "; }
+			}
 			// Do the updating procedure
 			/////////////////////////////////////////////////////////////////
 			// i) Obtain vP(t) in Vec
 			SiteScale = 0;
-			if(LeafSeq == true) { Data2PartL(m_pData->m_ariSeq[Seq][site],PT(Br),Vec,&eqm); }
+			if(LeafSeq == true) {
+
+				Data2PartL(m_pData->m_ariSeq[Seq][site],PT(Br),Vec,&eqm);
+				if(site == 120) { cout << "\n\tDoing LeafSeq Vec="; FOR(i,m_iChar) { cout << " " << Vec[i]; } }
+			}
 			else				{ VMat(ForceRealFd(NTo,site),PT(Br),Vec,m_iChar); SiteScale += *ForceRealFdSc(NTo,site); }
 			// ii) Update appropriate memory according to First
 			// I think that if first use Fd Space
 			switch(First)	{
 			case -1:	// If origin branch update Fd to complete partial likelihood
 				// Get new Fd Space and back space
+				if(site == 120) { cout << "\n\t\t\tCase -1"; }
 				p_a = ForceRealFd(NFr,site); p_b = ForceRealBk(NFr,site);
 				FOR(i,m_iChar)	{ *(p_a++) = *(p_b) * Vec[i]; *(p_b++) = Vec[i]; }
 				*ForceRealFdSc(NFr,site) = SiteScale + *ForceRealBkSc(NFr,site);
 				*ForceRealBkSc(NFr,site) = SiteScale;
 				break;
 			case 0:		// If the first link in an internal node update Fd in NFr to full partial likelihood
+				if(site == 120) { cout << "\n\t\t\tCase 0"; }
 				p_a = ForceRealFd(NFr,site); p_b = ForceRealBk(NFr,site);
 				FOR(i,m_iChar)	{ *(p_a++) = *(p_b++) * Vec[i]; }
 				*ForceRealFdSc(NFr,site) = SiteScale + *ForceRealBkSc(NFr,site);
 				break;
 			case 1:		// If the second link in an internal node
+				if(site == 120) { cout << "\n\t\t\tCase 1"; }
 				break;
 			default:
 				Error("Unknown first...");

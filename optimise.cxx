@@ -1418,14 +1418,16 @@ double GoldenSection(double OrilnL, double *x, CPar *Par,CBaseModel *M)	{
 // check	= Rather than return a value (0 = OK:1 = BAD)
 //////////////////////////////////////////
 
-#define INIT_ALAM 0.25
+#define INIT_ALAM 1.0
 
 double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], double pold[], double *f, bool Do_GS,CBaseModel *Model)	{
    	int i, j, n = (int)x.size(), num_run = 10;
     double a, alam = INIT_ALAM, alam2 = INIT_ALAM, alamin, b, disc, f2 = -BIG_NUMBER,fold2, rhs1, rhs2, slope, temp,
     	test, tmplam;
 	double a0 = 0,a1 = INIT_ALAM ,a2 = -1,	v0 = *f, v1 = *f, v2 = -1, best_a, best_f, ori_f = *f;
-	// Get old parameters and impose a maximum ste
+	double BestAlam = -BIG_NUMBER;
+	double BestlnL = BIG_NUMBER;
+	// Get old parameters and impose a maximum step
 	FOR(i,n) { pold[i] = *x[i]; }
     for(slope = 0.0,i = 0;i < n;i++)	{ slope += g[i] * p[i]; }
     test = 0.0;
@@ -1438,12 +1440,17 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 #endif
 	if(test < 0.99) { alamin = FLT_EPSILON/test; } else { alamin = 100 * FLT_EPSILON; }
 
+
+
+/*
 	double checker;
 	cout << "\nEntering lnsrch (n="<<n<<"): lnL = " << fold << " cf. " << Model->lnL();
 	cout << "\nOriginal: ";
 	cout << "\nOrips:    "; FOR(i,n) { cout << "\t" << pold[i]; }
-	checker = 0; cout << "\nSteps:    "; FOR(i,n) { cout << "\t" << alam*p[i]; checker += alam*p[i]; }
+	checker = 0; cout << "\nSteps:    "; FOR(i,n) { cout << "\t" << alam*p[i]; checker += fabs(alam*p[i]); }
 	cout << "\nTotal step: " << checker ;
+	cout << "\nThere's clearly a problem here with the chosen step sizes... Even when close to the optima the step sizes are at least an order of magnitude larger than one should expect for maximum steps...";
+	cout << "\nConsider implementing the logged parameters bit";
 	/*
 	cout << "\nDirection:"; FOR(i,n) {
 		if(fabs(p[i]) < 3*DX) { cout << "\tdone"; continue; }
@@ -1465,7 +1472,7 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
     		*x[i] = pold[i] + (alam * p[i]); cout << " == " << -Model->lnL(true) << " ; imp: " << Model->lnL(true) + fold;
     		*x[i] = pold[i];
     	}
-/*
+
     	cout << "\nOrips:"; FOR(i,n) { cout << "\t" << pold[i]; }
     	cout << "\nSteps:"; FOR(i,n) { cout << "\t" << alam*p[i]; }
     	FOR(i,n) {
@@ -1484,11 +1491,11 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 		FOR(i,n) { *x[i] = pold[i] + (alam * p[i]); }
 		// Perform calculation
 		*f = -Model->lnL(); v2 = v1; v1 = *f; a2 = a1; a1 = alam;
-		cout << "\n\t\talam: " << alam << ":  " << *f;
-#if DEBUG_MULD_OPT > 1
+//		cout << "\n\t\talam: " << alam << ":  " << *f;
+//#if DEBUG_MULD_OPT > 1
 		cout << "\n\t\tlnsrch: alam="<<alam << "; func=" << *f; if(x.size() == 1) { cout << " x= " << *x[0]; }
-#endif
- 	    // If reached convergence in terms of movement through parameter space
+//#endif
+ 	    // If reached convergence where no improvement in likelihood can be found. Either alam too small or likelihood improvement too small.
 		if(alam < alamin || fabs(fold - *f) < FULL_LIK_ACC)	{
 			FOR(i,n) { *x[i] = pold[i]; } *f = fold;
 //			cout << "\nConverged alam = " << alam;
@@ -1500,37 +1507,32 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 			return -Model->lnL();
 		// Only exit if there is an increase in likelihood...
 		} else if(fold - *f > FULL_LIK_ACC) {
-//			cout << "\nfabs(ori_f - *f)" << fabs(ori_f - *f);
-			if(Do_GS && fabs(ori_f - *f) < 1.0)	{	// Only do golden section when close to an answer
-//				cout << "\nDoing GoldenSection";
-				best_a = alam; best_f = *f;
-				if(n == 1) { num_run = 20; }
-				FOR(j,num_run)	{
-					// Get new alam
-					alam = a0 + ( (a2-a0) * GOLDEN_NUMBER); FOR(i,n) { *x[i] = pold[i] + alam * p[i]; }
-					*f = -Model->lnL();
-//					cout << "\nsection " << j << " = " << *f << " == " << best_f << "; best_alim: " << best_a << "; v0: " << v0 << "; v1: "<< v1 << "; v2: " << v2;
-					if(*f < best_f) { best_f = *f; best_a = alam; } else if(j>2 && n != 1) { break; }
-					// Set new interval
-					if(fabs(*f - fold) < FULL_LIK_ACC) { break; }
-					if(a1 > alam)	{
-						if(v1 < *f) { v0 = *f; a0 = alam; }
-						else		{ v2 = v1; a2 = a1; v1 = *f; a1 = alam; }
-					} else {
-						if(v1 > *f) { v0 = v1; a0 = a1; v1 = *f; a1 = alam; }
-						else		{ v2 = *f; a2 = alam; }
-					}
-					fold = *f;
+//			cout << "\nlnL increase -- fold: " << fold << " - " << *f << " = " << fold - *f << " cf. Best (lnL: " << BestlnL << "; alam: " << alam << ")";
+//			cout << "\nImprovement over best: " << BestlnL - *f;
+			if(*f < BestlnL) { BestlnL =  *f; BestAlam = alam; } // If going well continue with next step
+			else {	// Revert to the best alam
+				alam = BestAlam;
+				FOR(i,n) { *x[i] = pold[i] + (alam * p[i]); }
+				*f = BestlnL;
+				// DEBUG CHECKING
+/*				cout << "\nDebug check in alam return";
+				if(fabs(*f - -Model->lnL()) > 1.0E-6) {
+					double number = -Model->lnL();
+					cout << "\nError in alam restoral..."; cout << "\n\t\tReturning from lnsrch: fp: " << *f << "; lnL: " << number << "; Imp: " << ori_f - *f;
+					cout << "\nDiff = " << *f - number << " == fabs() " << fabs(*f-number);
+
+					exit(-1);
 				}
-				FOR(i,n) { *x[i] = pold[i] + best_a * p[i]; }
-				*f = -Model->lnL();  // Redoing parameters can be unstable due to rounding errors. Extra function call here.
+*/				return alam;
 			}
+//			double BestAlam = -BIG_NUMBER;
+//			double BestlnL = -BIG_NUMBER;
 //			cout << "\n\t\tReturning from lnsrch: fp: " << *f << "; lnL: " << Model->lnL() << "; Imp: " << ori_f - *f;
 //			cout << " return 1: " << *f;
-			return alam;
+//			return alam;
 		}
 		// Otherwise adjust the alam
-		else	{
+//		else	{
 	        // Need catch to find when the search for a new value is getting silly
 			if(fabs(alam - INIT_ALAM) < DBL_EPSILON) { tmplam = -slope / (2.0 * (*f - fold - slope)); if(tmplam > 0.95 * alam) { tmplam = 0.95 * alam; } }
 			else if(fabs(*f - BIG_NUMBER) < DBL_EPSILON || fabs(f2 - BIG_NUMBER) < DBL_EPSILON) { tmplam = 0.5 * alam; }
@@ -1548,7 +1550,7 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 				}
 				if(tmplam > 0.5 * alam) { tmplam = 0.5 * alam; }
 			}
-		}
+//		}
 	    alam2 = alam;
 	    f2 = *f;
 	    fold2 = fold;
@@ -1710,6 +1712,14 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 			}
 			if(flag == true) { HessWarning ++; }
 		}
+		// Now adjust the step sizes to conform to step_max
+		max_g = -BIG_NUMBER; FOR(i,(int)g.size()) { if(fabs(xi[i]) > max_g) { max_g = fabs(xi[i]); } }
+		if(max_g > step_max) {
+			max_g = step_max / max_g;
+			FOR(i,(int)g.size()) { xi[i] *= max_g; }
+		}
+
+
 
 		if(DoingSubset) { cout << "\nWorking with subset: "; FOR(i,(int)g.size()) { if(fabs(g[i]) > FLT_EPSILON) { cout << Model->m_vpAllOptPar[i]->Name() << " "; } } }
 		double temp_fp_s = fp; cout << "\n\tLinesearch --  fp: " << fp;
@@ -1718,7 +1728,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		alpha = lnsrch(x,fp,g,xi,pold,&fret,Do_GS,Model); fp = fret;
 		last_improvement = last_improvement - fp;
 
-		cout << " -> fp: " << fp << " imp(" << temp_fp_s - fp << ")";
+//		cout << " -> fp: " << fp << " imp(" << temp_fp_s - fp << ")";
 
 		if(alpha < DBL_EPSILON || GradOK == false) { ResetHess = true; }
 		if(its == NumberIter - 1) { break; }	// No point doing all this if about to step out.

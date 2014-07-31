@@ -327,6 +327,11 @@ int main(int argc, char *argv[])	{
 	rVal = GetAminoAcidCountFromCodon( M0Test->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
 	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
 
+	cout << "\nOpt more branches";
+	FullOpt(M0Test,false,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+
+	cout << "\nFinal lnL: " << M0Test->lnL(true);
+
 	exit(-1);
 
 	// Do some parameter checking
