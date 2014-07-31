@@ -14,6 +14,8 @@ extern vector <double> PWDists;		// Pairwise distances
 #define FASTBRANCHOPT_DEBUG 0		// Whether to debug the FastBranchOpt function
 #define ALLOW_BRANCH_OPTIMISE 1		// Specifies whether fast branch optimisation is allowed... (Should always be 1!)
 
+vector <double> Bradley, Angie;			// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE THIS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 ////////////////////////////////////////////////////////////////////////////
 // CBaseModel implementation
 ////////////////////////////////////////////////////////////////////////////
@@ -1300,6 +1302,9 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 // Optimise the set of branches
 void CBaseModel::BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol)	{
 	int i,j,OriFirst = First;
+
+	cout << "\nInto CBaseModel::BranchOpt(" << First << ", " << NTo << "," << NFr << ", " << *BestlnL << ")";
+
 	if(NFr == -1)	{
 		rFOR(i,Tree()->NoLinks(NTo)) { if(Tree()->NodeLink(NTo,i) == -1) { continue; } BranchOpt(First,Tree()->NodeLink(NTo,i),NTo,BestlnL,tol);
 	}	} else {
@@ -1381,6 +1386,8 @@ void CBaseModel::SingleBranchOpt(int Br, double *BestlnL, double tol) {
 const double phi = (1 + sqrt(5)) /2;
 const double resphi = 2 - phi;
 
+
+
 // Brent version of DoBraOpt
 void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, double *BestlnL,double tol, bool AllowUpdate)	{
 	int i;
@@ -1392,9 +1399,31 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	ori_x = x2 = *p_x;	ori_lnL = *BestlnL;
 //	ori_lnL = *BestlnL = DoBralnL(Br,NFr,NTo);
 	if(fabs(*BestlnL - DoBralnL(Br,NFr,NTo)) > 1.0E-6) {
-			cout << "\nError in Update... BestlnL:  " << *BestlnL << " != " << DoBralnL(Br,NFr,NTo) << " -> diff = " << fabs(*BestlnL - DoBralnL(Br,NFr,NTo));
-			cout << "\nReal likeklihood: " << lnL(true) << endl;
-			exit(-1);
+
+		cout << "\n ===================== ERROR IN BRANCH " << Br << " (" << Tree()->BraLink(Br,0) << "," << Tree()->BraLink(Br,1) << ") ================";
+//		cout << "\nP(t=" << Tree()->B(Br) << ")";
+//		OutPT(cout,0,Br);
+
+		double Counter1 = DoBralnL(Br,NFr,NTo), Counter2 = lnL(true);
+//		cout << "\nRedone calcs, new PT";
+//		OutPT(cout,0,Br);
+
+
+
+		double Pouncer1 = 0.0, Pouncer2 = 0.0;
+		FOR(i,m_pData->m_iSize) { cout << "\n[" << i << "] real: " << m_vpProc[0]->L(i).LogP() << " ; branch: " << Bradley[i] << " -- diff = " << m_vpProc[0]->L(i).LogP() - Bradley[i]; Pouncer1 += m_pData->m_ariPatOcc[i] * m_vpProc[0]->L(i).LogP(); Pouncer2 += m_pData->m_ariPatOcc[i] * Bradley[i]; }
+		cout << "\nError in Update... BestlnL:  " << *BestlnL << " != " << Counter1 << " -> diff = " << fabs(*BestlnL - Counter1);
+		cout << "\nReal likeklihood: " << Counter2 << endl;
+		cout << "\nPouncer1: " << Pouncer1 << " cf. " << Pouncer2;
+
+//		void CBaseProcess::PartialL(CTree *pTree, int iNoTo, int iNoFr, int Branch, bool NodeFirst, bool BlockWriteback)	// PErhaps try this?!?
+
+
+		cout << "\nTrying DoBralnL again = " << DoBralnL(Br,NFr,NTo);
+		cout << "\nOtherway round? = " << DoBralnL(Br,NTo,NFr);
+		// Rebuild space?!?
+
+		exit(-1);
 	}
 //#if DEVELOPER_BUILD == 1
 	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
@@ -1629,14 +1658,16 @@ double CBaseModel::DoBralnL(int B, int NF,int NT)	{
 		if(m_vpProc[i]->Prob() < MIN_PROB) { continue; }
 		m_vpProc[i]->GetBranchPartL(P,NT,NF,B);
 	}
-	cout << "\n {{{{{{{{{{{{{{{ Doing DoBralnL }}}}}}}}}}}}}}";
+	cout << "\n {{{{{{{{{{{{{{{ Doing DoBralnL }}}}}}}}}}}}}}"; if(Bradley.empty()) { Bradley.assign(m_pData->m_iSize,0); Angie.assign(m_pData->m_iSize,0); }
 	FOR(i,m_pData->m_iSize) {
 #if DEVELOPER_BUILD == 1
 		if(i<5) { cout << "\n\t\tSite["<<i<<"]:  ";
 		int j; FOR(j,m_pData->m_iNoSeq) { cout << m_pData->m_sABET[m_pData->m_ariSeq[j][i]]; }
 			cout << " " << P[i]->LogP(); }
 #endif
-		if(i==120) { cout << "\n\t\tSite["<<i<<"] "; int j; FOR(j,m_pData->m_iNoSeq) { cout << m_pData->m_sABET[m_pData->m_ariSeq[j][i]]; } cout << "  " << m_pData->m_ariPatOcc[i] << " X " << P[i]->LogP(); }
+		if(i==120) { cout << "\n\t\tSite["<<i<<"] "; int j,k; FOR(j,m_pData->m_iNoSeq) { FOR(k,3) { cout << m_pData->m_sABET[(3*m_pData->m_ariSeq[j][i])+k]; } cout << " "; } cout << "  " << m_pData->m_ariPatOcc[i] << " X " << P[i]->LogP(); }
+		Bradley[i] = P[i]->LogP();
+
 		logL += P[i]->LogP() * m_pData->m_ariPatOcc[i]; }
 //	cout << "\nReturning lnL: " << logL; // << " cf. " << lnL(true);
 #if DEVELOPER_BUILD == 1

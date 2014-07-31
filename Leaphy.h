@@ -77,9 +77,9 @@ enum LazyType { fullopt, lazy, randomtree };		// The type of optimisation done w
 #define LAZY_SA lazy					// Do lazy stepwise addition
 
 // Probability approximations for sitewise likelihoods
-#define ALLOW_SCALE 1			// Whether likelihoods are scaled
+#define ALLOW_SCALE 0			// Whether likelihoods are scaled
 #define P_SCALE_VAL (0.1)	// Value at which scaling takes place
-#define ALLOW_FAST_CALC 1		// Whether fast likelihood computations are allowed
+#define ALLOW_FAST_CALC 0		// Whether fast likelihood computations are allowed
 
 ////////////// Sequence trimming and rearranging processes ///////////////
 #define DO_SNAP 0				// Whether to perform only SNAP

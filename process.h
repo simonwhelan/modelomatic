@@ -637,6 +637,7 @@ protected:
 	virtual void Data2PartL(int Char, double *PT, double *RetSpace, vector <double> *eqm);
 	virtual void Vec_by_Data(int Char, double *Vec);		// Multiplies a vector by the characters (i.e. set all values not of type Char to 0); Returns the sum of these values
 	virtual double Sum_Vec(int Char, double *Vec, vector <double> eqm);	// Returns the sum of elements * eqm matching Char
+	virtual CProb &NewSum_Vec(int Char, double *Vec, vector <double> eqm);
 	void *Make_PT(double T,double *PT,double *U,double *V,double *Root);	// Makes the P(t) matrix													// Makes the Q matrix
 	// Output functions
 	friend ostream &operator<<(ostream &os, CBaseProcess &Proc) { return Proc.Output(os); }

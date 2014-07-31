@@ -1333,7 +1333,7 @@ bool CBaseProcess::CreatePTMats(int Bra)	{
 bool CBaseProcess::Likelihood(bool ForceReal)	{
 	int i;
 	static int Counter =0;
-//	cout << "\n----------------------------------------------------------------------------------\nLikelihood comp: " << Counter++;
+	cout << "\n----------------------------------------------------------------------------------\nLikelihood comp: " << Counter++;
 //	cout << "\n--------------------------------------------------\nLikelihood\nTree: " << *m_pTree;
 
 //	cout << "\nDoing likelihood\nData: " << *m_pData << "\nTree: " << *m_pTree;
@@ -1371,6 +1371,13 @@ bool CBaseProcess::Likelihood(bool ForceReal)	{
 	PartialL(Tree(),Tree()->StartCalc(),-1,-1,true);
 	// Get the final likelihoods for the process
 	FOR(i,m_iSize)	{ m_ardL[i].Assign(Lsum(i)); }
+
+	cout << "\nAnd the final likelihoods";
+	for(i=450;i<460;i++) {
+		cout << "\n<site = " << i << "> = " << m_ardL[i] << " == " << L(i) << " to logs " << m_ardL[i].LogP() << " == " << L(i).LogP();
+	}
+
+
 	// Return if okay
 	m_bCompressedSpace = OldComp;
 //	cout << "\nDone likelihood...\n\n";
@@ -1389,6 +1396,14 @@ CProb &CBaseProcess::Lsum(int site)	{
 	double *p_a = PartL(site);
 	static CProb dVal;
 //	cout << "\nCBaseProcess::m_pData["<<site<<"/"<<m_pData->m_iSize<<"]: " << m_pData;
+
+	double Beatrice;
+	if(site >= 450 && site < 460) {
+		Beatrice = 0.0;
+		cout << "\nLikelihood site[" << site << "]";
+	}
+
+
 	assert(site < m_pData->m_iSize);
 	CProb temp;
 	dVal.Assign(0.0);
@@ -1418,8 +1433,14 @@ CProb &CBaseProcess::Lsum(int site)	{
 		}
 
 #endif
+
+		if(site >= 450 && site < 460) { cout << "\n\t-> assigning (" << *p_a << " * " << m_vdEqm[i] << ") = " << *p_a * m_vdEqm[i]; Beatrice += *p_a * m_vdEqm[i]; }
+
 		if(*(p_a) * m_vdEqm[i] < DBL_EPSILON) { temp.Assign(0.0); p_a++; }
 		else { temp.Assign(*(p_a++) * m_vdEqm[i],*LScale(site)); }
+
+
+
 		dVal.Add(temp,true);
 
 
@@ -1435,6 +1456,7 @@ CProb &CBaseProcess::Lsum(int site)	{
 
 //	if(site == 0) { cout << "\nVal: " << dVal << " == " << dVal.LogP(); }
 
+	if(site >= 450 && site < 460) { cout << "\nSum = " << Beatrice << " == log: " << log(Beatrice); }
 
 	return dVal;
 }
@@ -1489,7 +1511,7 @@ void CBaseProcess::PartialL(CTree *pTree, int iNoTo, int iNoFr, int Branch, bool
     int i,j,NodePos1, NodePos2;
 	bool First = true;
 	double *I = NULL, *p_a = NULL, *p_b = NULL;
-//	cout << "\nPartialL - NT: " << iNoTo << ", iNoFr" << iNoFr << ", Branch: " << Branch << ", NodeFirst: " << NodeFirst;
+	cout << "\nPartialL - NT: " << iNoTo << ", iNoFr" << iNoFr << ", Branch: " << Branch << ", NodeFirst: " << NodeFirst;
 
 	// Prepare node to have zero scaling factors
 	if(iNoTo >= pTree->NoSeq()) { CleanScale(iNoTo,FlipBool(m_bCompressedSpace)); }
@@ -1508,33 +1530,17 @@ void CBaseProcess::PartialL(CTree *pTree, int iNoTo, int iNoFr, int Branch, bool
 		} else if(pTree->NodeType(iNoTo) == leaf)	{								// Do normal leaf nodes
 			LeafNodePartialL(pTree,iNoTo,pTree->NodeBra(iNoTo,0),iNoFr,PT(pTree->NodeBra(iNoTo,0)),NodeFirst);
 		} else if(pTree->NodeType(iNoFr) == leaf && iNoTo >= pTree->NoSeq()) {	// Final calculations
-			// Copy the first bit of likelihood to final node
 
-/*
-			// This is all debugging code....
+			// Debug
 			cout << "\nDoing final node: iNoFr: " << iNoFr << "; iNoTo: " << iNoTo <<" with Branch: " << Branch;
-			cout << "\nSpace:    "; FOR(i,20) { cout << " " << ForceRealFd(3,0)[i]; }
-			cout << "\nP(t):     "; FOR(i,20) { cout << " " << PT(Branch)[i]; }
-			double TVec[100]; double Summer = 0.0;
-			VMat(ForceRealFd(3,0),PT(Branch),TVec,m_iChar);
-			cout << "\nWhatVMat: "; FOR(i,20) { cout << " " << TVec[i]; }
-			FOR(i,100) { if(m_pData->m_ariSeq[2][0] == i%20) { Summer += TVec[i] * RootEqm()[i]; } }
-			cout << "\n\tLogSumRoot: " << log(Summer);
-			Summer = 0.0; FOR(i,100) { if(m_pData->m_ariSeq[2][0] == i%20) { Summer += TVec[i] * m_pData->m_vFreq[i%20] * 0.2; } }
-			cout << "\n\tLogSumHmmm: " << log(Summer);
-			Data2PartL(m_pData->m_ariSeq[2][0],PT(Branch),TVec,&RootEqm());
-			Summer = 0.0; FOR(i,100) { Summer += TVec[i] * ForceRealFd(3,0)[i] * RootEqm()[i]; }
-			cout << "\n\tLogReplica: " << log(Summer);
-			cout << "\nChecking Q reversibility:    "; CheckReversibility(m_iChar,m_vpQMat[0]->Q(),SimpleEqm(m_vpQMat[0]->ID()),true);
-			cout << "\nChecking P(t) reversibility: "; CheckReversibility(m_iChar,PT(Branch),SimpleEqm(m_vpQMat[0]->ID()),true);
-			cout << "\nWorking with eqm: " << SimpleEqm(m_vpQMat[0]->ID());
-*/
+			cout << "\nInitialised " << iNoTo << " and " << PartLNode();
 
-			// Debugging code finishes...
+			// Copy the first bit of likelihood to final node
 			LeafNodePartialL(pTree,iNoFr,Branch,-1,PT(Branch),true);
+
 			// Now do the second bit;
 			NodePos1 = InitNodePos(iNoTo);	// Space from
-			NodePos2 = InitNodePos(PartLNode());						// Space to
+			NodePos2 = InitNodePos(PartLNode());						// Space to (the storage node)
 			if(m_bCompressedSpace) {
 				FOR(i,m_iSize) {
 					if(!QkFdReal(NodePos2)) { NodePos2++; continue; }
@@ -1668,7 +1674,7 @@ void CBaseProcess::LeafNodePartialL(CTree *pTree, int LeafNode, int Branch, int 
 	// Loop through sites
 	// If TempSp copies to the space
 	if(First == true)	{
-//		cout << "\nDoing first: LeafNode: " << LeafNode << "; Sp: " << Sp;
+		cout << "\nDoing first: LeafNode: " << LeafNode << "; Sp: " << Sp;
 		if(m_bCompressedSpace)	{
 			FOR(site,m_pData->m_iSize)	{
 				if(!QkFdReal(NodePos)) { NodePos++; continue; }							// Skip if required
@@ -1677,8 +1683,17 @@ void CBaseProcess::LeafNodePartialL(CTree *pTree, int LeafNode, int Branch, int 
 				// *COPY* TempSp to the calculation space; BkSp not needed
 				FOR(i,m_iChar) { *(p_a++) = *(p_b++); }
 		}	} else {
+			if(Branch == 0) { cout << "\nDoing final calculation (Br: " << Branch << " [" << Tree()->BraLink(Branch,0) << "," << Tree()->BraLink(Branch,1) << "]): eqm = " << teqm; }
 			FOR(site,m_pData->m_iSize)	{
 				Data2PartL(m_pData->m_ariSeq[LeafNode][site],PT,TempSp,&teqm);			// Get data vector
+
+				if(Branch == 0 && (site < 10 || site == 454)) {
+					cout << "\nSite["<<site<<"]:\n\tleft: \t"; FOR(i,m_iChar) { cout << TempSp[i] << " "; }
+					p_a = QkForceRealFd(NodePos); cout << "\n\tright: \t";
+					FOR(i,m_iChar) { cout << *(p_a++) << " "; }
+				}
+
+
 				p_a = QkForceRealFd(NodePos++); p_b = TempSp;									// Set Pointers
 				// *COPY* TempSp to the calculation space; BkSp not needed
 				FOR(i,m_iChar) { *(p_a++) = *(p_b++); }
@@ -2260,17 +2275,18 @@ double CBaseProcess::PartialGrad(int site,double Total,int SiteScale)	{
 // Function that calculates Node[NTo] * PT(Br), then multiplies elementwise by Node[NFr]
 // If DoEqm == true, will also multiply by eqm
 
-static int PigletIron = -1;
-
 void CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)	{
 //	cout << "\n--> Entered CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)";
 	bool NTreal = true, NFreal = true;
 	int i,SiteScale = 0,site;
 	double *p_a = NULL, Total = 0.0;
 	static double V[MAX_SPACE];
+
+	static CProb NewP; CProb temp;
+
 	CProb Pr;
 	vector <double> eqm = RootEqm();
-//	cout << "\nIn CBaseProcess::GetBranchPartL: eqm: " << eqm;
+	cout << "\nIn CBaseProcess::GetBranchPartL: eqm: " << eqm;
 	// Do Garbage Collector rate
 	//////////////////////////////////////////////
 	if(MaxRate()) {
@@ -2302,8 +2318,27 @@ void CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)	{
 
 //		cout << "\n--- Branch[" << B << "] (" << NT << "," << NF << ")";
 //		cout << "\n\tm_iChar: " << m_iChar;
-
+/*
+		if(B == 0) {
+			cout << "\nBranch[0] in GetBranchPartL: NT = " << NT; if(NTreal) { cout << " -- REAL"; }
+			cout << " NF; " << NF; if(NFreal) { cout << "-- REAL"; }
+			cout << flush;
+			for(site=450;site<460;site++)	{
+				cout << "\nSITE[" << site << "]";
+				cout << "\nFrom            ";
+				p_a = ForceRealFd(NT,site);
+				FOR(i,m_iChar) { cout << *(p_a++) << " "; }
+				VMat(ForceRealFd(NT,site),PT(15),V,m_iChar);
+				cout << "\nAfter multiply  "; FOR(i,m_iChar) { cout << V[i] << " "; }; cout << flush;
+				cout << "\nTotal SumVec    " << Sum_Vec(m_pData->m_ariSeq[NF][site],V,eqm);
+				cout << "\nLogL: " << log(Sum_Vec(m_pData->m_ariSeq[NF][site],V,eqm));
+			}
+			cout << "\nEqm:            " << eqm;
+		}
+*/
 		FOR(site,m_pData->m_iSize)	{
+			NewP.Assign(0.0);
+
 //			cout << "\nSite " << site << "\n\tLeft:\t";
 			SiteScale = 0; Total = 0.0;
 			// Get first vector of calc
@@ -2319,24 +2354,46 @@ void CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)	{
 
 			// Get calculation of total = sum(Vec[i] = Vec[i] * BranchNode[i] * Eqm[i]);
 			if(NFreal)	{
+
+				if(site == 454) { cout << "\n QUACK: " << m_pData->m_ariSeq[NF][site]; }
+				NewP = NewSum_Vec(m_pData->m_ariSeq[NF][site],V,eqm);
 //				cout << "\n\t\tTotal += Char[" << m_pData->m_ariSeq[NF][site] << "] * " << V[m_pData->m_ariSeq[NF][site]] << " * " << eqm[m_pData->m_ariSeq[NF][site]];
 				// for(i=m_pData->m_ariSeq[NF][site];i<m_iChar;i+=m_pData->m_iChar) { Total += V[i] *  ForceRealFd(NF,site)[i] * eqm[i]; }
 				Total = Sum_Vec(m_pData->m_ariSeq[NF][site],V,eqm);
 			} else {	// Do partial likelihoods
 				p_a = ForceRealFd(NF,site);
 				FOR(i,m_iChar)	{
-//					cout << "\n\t\tTotal += " << V[i] << " * " << *p_a << " * " << eqm[i];
+					if(site == 454) { cout << "\n\t\tTotal += " << V[i] << " * " << *p_a << " * " << eqm[i] << " = " <<  V[i] * *(p_a) * eqm[i]; }
 					Total += V[i] * *(p_a++) * eqm[i]; }
 				SiteScale += *ForceRealFdSc(NF,site);
+
+				// DEBUG CODE
+				if(site == 454) {
+					p_a = ForceRealFd(NF,site);
+					FOR(i,m_iChar)	{
+						cout << "\nAssigning -> " <<  V[i] * *(p_a) * eqm[i] << " , " << *ForceRealFdSc(NF,site) << flush;
+						if(V[i] * *(p_a) * eqm[i] < DBL_EPSILON) { temp.Assign(0.0); p_a; }
+						else { temp.Assign( V[i] * *(p_a) * eqm[i]); // , *ForceRealFdSc(NF,site));
+						}
+						p_a++;
+						NewP.Add(temp,true);
+					}
+				}
+	//			if(*(p_a) * m_vdEqm[i] < DBL_EPSILON) { temp.Assign(0.0); p_a++; }
+	//			else { temp.Assign(*(p_a++) * m_vdEqm[i],*LScale(site)); }
+
+				// END DEBUG CODE
+
+
 			}
 			Total *= Prob();
-/*			if(site < 30 && PigletIron != B) { cout << "\n\tSite["<<site<<"]: ";
-					int llama; FOR(llama,m_pData->m_iNoSeq) { cout << m_pData->m_sABET[m_pData->m_ariSeq[llama][site]]; }
-					cout << "  " << Total << " --> " << log(Total) << " ; "; } */
+
+			if(site ==454) { cout << "\n NEW CHECKER: Total = " << Total << "  == " << NewP << " -> logged " << log(Total) << " cf. " << NewP.LogP(); }
+
+
 			// Assign the likelihood
 			Pr.Assign(Total,SiteScale);
 			arpP[site]->Add(Pr,true);
-//			if(site < 30 && PigletIron != B) { cout << *arpP[site] << " --> " << arpP[site]->LogP();  }
 	}	} else {
 	/////////////////////////////////////////////////
 	// Do zero rate processes
@@ -2349,7 +2406,6 @@ void CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)	{
 		cout << "\nFinished with Eqm: " << eqm;
 #endif
 
-		PigletIron = B; // REMOVE THIS!!!
 }
 
 ///////////////////////////////// Data to partial likelihood adapter functions /////////////////
@@ -2397,6 +2453,29 @@ double CBaseProcess::Sum_Vec(int Char, double *Vec, vector <double> eqm)	{
 	else { FOR(i,m_iChar) { Total += Vec[i] * eqm[i]; } }
 	return Total;
 }
+
+CProb &CBaseProcess::NewSum_Vec(int Char, double *Vec, vector <double> eqm) {
+	int i;
+	CProb Total, temp; Total.Assign(0.0);
+
+	double Bland = 0.0;
+
+	assert(InRange(Char,0,m_iChar+1));
+	// Do the simple case
+	if(Char != m_iDataChar)	{
+		for(i=Char;i<m_iChar;i+=m_iDataChar) { temp.Assign(Vec[i] * eqm[i]); Total.Add(temp,true); }
+	}
+	// Deal with gaps
+	else {
+		FOR(i,m_iChar) {
+			Bland += Vec[i] * eqm[i];
+			temp.Assign(Vec[i] * eqm[i]); Total.Add(temp,true); }
+//		cout << "\n  ABOUT TO RETURN " << Bland << " cf. " << Total << " and the logs " << log(Bland) << " cf. " << Total.LogP();
+	}
+	return Total;
+
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////
 // Functions for preparing partial likelihoods from centre point
 /////////////////////////////////////////////////////////////////////////////////////////////
