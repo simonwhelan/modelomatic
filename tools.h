@@ -357,6 +357,7 @@ double GetRMSD(vector <double> Obs, vector <double> Exp);	// Obs: pairwise dista
 #define L_SCALE_VAL (1.0E-5)	// Value at which scaling takes place
 #define L_SCALE_NUM 5
 #define LOG10 2.3025850929940459		// Value of Ln(10) used in likelihood computations
+inline bool Double_Zero(double value) { if(value > DBL_MIN) { return false; } else { return true; } }
 
 class CProb {
 public:

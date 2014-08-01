@@ -41,7 +41,8 @@ const string OptFile = "opt.output";
 // Standard likelihood optimising routine
 double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double CurlnL,bool FullLikAcc, int NoIterations, double lnL2Beat, double lnL_tol, bool DoOutput,bool TightFullOpt)	{
 	int i;
-	cout << "\nInto FullOpt for Model = <" << Model->m_sName << ">  DoPar: " << DoPar << ", DoBra: " << DoBra << ", DoFreq: " << DoFreq << endl << flush;
+//	cout << "\nInto FullOpt for Model = <" << Model->m_sName << ">  DoPar: " << DoPar << ", DoBra: " << DoBra << ", DoFreq: " << DoFreq << endl << flush;
+//	if(DoOutput) { cout << "\nOutput"; } else { cout << "\nNo output"; }
 	double ACC = lnL_tol, gtol = FULL_GTOL;
 	bool OnlyBra = false;
 	// Deal with parsimony
@@ -67,12 +68,12 @@ double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double Cu
 	}	}
 	// Get the optimised likelihood
 	if(ACC > gtol) { gtol = ACC; }
-	cout << "\nInto optimiser for " << Model->Name() << " = " << CurlnL << " cf. " << Model->lnL() << " cff. " << Model->lnL(true) << flush;
+//	cout << "\nInto optimiser for " << Model->Name() << " = " << CurlnL << " cf. " << Model->lnL() << " cff. " << Model->lnL(true) << flush;
 //	if(fabs(CurlnL - Model->lnL(true)) > 0.001) { cout << "\nAnd it's broken already...\n\n"; exit(-1); }
 //	cout << "\nModel: " << Model->Name() << ", Options: [" << DoPar << "," << DoBra << "," << DoFreq << "," << CurlnL << "," << FullLikAcc << "," << NoIterations << "," << lnL2Beat << "," << lnL_tol << "]";
 //	DoOutput = true; cout << "\nOptimising: " << flush; FOR(i,(int)vPar.size()) { cout << "\t" << *vPar[i] << flush; }
 	if(!vPar.empty()) {
-		cout << "\nAttempting to optimise..." << flush;
+//		cout << "\nAttempting to optimise..." << flush;
 		if(NoIterations == DEFAULT_OPTNUM) { NoIterations = Model->OptNum(); }
 		CurlnL = MulD_Optimise(CurlnL,gtol,ACC,vPar,Model,NoIterations,DoOutput,OnlyBra,2,true,-lnL2Beat,7,true,TightFullOpt); }
 	// Clean up and return
@@ -1492,9 +1493,9 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 		// Perform calculation
 		*f = -Model->lnL(); v2 = v1; v1 = *f; a2 = a1; a1 = alam;
 //		cout << "\n\t\talam: " << alam << ":  " << *f;
-//#if DEBUG_MULD_OPT > 1
+#if DEBUG_MULD_OPT > 1
 		cout << "\n\t\tlnsrch: alam="<<alam << "; func=" << *f; if(x.size() == 1) { cout << " x= " << *x[0]; }
-//#endif
+#endif
  	    // If reached convergence where no improvement in likelihood can be found. Either alam too small or likelihood improvement too small.
 		if(alam < alamin || fabs(fold - *f) < FULL_LIK_ACC)	{
 			FOR(i,n) { *x[i] = pold[i]; } *f = fold;
@@ -1631,7 +1632,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 	if(n == 0)
 	if(n <= 0) { return -BIG_NUMBER; }
 
-	if(DoBasicOutput) { cout << "\n\tOptimising likelihood; this may take some time..."; }
+	if(DoBasicOutput) { cout << "\n\tOptimising likelihood for model " << Model->Name() << "; this may take some time..." << flush; }
 
     // Allocate memory
 	GET_MEM(dg,double,n);  GET_MEM(hdg,double,n); GET_MEM(sub_xi,double,n);
@@ -1667,8 +1668,8 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 	FOR(its,NumberIter)	{
 //		cout << "\n\t--- Iter: " << its << ": " << fp; //  << " cf. " << Model->lnL(true) << " (" << fabs(fp+Model->lnL(true)) << ")" << flush ;
 		if(DoBasicOutput) {
-			cout << "\n\t["<<its<<"] " <<fold << " -> " << fp; //  << " cf. " << Model->lnL() << flush;
-			if(its == 0) { cout << "\n\t\t" << its << ": "; }
+//			cout << "\n\t["<<its<<"] " <<fold << " -> " << fp << flush; //  << " cf. " << Model->lnL() << flush;
+			if(its == 0) { cout << "\n\t\t" << its << ": " << flush; }
 			else if (its % 60 == 0) { cout << ": " << fp << "\n\t\t"<<its<<": "; }
 			//if(fold < fp - FULL_LIK_ACC) {
 			if(fp - fold > FULL_LIK_ACC * 100) {
@@ -1688,13 +1689,13 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 
 		// --------------------------------- Perform the line search ----------------------------------
 		// Debug information
-		cout << "\n<<<<<< ITER " << its << ": " << fp << " >>>>>>>>";
+/*		cout << "\n<<<<<< ITER " << its << ": " << fp << " >>>>>>>>";
 		cout << "\n\tPnames:"; FOR(i,n) {
 			if(Model->m_vpAllOptPar[i]->Special()) { cout << "*SPECIAL*"; exit(-1); }
 			cout << "\t" << Model->m_vpAllOptPar[i]->Name(); }
 		cout << "\n\tPreals:"; FOR(i,n) { cout<< "\t" << Model->m_vpAllOptPar[i]->Val(); }
 		cout << "\n\tP:     "; FOR(i,n) { cout << "\t" << *x[i]; }
-		cout << "\n\tG:     "; FOR(i,n) { cout << "\t" << g[i]; }
+		cout << "\n\tG:     "; FOR(i,n) { cout << "\t" << g[i]; }*/
 		// Before performing line-search decide whether only a subset of parameters are worth examining
 		// This is decided when there are very large gradients relative to all other gradients.
 		double GOOD_IMPROVE = 0.5;
@@ -1721,8 +1722,8 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 
 
 
-		if(DoingSubset) { cout << "\nWorking with subset: "; FOR(i,(int)g.size()) { if(fabs(g[i]) > FLT_EPSILON) { cout << Model->m_vpAllOptPar[i]->Name() << " "; } } }
-		double temp_fp_s = fp; cout << "\n\tLinesearch --  fp: " << fp;
+//		if(DoingSubset) { cout << "\nWorking with subset: "; FOR(i,(int)g.size()) { if(fabs(g[i]) > FLT_EPSILON) { cout << Model->m_vpAllOptPar[i]->Name() << " "; } } }
+//		double temp_fp_s = fp; cout << "\n\tLinesearch --  fp: " << fp;
 
 		last_improvement = fp;
 		alpha = lnsrch(x,fp,g,xi,pold,&fret,Do_GS,Model); fp = fret;

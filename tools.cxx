@@ -921,7 +921,7 @@ CProb::CProb(double Val, int Sc){ m_dValue = 0.0; Assign(Val,Sc); }
 
 void CProb::DoScale()	{
 	// Allow true zero
-	if(m_dValue < DBL_EPSILON || m_iScale > 1000000000)  {
+	if(Double_Zero(m_dValue) || m_iScale > 1000000000)  {
 		m_dValue = 0.0; m_iScale = 0; return;
 	}
 	// Otherwise adjust so that double m_dValue hold only a single digit
@@ -955,7 +955,7 @@ bool CProb::IsZero()	{
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue)) { cout << "\nReturning IsZero(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
-	if(fabs(m_dValue) > DBL_EPSILON) { return false; } return true;
+	if(!Double_Zero(m_dValue)) { return false; } return true;
 }
 // Copy operator
 CProb &CProb::operator=(CProb &Prob)	{
@@ -981,13 +981,13 @@ CProb &CProb::Assign(CProb &Prob)		{
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue) || my_isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Assign(CProb &): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
-	m_dValue = Prob.m_dValue; m_iScale = Prob.m_iScale; return *this;
+	m_dValue = Prob.m_dValue; m_iScale = Prob.m_iScale; DoScale(); return *this;
 }
 CProb &CProb::Assign(double Val, int Sc){
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue) || my_isnan(Val)) { cout << "\nReturning Assign(double Val, int Sc): Val= " << Val << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
-	m_dValue = Val; m_iScale = Sc; if(!IsProb(Prob())) { cout << "\nBroken Prob(): " << Prob() << endl << flush; exit(-1); } assert(IsProb(Prob())); return *this;
+	m_dValue = Val; m_iScale = Sc; if(!IsProb(Prob())) { cout << "\nBroken Prob(): " << Prob() << endl << flush; exit(-1); } assert(IsProb(Prob())); DoScale(); return *this;
 }
 // double functions for numerical operations
 CProb &CProb::Multiply(double Value,bool Overwrite)	{
@@ -1041,7 +1041,7 @@ CProb &CProb::Add(CProb &Prob, bool Overwrite) {
 		New.MatchScales(&added,true); New.m_dValue += added.m_dValue; New.DoScale();
 		// Replace if required
 #if TOOLS_DEBUG == 1
-		if(New.m_dValue < DBL_EPSILON) { cout .precision(16); cout << "\n Adding: " << Prob << " + " << *this << " ... zero: " << New << "__"; }
+		if(Double_Zero(New.m_dValue)) { cout .precision(16); cout << "\n Adding: " << Prob << " + " << *this << " ... zero: " << New << "__"; }
 #endif
 		if(Overwrite) { *this = New; }
 	}

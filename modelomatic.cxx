@@ -318,8 +318,8 @@ int main(int argc, char *argv[])	{
 	CCodonM0 *M0Test = NULL;
 	CData Cod1 = *PhyDat.pData();
 	M0Test = new CCodonM0(&Cod1,&Tree);
-//	FullOpt(M0Test,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
-	FullOpt(M0Test);
+	FullOpt(M0Test,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+//	FullOpt(M0Test);
 	cout << "\nRun M0: " << M0Test->lnL(true);
 	cout << "\nModel: " << *M0Test;
 
@@ -327,12 +327,12 @@ int main(int argc, char *argv[])	{
 	rVal = GetAminoAcidCountFromCodon( M0Test->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
 	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
 
-	cout << "\nOpt more branches";
-	FullOpt(M0Test,false,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+//	cout << "\nOpt more pars";
+//	FullOpt(M0Test,true,false,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
 
 	cout << "\nFinal lnL: " << M0Test->lnL(true);
 
-	exit(-1);
+//	exit(-1);
 
 	// Do some parameter checking
 //	cout << "\nChecking parameters: ";
@@ -344,7 +344,16 @@ int main(int argc, char *argv[])	{
 	CCodonDrDc *M0New = NULL;
 	CData Cod2 = *PhyDat.pData();
 	M0New = new CCodonDrDc(&Cod2,&Tree);
-	FullOpt(M0New);
+	// Set starting values as those from previous model
+	M0New->m_vpPar[0]->SetVal(M0Test->m_vpPar[0]->Val()+0.001);
+	M0New->m_vpPar[1]->SetVal(M0Test->m_vpPar[0]->Val());
+	M0New->m_vpPar[2]->SetVal(M0Test->m_vpPar[1]->Val());
+
+//	cout << "\nStarting model: " << *M0New;
+//	exit(-1);
+	//exit(-1);
+//	FullOpt(M0New);
+	FullOpt(M0New,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
 	cout << "\nRun M0: " << M0New->lnL(true);
 	cout << "\nModel: " << *M0New;
 
