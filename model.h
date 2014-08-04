@@ -50,7 +50,7 @@ public:
 	void RemovePar(string Name);				// Removes a parameter
 	void RedoScale(bool Force = false);			// Rescale all the parameters in the model
 	void RandomiseParameters(bool ExtBranch, bool IntBranch, bool Parameters, bool Eqm);	// Randomise the optimised parameter values
-	bool IsViable();							// Checks whether all the memory and
+	virtual bool IsViable();							// Checks whether all the processes are okay. Not really fully implemented...
 	////////////////////////////////////////////////////////////
 	// Some calculation based functions
 	void CreateProcessSpace(bool force = false);	// Function that creates space for all the sub functions
@@ -68,7 +68,7 @@ public:
 	bool ForceSeperateParOpt() { return m_bDoSepParOpt; };	// Difficult models insist that they to be optimised more carefully...
 	int OptNum(int ON = -1) { if(ON > 0) { m_iOptNum = ON; } return m_iOptNum; }
 	// Clever function for fast optimisation ofbranch lengths
-	double FastBranchOpt(double CurlnL, double Tol = 1.0E-7, bool *Conv = NULL, int NoIter = 5, bool CheckPars = true);	// Controller function
+	virtual double FastBranchOpt(double CurlnL, double Tol = 1.0E-7, bool *Conv = NULL, int NoIter = 5, bool CheckPars = true);	// Controller function
 	void SingleBranchOpt(int Br, double *BestlnL, double tol);				// Do a branch optimise for a single branch, calculates partial likelihoods so inefficient when traversing a tree
 	// Space update functions for model (used in stepwise addition routines
 	void Leaf_update(int NTo, int NFr, int Br, CTree *T, int First, bool DoFullUpdate = false);
@@ -138,7 +138,7 @@ public:
 	void ZeroSpace();						// Sets all the space in the model to 0.0
 	CDNAProcess *AddDNAProcess(CData *Data,CTree *Tree, DNAProc Model, string name = "");
 	CAAProcess  *AddAAProcess(CData *Data, CTree *Tree, AAProc Model, bool AddF);
-	CCodonProcess *AddCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode);
+	CCodonProcess *AddCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode, string File=sRadicalFileName);
 	string AddFullDNATHMMProcess(int NoProc, EHIDDEN_TYPE DoHidden, ETHMM_EQM_TYPE DoFreqs, bool DoKappa, ERateTypes DoRates,vector <double> Rates);	// Returns a suitable name for the model
 	string AddFullDNATHMMProcess(int NoProc, EHIDDEN_TYPE DoHidden, ETHMM_EQM_TYPE DoFreqs, bool DoKappa, ERateTypes DoRates);							// Returns a suitable name for the model
 	string AddAATHMMProcess(double Alfa, int CatGam, double SigAlpha, double pInv, double SigInv, bool VarySig, bool VarypInv); // Returns the name of a THMM_AA
@@ -147,9 +147,9 @@ public:
 	CBaseProcess *AddCoevoProcess(CData *Data, CTree *Tree, vector <double> *R =NULL, int init_psi = 0);
 	vector <CPar *> CreateOptPar();			// Transfers the optimised parameters to m_vpPar;
 	// Optimisation interaction functions
-	vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
+	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
 	int CountOptPar(bool ExtBranch = true, bool InBranch = true, bool Parameters = true, bool Eqm = false);
-	vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);		// Calculate the processes derivatives
+	virtual vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);		// Calculate the processes derivatives
 	double GetNumDerivative(double *Par, double lnL);
 	virtual CBaseModel *PreOptModel()	{ return NULL; }								// Returns the 'preoptimisation' model for complex models (e.g. THMMs)
 	virtual void ApplyPreOptModel(CBaseModel *PreOpt)		{  }						// Applies the pre-opt model to the data
@@ -188,8 +188,9 @@ public:
 	double (*pLikelihood)(CBaseModel *M);			// Function that can be used to adjust the likelihood
 protected:
 	bool m_bDoSepParOpt;							// Whether the model insists that it needs extra optimisations
+	vector <bool> m_vbDoBranchDer;					// Whether processes require branch derivative calculations
 	// Functions relating to checking and/or optimising tree branches
-	void BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol);	// Recursive function
+	virtual void BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol);	// Recursive function
 	virtual void DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate = true);
 			// Do the actual optimisation. (NB: virtualised so that other model/branch specific parameters can be optimsised too)
 	virtual double DoBralnL(int B, int NL,int NR);						// Do calculations for a branch
@@ -198,6 +199,11 @@ protected:
 	void DoPartLOut(int NTo, int NFr, int Br, ostream &out,int Branch);
 	// Models associated with this model
 	vector <CBaseModel *> m_vpAssociatedModels;		// These models are associated with the current model. Only one can be main model
+	// Optimiser information
+	int m_iOptNum;									// Number of times the optimiser should be run
+	int m_iFastBralnL;								// Number of times FastBranchlnL is run;
+	int m_iFastBralnL_Bracket;						// Number of those runs that are associated with bracketing
+	int m_iFastBralnL_Calls;						// Number of DoBraOpt calls
 private:
 	//////////////////////////// Private variables ////////////////////////////////////
 	// Models associated with this model
@@ -212,7 +218,7 @@ private:
 	ECalcType m_CalcType;							// The type of calculation to be performed
 	bool m_bOptReady;								// Whether the model is ready for optimisation
 	bool m_bLockModel;								// Whether parameter values will ever be optimised
-	vector <bool>		m_vbDoBranchDer;			// Whether processes require branch derivative calculations
+
 	// Variables relating to centre point mapping
 	vector <int> m_viCPNodesCovered;				// Internal nodes created by the centre point
 	vector <int> m_viLeafMap;						// Leaf nodes created by the centre point
@@ -228,11 +234,6 @@ private:
 	bool m_bOutputDetail;							// Amount of output detail
 	// Preoptimiser stuff
 	EModel m_PreOptModel;							// Model
-	// Optimiser information
-	int m_iOptNum;									// Number of times the optimiser should be run
-	int m_iFastBralnL;								// Number of times FastBranchlnL is run;
-	int m_iFastBralnL_Bracket;						// Number of those runs that are associated with bracketing
-	int m_iFastBralnL_Calls;						// Number of DoBraOpt calls
 	//////////////////////////// Private functions ////////////////////////////////////
 	void CleanPar();						// Clean the parameter vector
 	void CleanMemory();						// Clean the memory
@@ -246,9 +247,16 @@ private:
 
 ostream &operator<<(ostream &os, CBaseModel &Model);
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// General function that returns a pointer to class CBaseModel with the model you want
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+CBaseModel * GetMyModel(EModel ModelChoice, CData *Data, CTree *Tree);
+
 ////////////////////////////////////////////////////////////////
 //			DNA models.
 ////////////////////////////////////////////////////////////////
+
+// The model definitions
 class CJC : public CBaseModel	{
 public:
 	CJC(CData *Data, CTree *Tree);
@@ -500,9 +508,66 @@ public:
 	CCodonM0(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, int GenCode = 0);
 };
 
-/////////////////////////////////////////////////////////////////
-//		Codon positon models
-/////////////////////////////////////////////////////////////////
+// Codon model implementing Dr/Dc type models
+// /omega is now split into two subcategories according to a matrix (Currently input as binary 20x20 matrix sRadicalFileName="Radical.mat" where 1 indicates a radical change and 0 indicates a conservative change)
+// Model then is the same as M0, but has two categories of /omega_Rad and /omega_Con
+class CCodonDrDc : public CBaseModel {
+public:
+	CCodonDrDc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	vector <int> m_viRadMat;
+};
+
+double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType);
+
+class CEMPCodonREST : public CBaseModel {
+public:
+	CEMPCodonREST(CData *Data, CTree *Tree, bool PlusFreq, int GenCode = 0);
+};
+
+class CEMPCodonUNREST : public CBaseModel {
+public:
+	CEMPCodonUNREST(CData *Data, CTree *Tree, bool PlusFreq, int GenCode = 0);
+};
+
+class CAAEMPCodon : public CBaseModel {		// Codon model based on an amino acid model
+public:
+	CAAEMPCodon(CData *D, CTree *Tree, ECodonEqm CE = F3X4, int GenCode = 0);
+};
+
+//////////////////////////////////////////////////////////////////
+//		Pseudo-codon models with site specific models or branches
+// ---
+// ModelPar contains three numbers that specify how model parameters are shared between codon positions. { 0 , 1, 0} indicated that pos1 and pos3 have the same model {0} that is seperate to pos2 {1}. There's a strong requirement that the numbers must be in order and maximum value 2;
+// BranchPar contains three numbers that specify how branch parameters are shared between codon positions.
+class CSiteCodon : public CBaseModel {
+public:
+	// Constructor
+	CSiteCodon(CData *Data, CTree *Tree, vector <int> ModelPar, vector <int> BranchPar, EModel CoreModel, bool WithGamma);
+	// Destructor
+	~CSiteCodon();
+	// Interaction functions
+	vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);
+	double lnL(bool ForceReal = false);				// Over-ride of the virtual function. Basically just calls NormaliseParameters, then calculates the likelihood as normal
+	vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
+				// Override to get the parameters for the different components of the model
+	// Branch optimisation routines need to be stored separately because subsets of data need to be optimised separately
+	double FastBranchOpt(double CurlnL, double Tol = 1.0E-7, bool *Conv = NULL, int NoIter = 5, bool CheckPars = true);	// Controller function
+	void BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol);	// Recursive function
+	void DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate = true);
+				// Override to call DoBraOpt. Just calls NormaliseParameters and then lets the function do its thing
+	double DoBralnL(int B, int NL,int NR);						// Do calculations for a branch
+
+private:
+	// Variables
+	vector <CData *> m_vpDataSites;					// Stores the data for site 0, 1, and 2; Will either have all three sites or be empty
+	vector <CTree *> m_vpTreeSites;					// Stores the trees for site 0,1, and 2; These may be pointers to a previous sites tree. For example, m_vpTreeSites[0] == m_vpTreeSites[2]. So be careful with memory changes!
+	vector <int> m_viModelMap;						// Map of the models between sites. Always of size 3
+	vector <int> m_viTreeMap;						// Map of the trees between sites. Always of size 3.
+	vector <bool> m_vbUseInBraCalc;					// List of models to be used in each branch calculation
+	double m_dlnLAdjustment;						// Store of the likelihood adjustment factor
+	//Functions
+	bool NormaliseParameters();		// Enforces the same parameters between the models sharing the same site number in m_viModelMap. If SetOptToo == true, then it will set the optimiser off for those parameters as well.
+};
 
 /////////////////////////////////////////////////////////////////
 // 		Coevolution models
@@ -516,7 +581,7 @@ public:
 	~CBaseCoevo();
 	// Likelihood functions for working with single and double process
 	double lnL(bool ForceReal = false);	// perform a likelihood calculation
-	virtual double DoBralnL(int B, int NL,int NR);	// Do calculations for a single branch
+	double DoBralnL(int B, int NL,int NR);	// Do calculations for a single branch
 
 protected:
 	// Variables

@@ -335,6 +335,7 @@ CPar::CPar(string Name,double Value, bool Optimise, double LowBound, double UpBo
 	m_dGrad = 0.0; m_bIsBranch = false;
 	// Do the bounds
 	SetBounds(LowBound,UpBound);
+	StoreOptBounds(LowBound,UpBound);	// Default bounds are the optimisation bounds
 	// Set default scaling routines
 	pDoUpdate = NULL;
 	m_Operator = Type;
@@ -368,6 +369,8 @@ CPar & CPar::operator=(CPar &Par)	{
 	m_bLockedScale = Par.m_bLockedScale;
 	pDoUpdate = Par.pDoUpdate;
 	m_Operator = Par.m_Operator;
+	m_ardOptBounds[0] = Par.m_ardOptBounds[0];
+	m_ardOptBounds[1] = Par.m_ardOptBounds[1];
 	return *this;
 }
 
@@ -484,7 +487,9 @@ bool CPar::CheckLowBound(bool ForceBounds)	{
 	static bool CheckOkay = true;
 	if(CheckOkay == false) { return true; }
 	CheckOkay = false;
-	if(m_dRealValue < m_ardBounds[0] - 1.0E-6) {
+//	if(m_dRealValue < m_ardBounds[0] - 1.0E-6) {
+	if(fabs(m_dRealValue - m_ardBounds[0]) < 1.0E-6 || m_dRealValue < m_ardBounds[0] - 1.0E-6) {
+//		cout << "\nLow Bound: " << m_dRealValue << " cf. " << m_ardBounds[0];
 		if(ForceBounds == true) { SetVal(m_ardBounds[0]); }
 		CheckOkay = true;
 		return false;
@@ -496,7 +501,8 @@ bool CPar::CheckUpBound(bool ForceBounds)	{
 	static bool CheckOkay = true;
 	if(CheckOkay == false) { return true; }
 	CheckOkay = false;
-	if(m_dRealValue > m_ardBounds[1] + 1.0E-6) {
+//	if(m_dRealValue > m_ardBounds[1] + 1.0E-6) {
+	if(fabs(m_dRealValue - m_ardBounds[1]) < 1.0E-6 || m_dRealValue > m_ardBounds[1] - 1.0E-6) {
 		if(ForceBounds == true) { SetVal(m_ardBounds[1]); }
 		CheckOkay = true;
 		return false;
@@ -574,10 +580,16 @@ bool CPar::UpdatePar(bool ForceChange, bool RedoScale) {
 //////////////////////////////////////////////////////////
 // Function for setting parameter derivatives
 double CPar::grad(double g)	{
+//	cout << "\nSetting gradient: " << m_sName << " == " << Val() << " (" << m_ardBounds[0] << "," << m_ardBounds[1] << ")" << " grad = " << g;
+//	if(!CheckUpBound()) { cout << " .. UP .."; }
+//	if(!CheckLowBound()) { cout << " .. LOW .."; }
 	if		(!CheckUpBound(true) && g < 0)	{ m_dGrad = 0.0; }
 	else if (!CheckLowBound(true) && g > 0) { m_dGrad = 0.0; }
 	else if (fabs(g) < GRAD_MIN)			{ m_dGrad = 0.0; }
 	else { m_dGrad = g; }
+
+//	cout << " --> " << m_dGrad;
+
 	return m_dGrad;
 }
 
@@ -909,7 +921,7 @@ CProb::CProb(double Val, int Sc){ m_dValue = 0.0; Assign(Val,Sc); }
 
 void CProb::DoScale()	{
 	// Allow true zero
-	if(m_dValue < DBL_EPSILON || m_iScale > 1000000000)  {
+	if(Double_Zero(m_dValue) || m_iScale > 1000000000)  {
 		m_dValue = 0.0; m_iScale = 0; return;
 	}
 	// Otherwise adjust so that double m_dValue hold only a single digit
@@ -943,7 +955,7 @@ bool CProb::IsZero()	{
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue)) { cout << "\nReturning IsZero(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
-	if(fabs(m_dValue) > DBL_EPSILON) { return false; } return true;
+	if(!Double_Zero(m_dValue)) { return false; } return true;
 }
 // Copy operator
 CProb &CProb::operator=(CProb &Prob)	{
@@ -969,13 +981,13 @@ CProb &CProb::Assign(CProb &Prob)		{
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue) || my_isnan(Prob.m_dValue)) { cout << "\nReturning CProb::Assign(CProb &): Prob.m_dValue= " << Prob.m_dValue << "; Prob.m_iScale= " << Prob.m_iScale << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
-	m_dValue = Prob.m_dValue; m_iScale = Prob.m_iScale; return *this;
+	m_dValue = Prob.m_dValue; m_iScale = Prob.m_iScale; DoScale(); return *this;
 }
 CProb &CProb::Assign(double Val, int Sc){
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue) || my_isnan(Val)) { cout << "\nReturning Assign(double Val, int Sc): Val= " << Val << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
-	m_dValue = Val; m_iScale = Sc; if(!IsProb(Prob())) { cout << "\nBroken Prob(): " << Prob() << endl << flush; exit(-1); } assert(IsProb(Prob())); return *this;
+	m_dValue = Val; m_iScale = Sc; if(!IsProb(Prob())) { cout << "\nBroken Prob(): " << Prob() << endl << flush; exit(-1); } assert(IsProb(Prob())); DoScale(); return *this;
 }
 // double functions for numerical operations
 CProb &CProb::Multiply(double Value,bool Overwrite)	{
@@ -1029,7 +1041,7 @@ CProb &CProb::Add(CProb &Prob, bool Overwrite) {
 		New.MatchScales(&added,true); New.m_dValue += added.m_dValue; New.DoScale();
 		// Replace if required
 #if TOOLS_DEBUG == 1
-		if(New.m_dValue < DBL_EPSILON) { cout .precision(16); cout << "\n Adding: " << Prob << " + " << *this << " ... zero: " << New << "__"; }
+		if(Double_Zero(New.m_dValue)) { cout .precision(16); cout << "\n Adding: " << Prob << " + " << *this << " ... zero: " << New << "__"; }
 #endif
 		if(Overwrite) { *this = New; }
 	}

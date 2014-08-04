@@ -1032,39 +1032,42 @@ void CData::ExpandCodonData(int GenCode) {
 // Function that can be used to extract a subset of codon positions
 // ---
 // Extracts all the bools that are true
-bool CData::GetCodonPositions(bool First, bool Second, bool Third)	{
-	int i,j,pos;
-	vector <string> Names, Sequences;
-	vector <int> SiteLabels;
-	assert(!m_vsTrueSeq.empty());
-	assert(m_vsTrueSeq[0].size() == m_iTrueSize);
-	if(m_iTrueSize %3 != 0) { cout << "\nTrying to extract codon positions in GetCodonPositons(...) with data not divisible by 3. " << m_iTrueSize << "% 3 = " << m_iTrueSize % 3 << " ...\n"; Error("Boom"); }
-	// Get Names
-	Names = m_vsName;
-	// Get sequences
-	Sequences.assign(m_iNoSeq,"");
-	for(i=0;i<m_iTrueSize;i+=3) {
-		// Do first position
-		if(First) {
-			pos = 0;
-			FOR(j,m_iNoSeq) { Sequences[j] += m_vsTrueSeq[j][i+pos]; }
-		}
-		// Do second position
-		if(Second) {
-			pos = 1;
-			FOR(j,m_iNoSeq) { Sequences[j] += m_vsTrueSeq[j][i+pos]; }
-		}
-		// Do third position
-		if(Third) {
-			pos = 2;
-			FOR(j,m_iNoSeq) { Sequences[j] += m_vsTrueSeq[j][i+pos]; }
-		}
-	}
+bool CData::GetCodonPositions(bool First, bool Second, bool Third)      {
+        int i,j,pos;
+        vector <string> Names, Sequences;
+        vector <int> SiteLabels;
+        assert(!m_vsTrueSeq.empty());
+        assert(m_vsTrueSeq[0].size() == m_iTrueSize);
+        if(m_iTrueSize %3 != 0) { cout << "\nTrying to extract codon positions in GetCodonPositons(...) with data not divisible by 3. " << m_iTrueSize << "% 3 = " << m_iTrueSize % 3 << " ...\n"; Error("Boom"); }
+        // Get Names
+        Names = m_vsName;
+        // DEBUG STUFF IF NEEDED
+//        cout << "\nInto CData::GetCodonPositions : Data returned will be of form (" << First << ","<< Second << "," << Third << ");";
+        // Get sequences
+        Sequences.assign(m_iNoSeq,"");
+        for(i=0;i<m_iTrueSize;i+=3) {
+                // Do first position
+                if(First) {
+                        pos = 0;
+                        FOR(j,m_iNoSeq) { Sequences[j] += m_vsTrueSeq[j][i+pos]; }
+                }
+                // Do second position
+                if(Second) {
+                        pos = 1;
+                        FOR(j,m_iNoSeq) { Sequences[j] += m_vsTrueSeq[j][i+pos]; }
+                }
+                // Do third position
+                if(Third) {
+                        pos = 2;
+                        FOR(j,m_iNoSeq) { Sequences[j] += m_vsTrueSeq[j][i+pos]; }
+                }
+        }
 
-	Clean();
-	InputData(DNA,Sequences,Names,SiteLabels,false);
-	return true;
+        Clean();
+        InputData(DNA,Sequences,Names,SiteLabels,false);
+        return true;
 }
+
 
 //////////////////////////////////////////////////////////////////
 // Functions that return data for Tree HMMs
@@ -1467,6 +1470,31 @@ double CData::OldGetAminoToCodonlnLScale(int GeneticCode)	{
 		}
 	}
 	return RetValue;
+}
+
+// Simple function for nucleotide sequences
+double CData::GetNT2MissinglnLScale()	{
+	int site,sp;
+	double Adj = 0.0;
+
+	vector <int> FreqCount(4,0);
+
+	assert(m_DataType == DNA);
+	assert(fabs(Sum(&m_vFreq) -1.0) < 1.0E-5);
+	FOR(site,m_iSize)	{
+		FOR(sp,m_iNoSeq) {
+			if(m_ariSeq[sp][site] == m_iChar) { continue; } // skip gaps
+			FreqCount[m_ariSeq[sp][site]] += m_ariPatOcc[site];
+			Adj += log(m_vFreq[ m_ariSeq[sp][site] ]) * m_ariPatOcc[site];
+		}
+	}
+
+	cout << "\nFreqs  " << m_vFreq;
+	cout << "\nCounts " << FreqCount;
+
+
+
+	return Adj;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////

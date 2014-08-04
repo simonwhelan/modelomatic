@@ -470,7 +470,7 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 #else
 	// If required, get the current likelihood
 //	cout << "\n\n>>>>>>>>>>GetDerivatives: " << CurlnL;CurlnL = lnL(); cout << " cf. " << CurlnL;
-	if(CurlnL - DBL_EPSILON < -BIG_NUMBER) { CurlnL = lnL(); }
+//	if(CurlnL - DBL_EPSILON < -BIG_NUMBER) { CurlnL = lnL(); }
 #endif
 	if(IsRMSDCalc())	{	////////////////////////// Do RMSD derivatives ///////////////////////
 		FOR(i,(int)m_vpAllOptPar.size()) {
@@ -486,7 +486,9 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 			temp.assign((int)m_vpAllOptPar.size(),0.0);
 			// Initialise
 			FOR(i,(int)m_vpAllOptPar.size()) { m_vpAllOptPar[i]->InitialiseDerivativeType(); }
+
 			///////////////////////////////////////////////////////////////////
+			// For analytical derivatives
 			// 1. Set up the Q matrices
 			PreparelnL();
 			// 2. Build all the partial likelihoods and get the processes sitewise likelihood
@@ -655,7 +657,8 @@ void CBaseModel::PrepareFastCalc()	{
 	if(!ALLOW_FAST_CALC) { return; }
 	vector <int> C;
 	int i,j;
-	FOR(i,(int)m_vpProc.size()) { if(m_vpProc[i]->Tree()->IsCutTree()) { return; } }
+	// Return for cut trees and for when there is no tree, which occurs in special models
+	FOR(i,(int)m_vpProc.size()) { if(m_vpProc[i]->Tree() == NULL) { return; } if(m_vpProc[i]->Tree()->IsCutTree()) { return; } }
 	FOR(i,(int)m_vpProc.size()) {
 		// Check whether tree has changed for processes
 		if(m_vpProc[i]->Tree()->FastCalcOK() == false) {
@@ -811,7 +814,8 @@ bool CBaseModel::FormMixtureSitewiseL()	{
 	FOR(ProcNum,(int)m_vpProc.size())	{
 #if LIKELIHOOD_FUNC_DEBUG == 1
 		cout << "\nProcess["<<ProcNum<<"]: Prob = " << m_vpProc[ProcNum]->Prob();
-		FOR(i,min(m_pData->m_iSize,5)) { cout << "\n\tSite["<<i<<"]: " << m_vpProc[ProcNum]->L(i); }
+		//FOR(i,min(m_pData->m_iSize,5)) { cout << "\n\tSite["<<i<<"]: " << m_vpProc[ProcNum]->L(i) << " = " << m_vpProc[ProcNum]->L(i).LogP(); }
+		i = 120;  cout << "\n\tSite["<<i<<"]: " << m_vpProc[ProcNum]->L(i) << " = " << m_vpProc[ProcNum]->L(i).LogP();
 #endif
 		if(m_vpProc[ProcNum]->Prob() < MIN_PROB) { continue; }
 		if(ProcNum == 0) {	// For the first process transfer values
@@ -1213,7 +1217,8 @@ void CBaseModel::PrepareProcessProbs(bool OptProbs)	{
 ////////////////////////////////////////////////////////////////
 // Fast optimisation function for branches
 ////////////////////////////////////////////////////////////////
-
+// This function will alway require at least 2 passes of the tree
+// The first one is to get reasonable sets of branches at a lower tolerance
 double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIter, bool CheckPars)	{
 	int i,j, Branches = 0;
 	double newlnL, BestlnL = 0.0, working_tol;
@@ -1255,15 +1260,17 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 	}	}	}
 	// Do the optimisation
 //	cout << "\n------------- Doing branch opt: actual_tol: " << tol <<" ------------";
-	if(tol > 1.0E-3) { working_tol = tol; } else { working_tol = 1.0E-3; }
+//	if(tol > 1.0E-3) { working_tol = tol; } else { working_tol = 1.0E-3; }
+	working_tol = max(1.0E-2,tol * 100);
 	///////////////////////////////////////////////////////////////////
 	// Only do cyclical optimisation with multiple branches
 	if(Tree()->NoBra() == 1) {
 		DoBraOpt(true,0,1,0,true,&CurlnL,tol,false);
 		return CurlnL;
 	}
+	BestlnL = lnL(true);							// 1. Do the first calculation
 	FOR(i,NoIter)	{
-		BestlnL = newlnL = lnL(true);							// 1. Do the first calculation
+		newlnL = BestlnL;	// new_lnL hold current optimal likelihood
 #if FASTBRANCHOPT_DEBUG == 1
 //#if DEVELOPER_BUILD == 1
 		cout << "\n\n--- Round " << i<< ". " << newlnL << " (tol: "<< working_tol << ") ---";;
@@ -1271,8 +1278,10 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		cout << flush;
 #endif
 		BranchOpt(-1,Tree()->StartCalc(),-1, &BestlnL,working_tol);	// 2. Run the fast optimisation routine
+//		double plop = BestlnL; cout << "\nDone branch: BestlnL: " << BestlnL;
 		BestlnL = lnL();
-		if(working_tol > tol) { working_tol = max(tol,working_tol/10); }
+//		cout << " cf. new: " << BestlnL << " diff = " << fabs(plop - BestlnL);
+		if(working_tol > tol) { working_tol = max(tol,working_tol/100); }
 //#if DEVELOPER_BUILD == 1
 #if FASTBRANCHOPT_DEBUG == 1
 		cout << "; " << BestlnL << " == " << lnL() << "; diff = " << BestlnL - lnL();
@@ -1290,6 +1299,9 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 // Optimise the set of branches
 void CBaseModel::BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol)	{
 	int i,j,OriFirst = First;
+
+//	cout << "\nInto CBaseModel::BranchOpt(" << First << ", " << NTo << "," << NFr << ", " << *BestlnL << ")";
+
 	if(NFr == -1)	{
 		rFOR(i,Tree()->NoLinks(NTo)) { if(Tree()->NodeLink(NTo,i) == -1) { continue; } BranchOpt(First,Tree()->NodeLink(NTo,i),NTo,BestlnL,tol);
 	}	} else {
@@ -1362,6 +1374,7 @@ void CBaseModel::SingleBranchOpt(int Br, double *BestlnL, double tol) {
 
 // Optimise a single branch providing the partial likelihoods are correctly assigned
 #define RETURN_DOBRAOPT Par = NULL; PreparePT(Br); \
+/*		cout << "\n\tReturning Branch: " << Tree()->B(Br) << "; best_lnL: " << *BestlnL << " (x1: " << x1_lnL << "; x2: " << x2_lnL << "; x3: " << x3_lnL << ")"; */ \
 	if(AllowUpdate) { if(IsExtBra) { FOR(i,(int)m_vpAssociatedModels.size()) { m_vpAssociatedModels[i]->Leaf_update(NTo,NFr,Br,Tree(),First,true); } Leaf_update(NTo,NFr,Br,Tree(),First,true); } \
 	else { FOR(i,(int)m_vpAssociatedModels.size()) { m_vpAssociatedModels[i]->Bran_update(NTo,NFr,Br,Tree(),First,true,false); } Bran_update(NTo,NFr,Br,Tree(),First,true,false); }}  return;
 #define GS_DELTA 5
@@ -1370,72 +1383,142 @@ void CBaseModel::SingleBranchOpt(int Br, double *BestlnL, double tol) {
 const double phi = (1 + sqrt(5)) /2;
 const double resphi = 2 - phi;
 
+
+
 // Brent version of DoBraOpt
 void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, double *BestlnL,double tol, bool AllowUpdate)	{
 	int i;
-	double *p_x = Tree()->OptimiserB(Br),x1,x2=*p_x,x3,x1_lnL = 1.0,x2_lnL = -fabs(*BestlnL),x3_lnL = 1.0, xi,temp;
+	bool HaveBound;
+	double *p_x = Tree()->OptimiserB(Br),x1 = -BIG_NUMBER,x2,x3 = -BIG_NUMBER,x1_lnL = 1.0,x2_lnL = -fabs(*BestlnL),x3_lnL = 1.0, xi,temp, ori_x, ori_lnL;
 	tol = max(tol,FULL_LIK_ACC);
-	double dx = DX;
+	double dx = max(DX,tol);	// For looser optimisation have slightly larger bounds
 	CPar *Par  = Tree()->pBra(Br);
+	ori_x = x2 = *p_x;	ori_lnL = *BestlnL;
+//	ori_lnL = *BestlnL = DoBralnL(Br,NFr,NTo);
+#if FASTBRANCHOPT_DEBUG == 1
+	if(fabs(*BestlnL - DoBralnL(Br,NFr,NTo)) > 1.0E-6) {
 
-#if DEVELOPER_BUILD == 1
-	cout << "\nBranch["<<Br<<"] has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo);
-	cout << "\nReturning from CBaseModel::DoBraOpt (including branch updates)";
-	RETURN_DOBRAOPT;
+		cout << "\n ===================== ERROR IN BRANCH " << Br << " (" << Tree()->BraLink(Br,0) << "," << Tree()->BraLink(Br,1) << ") ================";
+		double Counter1 = DoBralnL(Br,NFr,NTo), Counter2 = lnL(true);
+		double Pouncer1 = 0.0, Pouncer2 = 0.0;
+		cout << "\nError in Update... BestlnL:  " << *BestlnL << " != " << Counter1 << " -> diff = " << fabs(*BestlnL - Counter1);
+		cout << "\nReal likeklihood: " << Counter2 << endl;
+		cout << "\nPouncer1: " << Pouncer1 << " cf. " << Pouncer2;
+		cout << "\nTrying DoBralnL again = " << DoBralnL(Br,NFr,NTo);
+		cout << "\nOtherway round? = " << DoBralnL(Br,NTo,NFr);
+		exit(-1);
+	}
+	//	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
 #endif
-//	cout << "\nDoing branch["<<Br<<"]: sent bestlnL: " << *BestlnL << " cf. DoBralnL(Br,NFr,NTo): " << DoBralnL(Br,NFr,NTo); //  << " cf. real " << lnL(); exit(-1);
-	*BestlnL = DoBralnL(Br,NFr,NTo);
+
+	// ------------------------------------- Catch entry into bounds ------------------------------------
+	if(!Par->CheckLowBound()) {	// Check lower bound
+		x1 = x2; x1_lnL = *BestlnL;
+		x2 = *p_x = Par->LowBound() + (DX * 2);
+		x2_lnL = DoBralnL(Br,NFr,NTo); x2 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
+
+//		cout << "\nCheck lower bound failed: x1=" << x1 << " : " << x1_lnL << " cf. x2=" << x2 << " : " << x2_lnL;
+		if(x1_lnL + tol > x2_lnL) { // At genuine low bound
+			*p_x = x1; *BestlnL = x1_lnL;
+			Par->StoreOptBounds(Par->LowBound(),Par->LowBound() + DX);
+//			cout << "\n\t\tReturning on low bound: " << *p_x << " = " << *BestlnL << " == " << DoBralnL(Br,NFr,NTo);
+			RETURN_DOBRAOPT;
+	}	}
+	if(!Par->CheckUpBound()) {	// Check upper bound
+		x3 = x2; x3_lnL = *BestlnL;
+		x2 = *p_x = Par->UpBound() - (DX * 2);
+		x2_lnL = DoBralnL(Br,NFr,NTo); x2 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
+		if(x3_lnL + tol > x2_lnL) { // At genuine up bound
+			*p_x = x3; *BestlnL = x3_lnL;
+			Par->StoreOptBounds(Par->UpBound() - DX, Par->UpBound());
+			RETURN_DOBRAOPT;
+	}	}
 	// ----------------------------------- Bracketing routine -------------------------------------
+	// Initialise sensible bounds; this is necessary because after other optimisation the original value may fall out of bound
+	Par->StoreOptBounds(min(x2-DX,Par->OptLow()),max(x2+DX,Par->OptUp()));
 	// Get left bracketing
+//	cout << "\nDoing left";
+	HaveBound = true;
+	if(fabs(Par->LowBound() - Par->OptLow()) < FLT_EPSILON) { HaveBound = false; dx = DX; } else { dx = 0.0; }	 // Set original dx
 	while(x2_lnL < x1_lnL)	{
-		dx = DX;
-		*p_x = x1 = max(0,x2 - (dx * 100));
-		x1_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
-//		cout << "L[" << *p_x << "]" << flush;
-		if(x1_lnL > x2_lnL)	{
+		if(HaveBound) {
+			*p_x = x1 = max(Par->LowBound(),Par->OptLow() - (dx * 10));
+		} else {
+			*p_x = x1 = max(Par->LowBound(),x2 - (dx * 100));
+		}
+
+		x1_lnL = DoBralnL(Br,NFr,NTo); x1 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
+//		cout << "\n\Left: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+		// If at low bound organise around it and check for exit conditions
+		if(!Par->CheckLowBound()) {
+			if(x2_lnL > x1_lnL) { break; } // Have curvature around x2. All okay
+			// Otherwise need to try and check what's going on with the bounded parameter
+			x3 = x2; x3_lnL = x2_lnL;
+			x2 = *p_x = (x1+x3)/2;
+			x2_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
+			if(x1_lnL + tol > x2_lnL ) { // True maxima at bound
+				*p_x = x1; *BestlnL = x1_lnL;
+				Par->StoreOptBounds(Par->LowBound(),Par->LowBound() + DX);
+				RETURN_DOBRAOPT;
+			}
+			break;
+		}
+		if(x1_lnL > x2_lnL)	{	// When moving left improves likelihood, then keep cycling
 			x3 = x2; x3_lnL = x2_lnL;
 			x2 = x1; x2_lnL = x1_lnL;
 			x1_lnL = 1.0;
 		}
-		dx *= GS_DELTA;
-		if(!Par->CheckLowBound()) { break; }
+		if(fabs(dx) < FLT_EPSILON) { dx = DX; } else { dx *= GS_DELTA; }
 	}
-	// ------------------------------------- Catch for when lower bounds branch length ------------------------------------
-	if(fabs(x1 - x2) < DX) {
-		*p_x = x2 = DX; x2_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
-		if(x1_lnL > x2_lnL) { *p_x = x1; 	*BestlnL = x1_lnL; RETURN_DOBRAOPT; }
-	}
+//	cout << "\n\tafter left: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+//	cout << "\nDoing right";
 	// Get right bracketing
-	if(x3_lnL > 0.0)	{
-
+	HaveBound = true;
+	if(fabs(Par->UpBound() - Par->OptUp()) < FLT_EPSILON) { dx = DX; HaveBound = false; } else { dx = 0.0; }	// Set original dx
+	if(x3_lnL > 0.0)	{		// Search for right bound if it's needed
 		while(x2_lnL < x3_lnL)	{
-			*p_x = x3 = max(0,max(x2 + (dx* 100),0.01));
-			x3_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
-			x3 = *p_x;
-//			cout << "R[" << *p_x << "]" << flush;
-//			cout << "\nRight: " << x3 << " == " << x3_lnL;
+			if(HaveBound) {
+				*p_x = x3 = max(Par->LowBound(),Par->OptUp() + (dx * 10));
+			} else {
+				*p_x = x3 = max(Par->LowBound(),x2 + (dx * 100));
+			}
+			x3_lnL = DoBralnL(Br,NFr,NTo); x3 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
+//			cout << "\n\tRight: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+			if(!Par->CheckBound())	{
+//				cout << "\nCheck Up bound break";
+				if(x2_lnL > x1_lnL) { break; } // Have curvature around x2. All okay
+				// Otherwise need to try and check what's going on with the bounded parameter
+				x1 = x2; x1_lnL = x2_lnL;
+				x2 = *p_x = (x1 + x3)/2;
+				x2_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
+				if(x3_lnL + tol > x2_lnL) { // True maxima at bound
+					*p_x = x3; *BestlnL = x3_lnL;
+					Par->StoreOptBounds(Par->UpBound() - DX, Par->UpBound());
+					RETURN_DOBRAOPT;
+				}
+				break;
+			}
 			if(x3_lnL > x2_lnL)	{
 				x1 = x2; x1_lnL = x2_lnL;
 				x2 = x3; x2_lnL = x3_lnL;
 				x3_lnL = 1.0;
 			}
-			dx *= GS_DELTA;
-			if(!Par->CheckUpBound()) { break; }
+			if(fabs(dx) < FLT_EPSILON) { dx = DX; } else { dx *= GS_DELTA; }
 	}	}
+//	cout << "\n\tafter Right: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+	if((x1_lnL > x2_lnL || x3_lnL > x2_lnL) || (x1 > x2 || x2 > x3)) {
+		cout.precision(10);
+		cout << "\nBounding failed in DoBraOpt(...)... ";
+		cout << "\n\tafter Right: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+		cout << "\nReturning with no improvement and please report to Simon Whelan"; exit(-1);
+		if(x1_lnL > x2_lnL) { *p_x = x1; *BestlnL = x1_lnL; } else { *p_x = x3; *BestlnL = x3_lnL; }
+	}
+	// Some output for debugging if needed
+//	if(fabs(x1-x2) <  1.0E-9) { exit(-1); }
 //	if(x1 < 0 || x2 < 0 || x3 < 0 || *p_x < 0) { cout << "\nHave detected an error for DoBraOpt: x1: " << x1 << " x2: " <<  x2 << " x3: " <<  x3 <<" x: " <<  *p_x << "!!!"; exit(-1); }
 //	cout << "\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
 //	cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
 //	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
-	// Do various checks to make sure it looks like a hill
-	if(!Par->CheckBound()) { *p_x = x2; *BestlnL = x2_lnL; RETURN_DOBRAOPT; }
-	if(x1_lnL > max(x2_lnL,x3_lnL)) {
-		// Deal with the U shape case
-		if(x3_lnL > x2_lnL) {
-			if(x1_lnL > x3_lnL) { *p_x = x1; DoBraOpt(First,NTo,NFr,Br,IsExtBra,BestlnL,tol); }
-			else				{ *p_x = x3; DoBraOpt(First,NTo,NFr,Br,IsExtBra,BestlnL,tol); }
-		} else { *p_x = x1; *BestlnL = x1_lnL; RETURN_DOBRAOPT; }
-	}
-	else if (x3_lnL > x2_lnL)		{ *p_x = x3; *BestlnL = x3_lnL; RETURN_DOBRAOPT; }
 #if DO_BRENT == 1
 	// ------------------------------------ Brent's algorithm (adapted from Numerical Recipes in C) -----------------------
 	assert(x2_lnL > x1_lnL && x2_lnL > x3_lnL);
@@ -1492,10 +1575,12 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 		if(x3 - x2 > x2 - x1) 	{ *p_x = xi = x2 + resphi * (x3-x2); }
 		else					{ *p_x = xi = x2 - resphi * (x2-x1); }
 		// break condition
-		if(fabs(x3_lnL - x1_lnL) < tol) { /* cout << "\nBreaking at tol=" << tol << " fabs(" << x3_lnL << " - " << x1_lnL << ")";  */ *p_x = x2 = (x1+x3)/2; break; }
+		// if(fabs(x3_lnL - x1_lnL) < tol) { /* cout << "\nBreaking at tol=" << tol << " fabs(" << x3_lnL << " - " << x1_lnL << ")";  */ *p_x = x2 = (x1+x3)/2; break; }
+//		if(fabs(x3_lnL - x1_lnL) < tol) { cout << "\nBreaking at tol=" << tol << " fabs(" << x3_lnL << " - " << x1_lnL << ")";   *p_x = x2; break; }
 		// Search
 		temp = DoBralnL(Br,NFr,NTo);
-//		cout << "\n[i="<<i<<"] xi:" << xi << ": " << temp;
+//		cout << "\n[i="<<i<<"] xi:" << xi << ": " << temp << " range(" << x1 << "," << x3 << ")=" << x3-x1 << " ; lnL imp: " << fabs(x3_lnL - x1_lnL) << " cf. " << tol;
+//		cout << "\n\tx2 [x1=] " << x2_lnL - x1_lnL << " [x3=] " << x3_lnL - x2_lnL;
 		if(temp > x2_lnL) {
 			if(x3 - x2 > x2 - x1) 	{ x1 = x2; x1_lnL = x2_lnL;  x2 = xi; x2_lnL = temp; }
 			else					{ x3 = x2; x3_lnL = x2_lnL;  x2 = xi; x2_lnL = temp; }
@@ -1512,128 +1597,16 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	cout << ": tol= " << max(x2_lnL - x1_lnL,x2_lnL - x3_lnL);
 	cout << "\n---\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
 	cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
-	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
-*/	// Finish by doing the calculation again to correctly update the partial likelihoods
-	m_iFastBralnL_Calls++;
-	*BestlnL = DoBralnL(Br,NFr,NTo);
-	RETURN_DOBRAOPT;
-}
-
-
-/* Golden section version of DoBraOpt
-void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, double *BestlnL,double tol, bool AllowUpdate)	{
-	int i;
-	double *x = Tree()->OptimiserB(Br),x1,x2=*x,x3,x1_lnL = 1.0,x2_lnL = -fabs(*BestlnL),x3_lnL = 1.0, xi,temp;
-	tol = max(tol,FULL_LIK_ACC);
-	double dx = DX;
-	CPar *Par  = Tree()->pBra(Br);
-#if DEVELOPER_BUILD == 1
-	cout << "\nBranch["<<Br<<"] has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo);
-	cout << "\nReturning from CBaseModel::DoBraOpt (including branch updates)";
-	RETURN_DOBRAOPT;
-#endif
-//	if(Br == 2) { RETURN_DOBRAOPT; }
-	cout << "\nDoing branch["<<Br<<"]: sent bestlnL: " << *BestlnL << " cf. DoBralnL(Br,NFr,NTo): " << DoBralnL(Br,NFr,NTo); //  << " cf. real " << lnL(); exit(-1);
-//	if(IsSubTree()) { cout << "\nFinished for checking... " << lnL(true); exit(-1); }
-//	RETURN_DOBRAOPT;
-//	cout << "\n\n---\nDoing GoldenSection";
-//	cout << "\nDoing FastBranchOpt ["<<Br<<"]; tol=" <<tol <<": ";
-//	cout << "\nPar = " << Par->Name() << "; x2: " << x2 << " == " << x2_lnL << " == " << DoBralnL(Br,NFr,NTo);
-//	static int count = 0;
-	*BestlnL = DoBralnL(Br,NFr,NTo);
-//	if(fabs(DoBralnL(Br,NFr,NTo) - *BestlnL) > 1.0E-5) {
-//		cout << "\nLikelihoods don't match in CBaseModel::DoBraOpt";
-//		cout << "\n\tBestlnL: \t" << *BestlnL << "\n\tDoBralnL: \t" << DoBralnL(Br,NFr,NTo);
-//		cout << "\nBranch: " << *x;
-//		cout << "\n\tBestlnL: \t" << *BestlnL << "\n\tDoBralnL: \t" << DoBralnL(Br,NFr,NTo); cout << "\n\tReallnL: \t" << lnL(true);
-//		RETURN_DOBRAOPT;
-//		m_vpProc[0]->OutPT(cout,Br);
-//		if(count++ < 2) { cout << "\nSingleBranchOpt: "; SingleBranchOpt(Br,BestlnL,tol); }
-//		cout << "\nModel:\n" << *this;
-//		exit(-1);
-//	}
-//	else {
-//			cout << " ... fine";  RETURN_DOBRAOPT;
-//		}
-
-//	cout << "\nInto DoBraOpt:";
-//	if(x1 < 0 || x2 < 0 || x3 < 0 || *x < 0) { cout << "\nStart Have detected an error for DoBraOpt: x1: " << x1 << " x2: " <<  x2 << " x3: " <<  x3 <<" x: " <<  *x << "!!!"; exit(-1); }
-
-	// Get left bracketing
-	while(x2_lnL < x1_lnL)	{
-		*x = x1 = max(0,x2 - (dx * 100));
-		x1_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
-		cout << "L[" << *x << "]" << flush;
-		if(x1_lnL > x2_lnL)	{
-			x3 = x2; x3_lnL = x2_lnL;
-			x2 = x1; x2_lnL = x1_lnL;
-			x1_lnL = 1.0;
-		}
-		dx *= GS_DELTA;
-		if(!Par->CheckLowBound()) { break; }
-	}
-	if(x3_lnL > 0.0)	{
-		dx = DX;
-		// Get right bracketing
-		while(x2_lnL < x3_lnL)	{
-			*x = x3 = max(0,max(x2 + (dx* 100),0.01));
-			x3_lnL = DoBralnL(Br,NFr,NTo); m_iFastBralnL_Bracket++;
-			x3 = *x;
-			cout << "R[" << *x << "]" << flush;
-//			cout << "\nRight: " << x3 << " == " << x3_lnL;
-			if(x3_lnL > x2_lnL)	{
-				x1 = x2; x1_lnL = x2_lnL;
-				x2 = x3; x2_lnL = x3_lnL;
-				x3_lnL = 1.0;
-			}
-			dx *= GS_DELTA;
-			if(!Par->CheckUpBound()) { break; }
-	}	}
-//	if(x1 < 0 || x2 < 0 || x3 < 0 || *x < 0) { cout << "\nHave detected an error for DoBraOpt: x1: " << x1 << " x2: " <<  x2 << " x3: " <<  x3 <<" x: " <<  *x << "!!!"; exit(-1); }
-	cout << "\nphi: " << phi << " resphi: " << resphi; exit(-1);
-	cout << "\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
-	cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
-	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
-	// Do various checks to make sure it looks like a hill
-	if(!Par->CheckBound()) { *x = x2; *BestlnL = x2_lnL; RETURN_DOBRAOPT; }
-	if(x1_lnL > max(x2_lnL,x3_lnL)) {
-		// Deal with the U shape case
-		if(x3_lnL > x2_lnL) {
-			if(x1_lnL > x3_lnL) { *x = x1; DoBraOpt(First,NTo,NFr,Br,IsExtBra,BestlnL,tol); }
-			else				{ *x = x3; DoBraOpt(First,NTo,NFr,Br,IsExtBra,BestlnL,tol); }
-		} else { *x = x1; *BestlnL = x1_lnL; RETURN_DOBRAOPT; }
-	}
-	else if (x3_lnL > x2_lnL)		{ *x = x3; *BestlnL = x3_lnL; RETURN_DOBRAOPT; }
-	// New Goldensection
-	assert(x2_lnL + FLT_EPSILON > x1_lnL && x2_lnL + FLT_EPSILON> x3_lnL);
-	FOR(i,20) {
-		// New value
-		if(x3 - x2 > x2 - x1) 	{ *x = xi = x2 + resphi * (x3-x2); }
-		else					{ *x = xi = x2 - resphi * (x2-x1); }
-		// break condition
-		if(fabs(x3_lnL - x1_lnL) < tol) { *x = x2 = (x1+x3)/2; break; }
-		// Search
-		temp = DoBralnL(Br,NFr,NTo);
-		cout << "\nxi:" << xi << ": " << temp;
-		if(temp > x2_lnL) {
-			if(x3 - x2 > x2 - x1) 	{ x1 = x2; x1_lnL = x2_lnL;  x2 = xi; x2_lnL = temp; }
-			else					{ x3 = x2; x3_lnL = x2_lnL;  x2 = xi; x2_lnL = temp; }
-		} else {
-			if(x3 - x2 > x2 - x1)	{ x3 = xi; x3_lnL = temp; }
-			else					{ x1 = xi; x1_lnL = temp; }
-		}
-		cout << "[x1:" << x1 << ", x2:" << x2 << ", x3:" << x3 << ","<< max(x1_lnL,max(x2_lnL,x3_lnL)) << "]" << flush;
-	}
-
-//	cout << ": tol= " << max(x2_lnL - x1_lnL,x2_lnL - x3_lnL);
-//	cout << "\n---\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
-//	cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
-//	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
+	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")"; */
 	// Finish by doing the calculation again to correctly update the partial likelihoods
-	*x = max(0,x2); *BestlnL = DoBralnL(Br,NFr,NTo);
+	m_iFastBralnL_Calls++;
+
+	if(x2_lnL > ori_lnL) { *p_x = x2; *BestlnL = x2_lnL; } else { if(fabs(x2_lnL - ori_lnL) > tol) { cout << "\nWeird... optimiser (tol=" << tol << ") made worse likelihood in CBaseModel::DoBraOpt(...)\n"; cout << " should have: " << ori_lnL << " and have " << DoBralnL(Br,NFr,NTo) << " diff = " << DoBralnL(Br,NFr,NTo) - ori_lnL; } *p_x = ori_x; *BestlnL = ori_lnL;  }
+	Par->StoreOptBounds(x1,x3);
+
 	RETURN_DOBRAOPT;
 }
-*/
+
 // Function that performs basic likelihood calculation
 double CBaseModel::DoBralnL(int B, int NF,int NT)	{
 	int i;
@@ -1666,6 +1639,7 @@ double CBaseModel::DoBralnL(int B, int NF,int NT)	{
 		if(m_vpProc[i]->Prob() < MIN_PROB) { continue; }
 		m_vpProc[i]->GetBranchPartL(P,NT,NF,B);
 	}
+//	cout << "\n {{{{{{{{{{{{{{{ Doing DoBralnL }}}}}}}}}}}}}}";
 	FOR(i,m_pData->m_iSize) {
 #if DEVELOPER_BUILD == 1
 		if(i<5) { cout << "\n\t\tSite["<<i<<"]:  ";
@@ -2844,11 +2818,10 @@ CEMP::CEMP(CData *D, CTree *T, string Name, bool AddF, double *S_ij, double *pi_
 ////////////////////////////////////////////
 // Controllers for Codon models
 
-CCodonProcess *CBaseModel::AddCodonProcess(CData *D,CTree *T,CodonProc Model, ECodonEqm CE, int GenCode)	{
+CCodonProcess *CBaseModel::AddCodonProcess(CData *D,CTree *T,CodonProc Model, ECodonEqm CE, int GenCode, string RadicalFile)	{
 	CCodonProcess *Proc;
-	Proc = new CCodonProcess(D,T,Model,CE,GenCode);
+	Proc = new CCodonProcess(D,T,Model,CE,GenCode,RadicalFile);
 	return Proc;
-
 }
 
 CCodonM0::CCodonM0(CData *D, CTree *T, ECodonEqm CE, int GenCode) : CBaseModel(D,T)	{
@@ -2974,7 +2947,71 @@ CWAGCoevo::~CWAGCoevo()	{
 	cout << "\nNeed to fix destructor for CWAGCoevo..."; exit(-1);
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Function for get a model pointer
+CBaseModel * GetMyModel(EModel ModelChoice, CData *Data, CTree *Tree)	{
 
+	// DNA model stores
+	CJC *JCModel = NULL;
+	CFEL *FELModel = NULL;
+	CK2P *K2PModel = NULL;
+	CHKY *HKYModel = NULL;
+	CREV *REVModel = NULL;
+	// Amino acid models	(NB: Some of these aren't in the sModelNames string so it's a bit rough and ready)
+	CEQU *EQUModel = NULL;
+	CWAG *WAGModel = NULL;
+	CJTT *JTTModel = NULL;
+	CDAY *DAYModel = NULL;
+
+	// Check data is of the appropriate form.
+	if(ModelChoice >= JC && ModelChoice <= REV) { assert(Data->m_DataType == DNA); }
+	else if(ModelChoice >= EQU && ModelChoice <= mtREV) { assert(Data->m_DataType == AA); }
+
+	switch(ModelChoice) {
+	case JC:
+		JCModel = new CJC(Data,Tree);
+		return JCModel;
+	case FEL:
+		FELModel = new CFEL(Data,Tree);
+		return FELModel;
+	case K2P:
+		K2PModel = new CK2P(Data,Tree);
+		return K2PModel;
+	case HKY:
+		HKYModel = new CHKY(Data,Tree);
+		return HKYModel;
+	case REV:
+		REVModel = new CREV(Data,Tree);
+		return REVModel;
+	case EQU:
+		EQUModel = new CEQU(Data,Tree);
+		return EQUModel;
+	case WAG:
+		WAGModel = new CWAG(Data,Tree);
+		return WAGModel;
+	case JTT:
+		JTTModel = new CJTT(Data,Tree);
+		return JTTModel;
+	case DAY:
+		DAYModel = new CDAY(Data,Tree);
+		return DAYModel;
+	default:
+		cout << "\nYou've asked for a model that I haven't implemented in GetMyModel(...) yet: " << ModelChoice << ". Bad luck :(\n\n"; exit(-1);
+	}
+
+	Error("Reached impossible point in GetMyModel(...)");
+	return NULL;
+/*
+	const string sModelNames[] = {	"JC","FEL","K2P","HKY","REV",
+							"RY","CovHKY",",CovREV","THMM_FULLDNA","HKYdG_THMM","THMM_DNA",
+							"EQU","WAG","JTT","DAY","mtREV",
+							"THMM_AA","WAGdG_THMM",
+							"Coevo_WAG",
+							"CodonM0",
+							"Unknown"};
+*/
+
+}
 
 
 

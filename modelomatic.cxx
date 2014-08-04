@@ -12,8 +12,6 @@
 	<fast>			if fast is present it will only optimise the branches and alpha parameter for the first model of a data type and then fix for all subsequent
 	/////////////////////////////////////////////////////////////////////// */
 
-// Note: this version was sent to David T @ Thu 14 March 2013
-
 #include "./modelomatic.h"
 #include <time.h>
 #include "ini/cpp/INIReader.h"
@@ -21,7 +19,8 @@
 
 #define CHECK_LNL_OUT 1
 #define VERSION_NUMBER "1.0beta"
-#define DEVELOPER_VERSION_MAIN 0
+#define DEVELOPER_VERSION_MAIN 1
+
 
 #if FUNC_COUNTERS == 1
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter, SPR_Log_Counter;
@@ -62,6 +61,8 @@ int main(int argc, char *argv[])	{
 		int GeneticCode = 0;
 		int count = 0;
 		int RY_count, DNA_count, AA_count, COD_count;
+		vector <SModelDetails> Models;
+
 		// Stuff from Leaphy
 		ALLOW_PREDICTLNL = false;
 		int i,j,NumModelReruns = 1;
@@ -217,6 +218,7 @@ int main(int argc, char *argv[])	{
 		TrimJC->lnL(); LazyOpt(TrimJC,false,true,false);
 		delete TrimJC;
 		cout << " done" << flush;
+
 		// Now build the greedy tree
 		cout << "\n          \tObtaining greedy start tree with " << TrimTree << " sequences ..." << flush;
 		Tree  = FindGreedySubTree(&Tree,TrimTree);
@@ -282,6 +284,156 @@ int main(int argc, char *argv[])	{
 	cout << "\n>>> Doing model analysis <<< \n" << flush;
 
 	///////////////////////////////////////////////////////////////////////////////////////////
+	// Development stuff goes here
+#if DEVELOPER_VERSION_MAIN
+	cout << "\nDoing codon based analysis"; cout.precision(10); // exit(-1);
+
+
+	CData NT1 = *PhyDat.pData(); NT1.GetCodonPositions(true,false,false);
+	CData NT2 = *PhyDat.pData(); NT2.GetCodonPositions(false,true,false);
+	CData NT3 = *PhyDat.pData(); NT3.GetCodonPositions(false,false,true);
+/*	CData NT12 = *PhyDat.pData(); NT12.GetCodonPositions(true,true,false);
+	CData NT13 = *PhyDat.pData(); NT13.GetCodonPositions(true,false,true);
+	CData NT23 = *PhyDat.pData(); NT23.GetCodonPositions(false,true,true);
+	CData NT123 = *PhyDat.pData(); NT123.GetCodonPositions(true,true,true);*/
+
+//	int ShowSeq = RandInt(0,NT1.m_iNoSeq-1);
+//	cout << "\nOriginal data:		   " << PhyDat.pData()->m_iNoSeq << " " << PhyDat.pData()->m_iTrueSize << "\t" << PhyDat.pData()->m_vsTrueSeq[ShowSeq].substr(0,15);;
+
+	vector <int> RadMat(20*20,-1);
+	FINOPEN(Radin, sRadicalFileName.c_str());
+	FOR(i,20)	{
+		FOR(j,i)	{
+			Radin >> RadMat[(i*20)+j];
+			if(!InRange(RadMat[(i*20)+j],0,2)) { cout << "\nError reading Radical Matrix from: " << sRadicalFileName << " at ["<<i << "," << j << "] = " << RadMat[(i*20)+j] << "\nMatrix so far: " << MatOut(20,RadMat); exit(-1); }
+			RadMat[(j*20)+i] = RadMat[(i*20)+j];
+		}
+	}
+	Radin.close();
+//		cout << "\nRadical Matrix" << endl <<  MatOut(20, RadMat);
+//		cout << "\n\nDone";
+
+
+	double cVal,rVal;
+	CCodonM0 *M0Test = NULL;
+	CData Cod1 = *PhyDat.pData();
+	M0Test = new CCodonM0(&Cod1,&Tree);
+	FullOpt(M0Test,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+//	FullOpt(M0Test);
+	cout << "\nRun M0: " << M0Test->lnL(true);
+	cout << "\nModel: " << *M0Test;
+
+	cVal = GetAminoAcidCountFromCodon( M0Test->m_vpProc[0]->GetQMat(0), 0, RadMat, 0);		// Conservative
+	rVal = GetAminoAcidCountFromCodon( M0Test->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
+	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+
+//	cout << "\nOpt more pars";
+//	FullOpt(M0Test,true,false,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+
+	cout << "\nFinal lnL: " << M0Test->lnL(true);
+
+//	exit(-1);
+
+	// Do some parameter checking
+//	cout << "\nChecking parameters: ";
+//	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
+
+//	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
+//	CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os)	{
+
+	CCodonDrDc *M0New = NULL;
+	CData Cod2 = *PhyDat.pData();
+	M0New = new CCodonDrDc(&Cod2,&Tree);
+	// Set starting values as those from previous model
+	M0New->m_vpPar[0]->SetVal(M0Test->m_vpPar[0]->Val()+0.001);
+	M0New->m_vpPar[1]->SetVal(M0Test->m_vpPar[0]->Val());
+	M0New->m_vpPar[2]->SetVal(M0Test->m_vpPar[1]->Val());
+
+//	cout << "\nStarting model: " << *M0New;
+//	exit(-1);
+	//exit(-1);
+//	FullOpt(M0New);
+	FullOpt(M0New,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+	cout << "\nRun M0: " << M0New->lnL(true);
+	cout << "\nModel: " << *M0New;
+
+	cVal = GetAminoAcidCountFromCodon( M0New->m_vpProc[0]->GetQMat(0), 0, RadMat, 0);		// Conservative
+	rVal = GetAminoAcidCountFromCodon( M0New->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
+	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+
+	// Do some parameter checking
+//	cout << "\nChecking parameters: ";
+//	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
+
+	exit(-1);
+
+	CREV *RevTest = NULL;
+	double Lsum = 0.0;
+	RevTest = new CREV(&NT1,&Tree);
+	RevTest->lnL(true);
+	cout << "\n-------------------------------------------- Individual codon positions -----------------------------";
+	FullOpt(RevTest); cout <<	"\nPos1 " << FullOpt(RevTest);  cout << " == " << RevTest->lnL(true); Lsum += RevTest->lnL(true);
+//	cout << "\n" << *RevTest;
+	delete RevTest;
+
+	RevTest = new CREV(&NT2,&Tree);
+	RevTest->lnL(true);
+	FullOpt(RevTest); cout <<	"\nPos2 " << FullOpt(RevTest);  cout << " == " << RevTest->lnL(true); Lsum += RevTest->lnL(true);
+//	cout << "\n" << *RevTest;
+	delete RevTest;
+
+	RevTest = new CREV(&NT3,&Tree);
+	RevTest->lnL(true);
+	FullOpt(RevTest); cout <<	"\nPos3 " << FullOpt(RevTest);  cout << " == " << RevTest->lnL(true); Lsum += RevTest->lnL(true);
+//	cout << "\n" << *RevTest;
+	delete RevTest;
+
+	cout << "\nFull " << Lsum;
+
+
+//	exit(-1);
+/*
+	cout << "\nNT1    				" << NT1.m_iNoSeq << " " << NT1.m_iTrueSize << "\t" << NT1.m_vsTrueSeq[ShowSeq].substr(0,5);
+	cout << "\nNT2    				" << NT2.m_iNoSeq << " " << NT2.m_iTrueSize << "\t" << NT2.m_vsTrueSeq[ShowSeq].substr(0,5);;
+	cout << "\nNT3    				" << NT3.m_iNoSeq << " " << NT3.m_iTrueSize << "\t" << NT3.m_vsTrueSeq[ShowSeq].substr(0,5);;
+	cout << "\nNT12    			" << NT12.m_iNoSeq << " " << NT12.m_iTrueSize << "\t" << NT12.m_vsTrueSeq[ShowSeq].substr(0,10);;
+	cout << "\nNT13    			" << NT13.m_iNoSeq << " " << NT13.m_iTrueSize << "\t" << NT13.m_vsTrueSeq[ShowSeq].substr(0,10);;
+	cout << "\nNT23    			" << NT23.m_iNoSeq << " " << NT23.m_iTrueSize << "\t" << NT23.m_vsTrueSeq[ShowSeq].substr(0,10);;
+	cout << "\nNT123   			" << NT123.m_iNoSeq << " " << NT123.m_iTrueSize << "\t" << NT123.m_vsTrueSeq[ShowSeq].substr(0,15);;
+*/
+
+
+	cout << "\nTrying to initialise new model object" << flush;
+	int iModPos[3] = {0,1,-1}, iBraPos[3] = {0,1,-1};
+	vector <int> vModPos(3,0), vBraPos(3,0);
+	FOR(i,3) { vModPos[i] = iModPos[i]; vBraPos[i] = iBraPos[i]; }
+	CSiteCodon *CodonModel;
+
+	CodonModel = new CSiteCodon(PhyDat.pData(),&Tree,vModPos,vBraPos,REV,false);
+
+	cout << "\nModel initialised" << flush;
+	cout << "\nCodonModel initialised, with lnL: " << CodonModel->lnL(true);
+	cout << "\n\nDone!" << flush;
+
+//	CodonModel->FastBranchOpt(CodonModel->lnL(true));	cout << "\nFinished branch opt: " << CodonModel->lnL(true);
+
+	cout << "\nTrying optimiser..." << flush;
+	double IThink = FullOpt(CodonModel);
+	cout << "\nFull Opt gives lnl: " << CodonModel->lnL(true) << " cf. " << IThink << flush;
+	Models.push_back(DoModelRun(CodonModel,15,L_EQU,0));
+	cout << "\nAnd after model run " << CodonModel->lnL(true);
+
+//	cout << "\n------------ Models -------------\n" << *CodonModel;
+	// DoModelRun(CBaseModel *M, int NoPar, Lcorrection Lcor, double Adj
+exit(-1);
+
+	GetFullCodonModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
+
+	exit(-1);
+
+#endif
+
+	///////////////////////////////////////////////////////////////////////////////////////////
 	// Do the models
 	// ---
 	// Open up the model output file if needed
@@ -290,7 +442,6 @@ int main(int argc, char *argv[])	{
 		out = new ofstream(TreeName.c_str());
 		//ofstream out(TreeName.c_str());
 	}
-	vector <SModelDetails> Models;
 	RY_count = GetRYModels(&RY_Data,&Tree,&Models,GeneticCode, *out);
         cout<<"\rRY Done ";
         end = clock();
@@ -680,11 +831,147 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
         return Ret;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Full codon model run, including site specific nucleotide models and empirical codon models
+/* Old code for getting codon models
+ *
+
+	int i,j,k, i1,j1;
+	vector <double> Mat, Freq;
+	vector <vector <double> > Mat2;
+	vector <string> ABET, Toks;
+	vector <int> CharMap(61,-1);
+	string str;
+	// Assign the bigger matrix
+	Mat.assign(61,-1);
+	FOR(i,61) { Mat2.push_back(Mat); }
+	Mat.clear();
+
+	// Temporary stuff to read in empirical codon models
+	ifstream readmodel("ECMrest.dat");
+	for(i=1;i<61;i++) {
+		getline(readmodel,str);
+		Toks = Tokenise(str);
+		assert(Toks.size() == i);
+		FOR(j,i) { Mat.push_back(atof(Toks[j].c_str())); }
+	}
+	getline(readmodel,str);
+	getline(readmodel,str);
+	getline(readmodel,str);
+	Toks = Tokenise(str);
+	assert(Toks.size() == 61);
+	FOR(i,61) { Freq.push_back(atof(Toks[i].c_str())); }
+	getline(readmodel,str);
+	getline(readmodel,str);
+	// L1 ABET
+	getline(readmodel,str);
+	Toks = Tokenise(str);
+	FOR(i,Toks.size()) { ABET.push_back(Toks[i]); }
+	// L2 ABET
+	getline(readmodel,str);
+	Toks = Tokenise(str);
+	FOR(i,Toks.size()) { ABET.push_back(Toks[i]); }
+	// L3 ABET
+	getline(readmodel,str);
+	Toks = Tokenise(str);
+	FOR(i,Toks.size()) { ABET.push_back(Toks[i]); }
+	// L4 ABET
+	getline(readmodel,str);
+	Toks = Tokenise(str);
+	FOR(i,Toks.size()) { ABET.push_back(Toks[i]); }
+	assert(ABET.size() == 61);
+	readmodel.close();
+	// Test output
+	k=0;
+	cout << "\n\n--- Original ---";
+	FOR(i,61) {
+		cout << "\n" << ABET[i] << " : " << Freq[i];
+		FOR(j,i) {
+			Mat2[i][j] = Mat2[j][i] = Mat[k];
+			cout << "\t[" << ((i-1) * 61) + j << "]" << Mat[k];
+			k++;
+		}
+	}
+
+//	cout << "\n\n--- Processed ---";
+//	FOR(i,61) { cout << "\n" << Mat2[i]; }
+
+	// Do the new matrix
+	FOR(i,64) {
+		if(GenCodes[0][i] == -1) { continue; }
+		str = State(COD,i);
+//		cout << "\n" << str;
+		FOR(j,61) {
+			if(strcmp(ABET[j].c_str(),str.c_str()) == 0) {
+//				cout << " == [" << j << "]: " << ABET[j];
+				CharMap[i] = j; break; }
+		}
+
+	}
+
+
+	// Output
+	cout << "\nFrequencies:\n";
+	FOR(i,64) {
+		if(GenCodes[0][i] == -1) { continue; }
+		assert(CharMap[i] != -1);
+		cout << Freq[CharMap[i]] << ",";
+	}
+	cout << "\n\nMatrix:\n";
+	FOR(i,64) {
+		if(GenCodes[0][i] == -1) { continue; }
+		i1 = CharMap[i];
+		FOR(j,i) {
+			if(GenCodes[0][j] == -1) { continue; }
+//			cout << "\n" << ABET[CharMap[i]] << " -> " << ABET[CharMap[j]] << " = ";
+			cout << Mat2[i1][CharMap[j]] << " ,";
+		}
+	}
+
+
+ *
+ */
+
+int GetFullCodonModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out)	{
+	int i, j, k;
+	CEMPCodonREST *NewModel1; CEMPCodonUNREST *NewModel2;
+	CData CodData = *Data;
+	assert(GeneticCode == 0);
+
+	CCodonM0 *CodModel;
+	CodData = *Data;
+	CodModel = new CCodonM0(&CodData,Tree,F64,0);
+	cout << "\nOld lnL: " << CodModel->lnL(true);
+	DoModelRun(CodModel,63,L_NA);
+	cout << "\nOptimised lnL: " << CodModel->lnL(true);
+
+	CodData = *Data;
+	NewModel1 = new CEMPCodonREST(&CodData, Tree, false, 0);
+	cout << "\nRestrained model made..." << flush;
+	cout << "\nNew lnL: " << NewModel1->lnL(true);
+	DoModelRun(NewModel1,63,L_NA);
+	cout << "\nOptimised lnL: " << NewModel1->lnL(true);
+	delete NewModel1;
+
+	CodData = *Data;
+	NewModel2 = new CEMPCodonUNREST(&CodData, Tree, false, 0);
+	cout << "\nUnrestrained model made..." << flush;
+	cout << "\nNew lnL: " << NewModel2->lnL(true);
+	DoModelRun(NewModel2,63,L_NA);
+	cout << "\nOptimised lnL: " << NewModel2->lnL(true);
+	delete NewModel2;
+
+
+	cout << "\nSuccessful exit...";
+	exit(-1);
+
+}
+
 SModelDetails DoModelRun(CBaseModel *M, int NoPar, Lcorrection Lcor, double Adj) {
 	SModelDetails ModDet;
 	ModDet.DataType = M->m_pData->m_DataType;
 	double CurlnL;
-	int NoIter = 5;
+	int NoIter = 5 + (NoPar * 1.5);
 	/* --- OLD VERSION OF THE DoItFast OPTION ---
 	M->lnL();
 	ModDet.OrilnL = FullOpt(M,true,FlipBool(DoItFast)) ;
@@ -693,10 +980,16 @@ SModelDetails DoModelRun(CBaseModel *M, int NoPar, Lcorrection Lcor, double Adj)
 	CurlnL = M->lnL();
 //	cout << "\n-----------------------------------------------\nModel: " << M->Name();
 	if(DoItFast) {
-		if(M->m_pData->m_DataType == DNA || M->m_pData->m_DataType == COD || M->m_pData->m_DataType == COD_RED) { NoIter = 10; }
+		if(M->m_pData->m_DataType == DNA || M->m_pData->m_DataType == COD || M->m_pData->m_DataType == COD_RED) { NoIter = max(10,NoIter); }
+//		cout << "\n>>>>>>>>>>>>>>>>>>>>>>>>>> LazyBraOpt1 <<<<<<<<<<<<<<<<<<<<<<< ";
 		CurlnL = LazyBraOpt(M,CurlnL,1,MATIC_BRANCH_ACC);
+//		cout << " CurlnL: " << CurlnL;
+//		cout << "\n>>>>>>>>>>>>>>>>>>>>>>>>>> LazyParOpt <<<<<<<<<<<<<<<<<<<<<<< ";
 		CurlnL = LazyOpt(M,true,false,false,CurlnL,false,NoIter);
+//		cout << " CurlnL: " << CurlnL;
+//		cout << "\n>>>>>>>>>>>>>>>>>>>>>>>>>> LazyBraOpt2 <<<<<<<<<<<<<<<<<<<<<<< ";
 		ModDet.OrilnL = LazyBraOpt(M,CurlnL,1,MATIC_BRANCH_ACC);
+//		cout << " CurlnL: " << CurlnL;
 	} else {
 		ModDet.OrilnL = FullOpt(M,true,true);
 	}

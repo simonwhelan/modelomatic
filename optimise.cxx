@@ -41,7 +41,8 @@ const string OptFile = "opt.output";
 // Standard likelihood optimising routine
 double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double CurlnL,bool FullLikAcc, int NoIterations, double lnL2Beat, double lnL_tol, bool DoOutput,bool TightFullOpt)	{
 	int i;
-//	cout << "\nInto FullOpt for Model = <" << Model->m_sName << ">  DoPar: " << DoPar << ", DoBra: " << DoBra << ", DoFreq: " << DoFreq << endl;
+//	cout << "\nInto FullOpt for Model = <" << Model->m_sName << ">  DoPar: " << DoPar << ", DoBra: " << DoBra << ", DoFreq: " << DoFreq << endl << flush;
+//	if(DoOutput) { cout << "\nOutput"; } else { cout << "\nNo output"; }
 	double ACC = lnL_tol, gtol = FULL_GTOL;
 	bool OnlyBra = false;
 	// Deal with parsimony
@@ -67,12 +68,12 @@ double FullOpt(CBaseModel *Model, bool DoPar, bool DoBra, bool DoFreq, double Cu
 	}	}
 	// Get the optimised likelihood
 	if(ACC > gtol) { gtol = ACC; }
-//	cout << "\nInto optimiser for " << Model->Name() << " = " << CurlnL << " cf. " << Model->lnL() << " cff. " << Model->lnL(true);
+//	cout << "\nInto optimiser for " << Model->Name() << " = " << CurlnL << " cf. " << Model->lnL() << " cff. " << Model->lnL(true) << flush;
 //	if(fabs(CurlnL - Model->lnL(true)) > 0.001) { cout << "\nAnd it's broken already...\n\n"; exit(-1); }
 //	cout << "\nModel: " << Model->Name() << ", Options: [" << DoPar << "," << DoBra << "," << DoFreq << "," << CurlnL << "," << FullLikAcc << "," << NoIterations << "," << lnL2Beat << "," << lnL_tol << "]";
-//	DoOutput = true; cout << "\nOptimising: "; FOR(i,(int)vPar.size()) { cout << "\t" << *vPar[i]; }
+//	DoOutput = true; cout << "\nOptimising: " << flush; FOR(i,(int)vPar.size()) { cout << "\t" << *vPar[i] << flush; }
 	if(!vPar.empty()) {
-//		cout << "\nAttempting to optimise...";
+//		cout << "\nAttempting to optimise..." << flush;
 		if(NoIterations == DEFAULT_OPTNUM) { NoIterations = Model->OptNum(); }
 		CurlnL = MulD_Optimise(CurlnL,gtol,ACC,vPar,Model,NoIterations,DoOutput,OnlyBra,2,true,-lnL2Beat,7,true,TightFullOpt); }
 	// Clean up and return
@@ -1322,6 +1323,7 @@ double GoldenSection(double OrilnL, double *x, CPar *Par,CBaseModel *M)	{
 //	cout << "\nPar: " << Par->Val() << " cf " << *x;
 	// Get left bracketing
 //	cout << "\nGoing left...";
+	cout << "\nGolden section bounding could/should be improved";
 	while(x2_lnL < x1_lnL)	{
 //		cout << "-" << flush;
 		*x = x1 = x2 - max((fabs(x2) * dx),dx); Par->Val();
@@ -1417,14 +1419,16 @@ double GoldenSection(double OrilnL, double *x, CPar *Par,CBaseModel *M)	{
 // check	= Rather than return a value (0 = OK:1 = BAD)
 //////////////////////////////////////////
 
-#define INIT_ALAM 0.5
+#define INIT_ALAM 1.0
 
 double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], double pold[], double *f, bool Do_GS,CBaseModel *Model)	{
    	int i, j, n = (int)x.size(), num_run = 10;
     double a, alam = INIT_ALAM, alam2 = INIT_ALAM, alamin, b, disc, f2 = -BIG_NUMBER,fold2, rhs1, rhs2, slope, temp,
     	test, tmplam;
 	double a0 = 0,a1 = INIT_ALAM ,a2 = -1,	v0 = *f, v1 = *f, v2 = -1, best_a, best_f, ori_f = *f;
-	// Get old parameters and impose a maximum ste
+	double BestAlam = -BIG_NUMBER;
+	double BestlnL = BIG_NUMBER;
+	// Get old parameters and impose a maximum step
 	FOR(i,n) { pold[i] = *x[i]; }
     for(slope = 0.0,i = 0;i < n;i++)	{ slope += g[i] * p[i]; }
     test = 0.0;
@@ -1436,10 +1440,40 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 	cout << "\nEntering lnsrch (n="<<n<<"): lnL = " << fold << " cf. " << Model->lnL();
 #endif
 	if(test < 0.99) { alamin = FLT_EPSILON/test; } else { alamin = 100 * FLT_EPSILON; }
+
+
+
+/*
+	double checker;
+	cout << "\nEntering lnsrch (n="<<n<<"): lnL = " << fold << " cf. " << Model->lnL();
+	cout << "\nOriginal: ";
+	cout << "\nOrips:    "; FOR(i,n) { cout << "\t" << pold[i]; }
+	checker = 0; cout << "\nSteps:    "; FOR(i,n) { cout << "\t" << alam*p[i]; checker += fabs(alam*p[i]); }
+	cout << "\nTotal step: " << checker ;
+	cout << "\nThere's clearly a problem here with the chosen step sizes... Even when close to the optima the step sizes are at least an order of magnitude larger than one should expect for maximum steps...";
+	cout << "\nConsider implementing the logged parameters bit";
+	/*
+	cout << "\nDirection:"; FOR(i,n) {
+		if(fabs(p[i]) < 3*DX) { cout << "\tdone"; continue; }
+		if(p[i]>0) 	{ *x[i] = pold[i] + (3*DX); checker = Model->lnL(); }
+		else 		{ *x[i] = pold[i] - (3*DX); checker = Model->lnL(); }
+		cout << "\n\t" << Model->m_vpAllOptPar[i]->Name() << " ; grad = " << Model->m_vpAllOptPar[i]->grad() << " ; step = " << alam*p[i] << " ; fold = " << fold << " cf. new: " << checker;
+		cout << "\t" << checker + fold;
+		*x[i] = pold[i];
+	}
+*/
     // Start main loop
     for(;;)	{
-    	// Hard debug code...
-/*
+/*    	// Hard debug code...
+    	cout << "\nChecking each step (alam = " << alam << ")";
+    	FOR(i,n) { *x[i] = pold[i]; }
+    	cout << "\nReset: ori=" << fold << " cf. " << -Model->lnL(true) << " -- diff: " << fold + Model->lnL(true);
+    	FOR(i,n) {
+    		cout << "\n\tPar[" << i << "] " << *x[i] << " + " << (alam * p[i]) << " -> " << pold[i] + (alam * p[i]);
+    		*x[i] = pold[i] + (alam * p[i]); cout << " == " << -Model->lnL(true) << " ; imp: " << Model->lnL(true) + fold;
+    		*x[i] = pold[i];
+    	}
+
     	cout << "\nOrips:"; FOR(i,n) { cout << "\t" << pold[i]; }
     	cout << "\nSteps:"; FOR(i,n) { cout << "\t" << alam*p[i]; }
     	FOR(i,n) {
@@ -1458,47 +1492,48 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 		FOR(i,n) { *x[i] = pold[i] + (alam * p[i]); }
 		// Perform calculation
 		*f = -Model->lnL(); v2 = v1; v1 = *f; a2 = a1; a1 = alam;
+//		cout << "\n\t\talam: " << alam << ":  " << *f;
 #if DEBUG_MULD_OPT > 1
 		cout << "\n\t\tlnsrch: alam="<<alam << "; func=" << *f; if(x.size() == 1) { cout << " x= " << *x[0]; }
 #endif
- 	    // If reached convergence in terms of movement through parameter space
+ 	    // If reached convergence where no improvement in likelihood can be found. Either alam too small or likelihood improvement too small.
 		if(alam < alamin || fabs(fold - *f) < FULL_LIK_ACC)	{
 			FOR(i,n) { *x[i] = pold[i]; } *f = fold;
+//			cout << "\nConverged alam = " << alam;
+//				cout << "\nNew:"; FOR(i,n) { cout << "\t" << pold[i]; }
 //			cout << " Converged -- Returning: " << fold << " == " << Model->lnL() << " *f: " << *f;
+//			cout << "\nAnd:"; FOR(i,n) { cout << "\t" << pold[i]; }
+//			cout << "\nDiff: " << fabs(Model->lnL() + fold);
+//			if(fabs(Model->lnL() + fold) > 0.00001) { cout << "\n\nYUCK!";  exit(-1); }
 			return -Model->lnL();
 		// Only exit if there is an increase in likelihood...
 		} else if(fold - *f > FULL_LIK_ACC) {
-//			cout << "\nfabs(ori_f - *f)" << fabs(ori_f - *f);
-			if(Do_GS && fabs(ori_f - *f) < 1.0)	{	// Only do golden section when close to an answer
-//				cout << "\nDoing GoldenSection";
-				best_a = alam; best_f = *f;
-				if(n == 1) { num_run = 20; }
-				FOR(j,num_run)	{
-					// Get new alam
-					alam = a0 + ( (a2-a0) * GOLDEN_NUMBER); FOR(i,n) { *x[i] = pold[i] + alam * p[i]; }
-					*f = -Model->lnL();
-//					cout << "\nsection " << j << " = " << *f << " == " << best_f << "; best_alim: " << best_a << "; v0: " << v0 << "; v1: "<< v1 << "; v2: " << v2;
-					if(*f < best_f) { best_f = *f; best_a = alam; } else if(j>2 && n != 1) { break; }
-					// Set new interval
-					if(fabs(*f - fold) < FULL_LIK_ACC) { break; }
-					if(a1 > alam)	{
-						if(v1 < *f) { v0 = *f; a0 = alam; }
-						else		{ v2 = v1; a2 = a1; v1 = *f; a1 = alam; }
-					} else {
-						if(v1 > *f) { v0 = v1; a0 = a1; v1 = *f; a1 = alam; }
-						else		{ v2 = *f; a2 = alam; }
-					}
-					fold = *f;
+//			cout << "\nlnL increase -- fold: " << fold << " - " << *f << " = " << fold - *f << " cf. Best (lnL: " << BestlnL << "; alam: " << alam << ")";
+//			cout << "\nImprovement over best: " << BestlnL - *f;
+			if(*f < BestlnL) { BestlnL =  *f; BestAlam = alam; } // If going well continue with next step
+			else {	// Revert to the best alam
+				alam = BestAlam;
+				FOR(i,n) { *x[i] = pold[i] + (alam * p[i]); }
+				*f = BestlnL;
+				// DEBUG CHECKING
+/*				cout << "\nDebug check in alam return";
+				if(fabs(*f - -Model->lnL()) > 1.0E-6) {
+					double number = -Model->lnL();
+					cout << "\nError in alam restoral..."; cout << "\n\t\tReturning from lnsrch: fp: " << *f << "; lnL: " << number << "; Imp: " << ori_f - *f;
+					cout << "\nDiff = " << *f - number << " == fabs() " << fabs(*f-number);
+
+					exit(-1);
 				}
-				FOR(i,n) { *x[i] = pold[i] + best_a * p[i]; }
-				*f = -Model->lnL();  // Redoing parameters can be unstable due to rounding errors. Extra function call here.
+*/				return alam;
 			}
+//			double BestAlam = -BIG_NUMBER;
+//			double BestlnL = -BIG_NUMBER;
 //			cout << "\n\t\tReturning from lnsrch: fp: " << *f << "; lnL: " << Model->lnL() << "; Imp: " << ori_f - *f;
 //			cout << " return 1: " << *f;
-			return alam;
+//			return alam;
 		}
 		// Otherwise adjust the alam
-		else	{
+//		else	{
 	        // Need catch to find when the search for a new value is getting silly
 			if(fabs(alam - INIT_ALAM) < DBL_EPSILON) { tmplam = -slope / (2.0 * (*f - fold - slope)); if(tmplam > 0.95 * alam) { tmplam = 0.95 * alam; } }
 			else if(fabs(*f - BIG_NUMBER) < DBL_EPSILON || fabs(f2 - BIG_NUMBER) < DBL_EPSILON) { tmplam = 0.5 * alam; }
@@ -1516,7 +1551,7 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 				}
 				if(tmplam > 0.5 * alam) { tmplam = 0.5 * alam; }
 			}
-		}
+//		}
 	    alam2 = alam;
 	    f2 = *f;
 	    fold2 = fold;
@@ -1586,32 +1621,19 @@ double SubSetlnsrch(double Prob, vector <double *> x,double *step_xi, vector <do
 
 double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,CBaseModel *Model,int NI, bool DoBasicOutput,bool OnlyBranches, int OptTol, bool NewOne, double lnL2Beat, int NoBranchOpt,bool AllowOnlyParOpt,bool TryReallyHard)	{
 	int i, its, j, NumberIter = NI, LikTol = 0, HessWarning = 0, n = (int)x.size();
-    double den, fold, fac, fad, fae, fp, sum = 0.0, sumdg, sumxi, temp, test, max_g, old_max_g;
+    double den, fold, fac, fad, fae, fp, sum = 0.0, sumdg, sumxi, temp, test, max_g, last_improvement = BIG_NUMBER;
 	double inc, temp_lnL;	// Some values describing the increases in likelihood
     double *dg, *hdg, **hessin, *pold, *xi, *oldxi, fret, alpha, *sub_xi;
     double step_max = BIG_STEP_MAX, *grad_delta, Last5[5] = {BIG_NUMBER,BIG_NUMBER,BIG_NUMBER,BIG_NUMBER,BIG_NUMBER};
 	double PredictedlnL;
 	vector <double> g, temp_g; g.assign(x.size(),0.0);
 	vector <double *> temp_x;
-	bool flag, ResetHess, Do_GS, GradOK;
+	bool flag, ResetHess, Do_GS, GradOK, DoingSubset = false;
 	if(n == 0)
 	if(n <= 0) { return -BIG_NUMBER; }
 
-//	cout << "\n>>>>>>>>>>>>>> Entering Mul_D optimiser <<<<<<<<<<<<<<<<<<";
-	if(DoBasicOutput) { cout << "\n\tOptimising likelihood; this may take some time..."; }
+	if(DoBasicOutput) { cout << "\n\tOptimising likelihood for model " << Model->Name() << "; this may take some time..." << flush; }
 
-#if DEBUG_MULD_OPT > 0
-	string Name = OptFile, tempfile;
-#if DEBUG_MULD_OPT_SEP_FILES == 1
-	cout << "\nDoing optimise " << DebugOptNum << ": " << OrilnL;
-	Name = Name + "." + int_to_string(DebugOptNum++);
-	tempfile = "rm " + Name;
-	system(tempfile.c_str());
-#endif
-	ofstream optout(Name.c_str(), ios::app);
-	optout << "\n\n================================== Starting round of optimisation ===========================";
-	optout.precision(6); optout.setf(ios::fixed);
-#endif
     // Allocate memory
 	GET_MEM(dg,double,n);  GET_MEM(hdg,double,n); GET_MEM(sub_xi,double,n);
 	GET_MEM(hessin,double*,n); FOR(i,n) { hessin[i] = NULL; GET_MEM(hessin[i],double,n); }
@@ -1623,44 +1645,20 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 	// Calculate starting values
     fold = BIG_NUMBER;
 	fret = fp = -OrilnL;
-#if DEVELOPER_BUILD == 1
-	cout << "\nCompare fret: " << fret << " cf. " << Model->lnL();
-#endif
-	// Do parameter optimisations
-#if DEBUG_MULD_OPT > 1
-	cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< ENTERING DOONLYPAROPT >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
-#endif
-	// Get derivatives
-#if DEBUG_MULD_OPT > 1
-	cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< GETTING DERIVATIVES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
-#endif
 	// Do some initial branch optimising to get something parabola like
 	if(Model->Locked() || (!Model->IsRMSDCalc() && n > 1))	{
 		flag = false;
-#if DEVELOPER_BUILD == 1
-		cout << "\nEntering Model->FastBranchOpt(...)";
-#endif
 		fret = fp = -Model->FastBranchOpt(-fret,ltol,&flag,NoBranchOpt); // Do a round of fast branch optimisation
-#if DEVELOPER_BUILD == 1
-		cout << "\nDone FastBranchOpt: fp = " << fp << " cf. " << Model->lnL();
-#endif
 	}
-#if DEVELOPER_BUILD == 1
-	exit(-1);
-#endif
 	// If only doing branches and has converged
 	if(Model->Locked() || (OnlyBranches == true && flag ==true)) {
 		FREEALL;
-#if DEBUG_MULD_OPT_SEP_FILES == 1 && DEBUG_MULD_OPT > 1
-		cout << " " << -fp << "("<<its<<")";
-#endif
 		return -fp;
 	}
+	// Do only parameter optimisation if allowed. TODO: Should be removed?
 	if(AllowOnlyParOpt || Model->ForceSeperateParOpt())	{ fret = fp = -DoOnlyParOpt(fp,gtol,ltol,x,Model,NI,OptTol,2); }
 	// Set up hessian and initialise steps
-//	cout << "\nGetting derivatives " << Model->lnL();
-	g = Model->GetDerivatives(-fp,&GradOK); max_g = 0; FOR(i,(int)g.size()) { max_g = max(fabs(g[i]),max_g); }
-//	cout << " ... Finished derivatives " << Model->lnL();
+	g = Model->GetDerivatives(-fp,&GradOK);
     FOR(i,n) {
 		IMat(hessin,n);
 		if(fabs(*x[i]) > 1 && fabs(g[i]) < 0.2) { xi[i] = -g[i] * fabs(*x[i]); } else { xi[i] = -g[i]; }
@@ -1670,61 +1668,68 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 	FOR(its,NumberIter)	{
 //		cout << "\n\t--- Iter: " << its << ": " << fp; //  << " cf. " << Model->lnL(true) << " (" << fabs(fp+Model->lnL(true)) << ")" << flush ;
 		if(DoBasicOutput) {
-			cout << "\n\t["<<its<<"] " <<fold << " -> " << fp; //  << " cf. " << Model->lnL() << flush;
-			if(its == 0) { cout << "\n\t\t" << its << ": "; }
+//			cout << "\n\t["<<its<<"] " <<fold << " -> " << fp << flush; //  << " cf. " << Model->lnL() << flush;
+			if(its == 0) { cout << "\n\t\t" << its << ": " << flush; }
 			else if (its % 60 == 0) { cout << ": " << fp << "\n\t\t"<<its<<": "; }
-			if(fold < fp - FULL_LIK_ACC) {
-//				cout.precision(12);
-//				cout << "\ndiff ("<<fold << "-" << fp << "): " << fabs(fold-fp) << ";";
+			//if(fold < fp - FULL_LIK_ACC) {
+			if(fp - fold > FULL_LIK_ACC * 100) {
+				cout.precision(12);
+				cout << "\ndiff ("<<fold << "-" << fp << "): " << fabs(fold-fp) << ";";
 				Error(" ... Error... likelihood decreased in value???");
 			}
 			cout << "." << flush;
 		}
-#if DEBUG_MULD_OPT > 0
-			optout << "\n\n--- Iter: " << its << ": " << fp << " --- " << flush;
-//			if(fabs(fp + Model->lnL()) > 1.0E-4) { optout << " (Error: exp: " << fp << " cf. "<<Model->lnL() <<")" << flush; Error("\nOptimise error...\n"); }
-///			optout << "\nmax_g = " << max_g; if(its > 0) { optout << "; diff = " << fp - fold << flush; }
-//			optout<< "\n\tProcess probs: "; FOR(i,(int) Model->m_vpProc.size()) { }
-//			optout << "\nHessian: "; FOR(i,n) { FOR(j,n) { optout << " " << hessin[i][j]; } }
-//			optout << "\n\tModel Par:"; FOR(i,Model->NoPar()) { optout << "  " << Model->m_vpPar[i]->Name() << " = " << Model->m_vpPar[i]->Val(); }
-			optout << "\n\tPnames:"; FOR(i,n) {
-				if(Model->m_vpAllOptPar[i]->Special()) { optout << "*SPECIAL*"; exit(-1); }
-				optout << "\t" << Model->m_vpAllOptPar[i]->Name(); }
-			optout << "\n\tPreals:"; FOR(i,n) { optout << "\t" << Model->m_vpAllOptPar[i]->Val(); }
-			optout << "\n\tP:     "; FOR(i,n) { optout << "\t" << *x[i]; }
-			optout << "\n\tG:     "; FOR(i,n) { optout << "\t" << g[i]; }
 
-			FOR(i,Model->NoPar()) { if(my_isnan(Model->m_vpPar[i]->Val())) { cout << "\nHave nan in MulD Opt...\n\n"; exit(-1); } }
-
-//			optout << "\nTree: " << *Model->m_pTree;
-			optout << "\n\tSteps:"; FOR(i,n) { optout << "\t" << xi[i]; }
-//			optout << "\nParameters: "; FOR(i,(int)Model->m_vpProc[0]->NoPar()) { optout << "\t" << Model->m_vpProc[0]->pPar(i)->Name(); }
-//			optout << "\nValues:     "; FOR(i,(int)Model->m_vpProc[0]->NoPar()) { optout << "\t" << Model->m_vpProc[0]->pPar(i)->Val(); }
-//			if(its == 100 && n >6) { optout << "\nExiting on purpose..."; exit(-1); }
-			optout << flush;
-#endif
 		// Some initialisation
 		ResetHess = false; Do_GS = false; step_max = BIG_STEP_MAX;
 		// Decide whether to do Golden Section search in line search
 		if(its < THOROUGH_LINE_SEARCH)  { Do_GS = true; }
 		if(fabs(fold - fp) > 0.25) { step_max = SMALL_STEP_MAX; }
 		fold = fp;
-		// Manage the maximum step. No step can be greater than max 3 times the parameter (or the size of *x[i] if less than 0.1)
-		if(n == 1) { step_max = 10.0; }
-		sum = 0.0; FOR(i,n) { if(fabs(xi[i]) > sum) { sum = fabs(xi[i]); } }
-		if(sum > step_max)	{ sum /= step_max; FOR(i,n) { xi[i] /= sum; } }
-		// Perform the line search
-#if DEBUG_MULD_OPT > 1
-		cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< INTO LINESEARCH: exp: " << -fp << "; lnL: " << Model->lnL() << "  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
-#endif
 
-//		cout << "\nInto lnsrch " <<fold << " -> " << fp; //   << " --> real_lnL: " << -Model->lnL(true) << " (diff=" << abs(Model->lnL(true) + fp) << ")";
+		// --------------------------------- Perform the line search ----------------------------------
+		// Debug information
+/*		cout << "\n<<<<<< ITER " << its << ": " << fp << " >>>>>>>>";
+		cout << "\n\tPnames:"; FOR(i,n) {
+			if(Model->m_vpAllOptPar[i]->Special()) { cout << "*SPECIAL*"; exit(-1); }
+			cout << "\t" << Model->m_vpAllOptPar[i]->Name(); }
+		cout << "\n\tPreals:"; FOR(i,n) { cout<< "\t" << Model->m_vpAllOptPar[i]->Val(); }
+		cout << "\n\tP:     "; FOR(i,n) { cout << "\t" << *x[i]; }
+		cout << "\n\tG:     "; FOR(i,n) { cout << "\t" << g[i]; }*/
+		// Before performing line-search decide whether only a subset of parameters are worth examining
+		// This is decided when there are very large gradients relative to all other gradients.
+		double GOOD_IMPROVE = 0.5;
+		double BIG_GRADIENT_MULTIPLIER = 0.33;
+//		cout << "\nLast improvement: " << last_improvement;
+		if((last_improvement > GOOD_IMPROVE || NumberIter - its < 3) && its < 10) { // If the last improvement was good then try looking at subsets of parameters
+			max_g = 0.0; FOR(i,(int)g.size()) { max_g = max(fabs(g[i]),max_g); } max_g = max(max_g,10);
+			FOR(i,(int)g.size()) { if(fabs(max_g * BIG_GRADIENT_MULTIPLIER) > fabs(g[i])) { g[i] = xi[i] = 0.0; DoingSubset = true; } } // Set small gradients to step size zero; Will need to reset the Hessian
+		} else { // If we're close to an optima then gradient should agree with direction. Sign of a screwed up Hessian when it doesn't
+			if(DoingSubset) { ResetHess = true; DoingSubset = false; }	// Finished with subsets, so reset the Hessian and get going again
+			flag = false;
+			FOR(i,(int)g.size()) {
+				if(g[i] > 0 && xi[i] > 0) { xi[i] *= -1; flag = true; } // if(fabs(xi[i]) > 0.01) { xi[i] = -0.01;  } }
+				if(g[i] < 0 && xi[i] < 0) { xi[i] *= -1; flag = true; } // if(fabs(xi[i]) > 0.01) { xi[i] = 0.01; } }
+			}
+			if(flag == true) { HessWarning ++; }
+		}
+		// Now adjust the step sizes to conform to step_max
+		max_g = -BIG_NUMBER; FOR(i,(int)g.size()) { if(fabs(xi[i]) > max_g) { max_g = fabs(xi[i]); } }
+		if(max_g > step_max) {
+			max_g = step_max / max_g;
+			FOR(i,(int)g.size()) { xi[i] *= max_g; }
+		}
 
+
+
+//		if(DoingSubset) { cout << "\nWorking with subset: "; FOR(i,(int)g.size()) { if(fabs(g[i]) > FLT_EPSILON) { cout << Model->m_vpAllOptPar[i]->Name() << " "; } } }
+//		double temp_fp_s = fp; cout << "\n\tLinesearch --  fp: " << fp;
+
+		last_improvement = fp;
 		alpha = lnsrch(x,fp,g,xi,pold,&fret,Do_GS,Model); fp = fret;
-//		cout << " --lnsrch-->" << fp;
-#if DEBUG_MULD_OPT > 1
-		cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< OUT OF LINESRCH: exp: " << -fp << "; lnL: " << Model->lnL() << "  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
-#endif
+		last_improvement = last_improvement - fp;
+
+//		cout << " -> fp: " << fp << " imp(" << temp_fp_s - fp << ")";
 
 		if(alpha < DBL_EPSILON || GradOK == false) { ResetHess = true; }
 		if(its == NumberIter - 1) { break; }	// No point doing all this if about to step out.
@@ -1748,7 +1753,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 #if DEBUG_MULD_OPT > 1
 		cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< DONE DERIVATIVES: exp: " << -fp << "; lnL: " << Model->lnL() << " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
 #endif
-		old_max_g = max_g; max_g = 0.0; FOR(i,(int)g.size()) { max_g = max(fabs(g[i]),max_g); }
+		// max_g = 0.0; FOR(i,(int)g.size()) { max_g = max(fabs(g[i]),max_g); }
 		// Test for convergence on zero gradient
 		test = 0.0; den = max(fret,1.0);
 	    FOR(i,n)	{
@@ -1837,7 +1842,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		// Set warning if gradients and steps are not decreasing.
 		// This is an assumption for using the hessian
 		// Reset the hessian when this occurs
-		flag = true;
+/*		flag = true;
 		if(inc > 0.5) {
 			FOR(i,n)	{
 				if((fabs(dg[i] - g[i])  < 1.0E-3 && g[i] > 1.0E-3))	{
@@ -1846,7 +1851,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 					flag = false;
 		}	}	}
 		if(flag == false) { HessWarning++; if(HessWarning >=5) { ResetHess = true; } } else { HessWarning = 0; }
-
+*/
 		// Reset the hessian if Expected convergence on condition that
 		// i) haven't got it, or ii) expecting to exit next iteration
 		// iii) The warning regarding the dot product has passed a threshold
@@ -1879,7 +1884,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 #if DEBUG_MULD_OPT > 1
 	cout << "\n <<<<<<<<<<<<<<<<<<<<<<<<<<< DONE RESCALE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
 #endif
-				old_max_g = max_g; max_g = 0.0; FOR(i,(int)g.size()) { max_g = max(fabs(g[i]),max_g); }
+				max_g = 0.0; FOR(i,(int)g.size()) { max_g = max(fabs(g[i]),max_g); }
 				g = Model->GetDerivatives(-fp,&GradOK);			// Get the new derivatives
 			}
 			// Reset the hessian
@@ -2013,15 +2018,15 @@ double DoOnlyParOpt(double OrilnL,double gtol ,double ltol,vector <double *> x,C
 /////////////////////////////////////////////////////////////////////////
 // Check that a parameter is at a true optima
 
-bool CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os)	{
+bool CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os, bool ForceShow)	{
 	int i;
 	bool RetVal = true;
 	if(os != cout) { os << "\nHard checking parameter estimates:"; }
-	FOR(i,(int)x.size()) { if(!HardCheckOpt(M,lnL,x[i],Tol,i,os)) { RetVal = false; }	}
+	FOR(i,(int)x.size()) { if(!HardCheckOpt(M,lnL,x[i],Tol,i,os,ForceShow)) { RetVal = false; }	}
 	return RetVal;
 }
 
-bool HardCheckOpt(CBaseModel *M, double lnL, double *x, double Tol, int ParNum,ostream &os)	{
+bool HardCheckOpt(CBaseModel *M, double lnL, double *x, double Tol, int ParNum,ostream &os, bool ForceShow)	{
 	double l_lnL,r_lnL, x_ori = *x;
 	double i;
 	// Get left likelihood
@@ -2030,7 +2035,7 @@ bool HardCheckOpt(CBaseModel *M, double lnL, double *x, double Tol, int ParNum,o
 	*x = x_ori + Tol; r_lnL = M->lnL();
 	*x = x_ori;	// Reset value
 	// Do some debug output if required
-	if(os!= cout) {
+	if(os!= cout || ForceShow) {
 		int prec = os.precision(); os.precision(8);
 		os << "\n\tPar ["<<ParNum <<"] " << M->m_vpAllOptPar[ParNum]->Name() << ": " << *x << " == " << lnL;
 		for(i=1;i<1000;i*=10) {

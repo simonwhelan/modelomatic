@@ -39,6 +39,7 @@ int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+int GetFullCodonModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 bool GetModels(string file = "modelomatic.ini");
 
 double GetAIC(double lnL, int NoPar) { return 2*(NoPar-lnL); }
