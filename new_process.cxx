@@ -731,7 +731,7 @@ void CTHMMProcess::DoPostHocQMatUpdate()	{
 			if(SubProc(i)->Rate() > DBL_EPSILON) { Total += SubProc(i)->Rate() * m_vpCovProbs[i]->Val(); }
 		}
 		// Safely catch zero rates
-		if(Total < DBL_EPSILON)	{
+		if(Double_Zero(Total))	{
 			FOR(i,m_iHiddenChar) { SubProc(i)->Rate(0.0); SubProc(i)->Scale(); }
 		} else {
 			FOR(i,m_iHiddenChar)	{

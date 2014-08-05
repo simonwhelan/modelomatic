@@ -18,8 +18,8 @@
 #include <set>
 
 #define CHECK_LNL_OUT 1
-#define VERSION_NUMBER "1.0beta"
-#define DEVELOPER_VERSION_MAIN 1
+#define VERSION_NUMBER "1.0 (release)"
+#define DEVELOPER_VERSION_MAIN 0
 
 
 #if FUNC_COUNTERS == 1

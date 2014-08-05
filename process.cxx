@@ -1047,6 +1047,7 @@ void CBaseProcess::CleanScale(int NodeNum, bool ForceAll)	{
 		if(ForceAll == false)	{ FOR(i,m_iSize)	{ *QkFdSc(NodePos) = 0; *QkBkSc(NodePos++) = 0; } }
 		else					{ FOR(i,m_iSize)	{ *QkForceRealFdSc(NodePos) = 0; *QkForceRealBkSc(NodePos++) = 0; } }
 }	}
+
 void CBaseProcess::TransScale(int NT, int NF,bool First, bool Partial,bool ForceReal)	{
 #if ALLOW_SCALE == 1
 	int i, NPosT, NPosF;
@@ -1098,6 +1099,8 @@ void CBaseProcess::TransScale(int NT, int NF,bool First, bool Partial,bool Force
 	}	}	}	}
 #endif
 }
+
+//#define ALLOW_SCALE 0
 void CBaseProcess::DoScale(int Node, bool ForceRealScale)	{
 #if ALLOW_SCALE == 1
 	int i,j, NodePos = InitNodePos(Node);
@@ -1116,7 +1119,7 @@ void CBaseProcess::DoScale(int Node, bool ForceRealScale)	{
 		// If max are small enough then scale
 		if(BkMax < P_SCALE_VAL)	{
 			// Allow true zero
-			if(BkMax < DBL_EPSILON || *QkForceRealBkSc(NodePos) > 1000000000) { p_b = QkForceRealBk(NodePos); FOR(j,m_iChar) { *(p_b++) = 0.0; *QkForceRealBkSc(NodePos) = 0; } }
+			if(Double_Zero(BkMax) || *QkForceRealBkSc(NodePos) > 1000000000) { p_b = QkForceRealBk(NodePos); FOR(j,m_iChar) { *(p_b++) = 0.0; *QkForceRealBkSc(NodePos) = 0; } }
 			else {
 				// Do normal scale
 				while(BkMax < 1.0)	{ BkMax *= 10; p_b = QkForceRealBk(NodePos); FOR(j,m_iChar)	{ *(p_b++) *= 10; } QkForceRealBkSc(NodePos)[0]++; }
@@ -1124,7 +1127,7 @@ void CBaseProcess::DoScale(int Node, bool ForceRealScale)	{
 		}	}
 		if(FdMax < P_SCALE_VAL)	{
 			// Allow true zero
-			if(FdMax < DBL_EPSILON || *QkForceRealFdSc(NodePos) > 1000000000) { FOR(j,m_iChar) { QkForceRealFd(NodePos)[j] = 0.0; } *QkForceRealFdSc(NodePos) = 0;  }
+			if(Double_Zero(FdMax)  || *QkForceRealFdSc(NodePos) > 1000000000) { FOR(j,m_iChar) { QkForceRealFd(NodePos)[j] = 0.0; } *QkForceRealFdSc(NodePos) = 0;  }
 			else {
 				// Do normal scale
 				while(FdMax < 1.0)	{ FdMax *= 10; p_f = QkForceRealFd(NodePos); FOR(j,m_iChar)	{ *(p_f++) *= 10; } QkForceRealFdSc(NodePos)[0]++; }
@@ -1393,6 +1396,7 @@ CProb &CBaseProcess::Lsum(int site)	{
 	CProb temp;
 	dVal.Assign(0.0);
 	m_vdEqm = RootEqm();
+
 #if DEVELOPER_BUILD == 1
 	if(site == 0) {
 		cout << "\n---------------- Site["<<site<<"] --------------------\nVec: ";
@@ -1400,7 +1404,9 @@ CProb &CBaseProcess::Lsum(int site)	{
 		cout << "\nEqm: " << m_vdEqm << endl;
 	}
 #endif
+//	double QUACK = 0.0;
 	FOR(i,m_iChar)	{
+
 		if(my_isnan(*(p_a))) {
 			int j;
 			cout << "\nIn LSum(site=" << site<< "): ";
@@ -1410,8 +1416,22 @@ CProb &CBaseProcess::Lsum(int site)	{
 			cout << "\n<PartL(site=" << site << "): "; FOR(j,m_iChar) { cout << PartL(site)[j] << ":"; }   cout << ">"; }
 		if(my_isnan(m_vdEqm[i])) { cout << " <eqm>"; }
 
+		/*
+		if(site == 215) {
+			cout .precision(12);
+			cout << "\nChar[" << i << "] In FulllnL::LSum: assigning: " << *p_a * m_vdEqm[i] << " with scale " << *LScale(site);
+			QUACK += *p_a * m_vdEqm[i];
+			cout << " MOO: " << QUACK;
+		}*/
+
+
 		temp.Assign(*(p_a++) * m_vdEqm[i],*LScale(site));
+
+//		if(site == 215) { cout << " \n\tGives CProb: " << temp << " = " << temp.LogP(); }
+
 		dVal.Add(temp,true);
+
+//		if(site == 215) { cout << "\n\t-> running total: " << dVal << " = " << dVal.LogP() << " cf. QUACK: " << QUACK << " = " << log(QUACK); cout << "\n\t\tdiff: " << log(QUACK) - dVal.LogP();  }
 	}
 #if DEVELOPER_BUILD == 1
 	if(site == 0) {
@@ -1419,7 +1439,6 @@ CProb &CBaseProcess::Lsum(int site)	{
 	}
 #endif
 	p_a = NULL;
-
 	return dVal;
 }
 
@@ -1890,6 +1909,8 @@ void CBaseProcess::LeafNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 	int i,site,Seq, SiteScale = 0;	// Counters
 	double Vec[MAX_CHAR], Value, *p_a = NULL, *p_b = NULL;
 	CProb NewL;
+//	cout << "\nLeafNode_Update: Branch = " << Br << " (" <<NTo <<"," << NFr << "): " << Tree()->B(Br); Make_PT(Br, true);
+//	cout << "\nP(T=" << Tree()->B(Br) << ")\n"; OutPT(cout,Br);
 	vector <double> eqm = m_vpQMat[QMat4Bra(Br)]->Eqm();
 	// Make sure leaf node is in NTo
 	if(NTo > NFr) { i = NFr; NFr = NTo; NTo = i; }
@@ -2003,7 +2024,7 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 	double Vec[MAX_CHAR], Vec2[MAX_CHAR];
 	assert(InRange(NFr,pTree->NoSeq(),pTree->NoNode()) || First == -1);
 	assert(pTree->NodeType(NTo) == branch);
-//	cout << "\nDoing BranNode_Update...";
+//	cout << "\nDoing BranNode_Update... Branch " << Br << " (" <<NTo <<"," << NFr << "): " << Tree()->B(Br);
 	// Direction makes no difference to calculation so whether first or later nodes doesn't matter
 	// Do derivative calculation and updating procedure
 	// For Update: if(first == true) {		then Fd(NFr) = vP(t) & Bk(NFr) *= vP(t)
@@ -2191,10 +2212,10 @@ double CBaseProcess::PartialGrad(int site,double Total,int SiteScale)	{
 	if(fabs(Total) < FLT_EPSILON) { return 0; }
 	if(abs(SiteScale) < 15)	{	// If scaling okay, then do normal calculations
 		if(SiteScale == 0)	{
-			if(fabs(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]) < DBL_EPSILON) { m_bFailedL = true; return -BIG_NUMBER; }
+			if(Double_Zero(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site])) { m_bFailedL = true; return -BIG_NUMBER; }
 			return (Total / ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]);
 		} else {
-			if(fabs(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]) < DBL_EPSILON) {
+			if(Double_Zero(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site])) {
 //				cout.precision(16);	cout << "\nFailed site["<<site<<"]: numerator: " << Total << ", denominator: " << ModelL(site).ScalVal() << " * " << m_pData->m_ariPatOcc[site];
 				m_bFailedL = true; return -BIG_NUMBER; }
 			return (Total / ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site] * pow((double)10,-SiteScale) );
@@ -2256,8 +2277,6 @@ void CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)	{
 //				FOR(i,m_iChar)	{ cout << "\t" << ForceRealFd(NT,site)[i]; }
 				VMat(ForceRealFd(NT,site),PT(B),V,m_iChar); SiteScale += *ForceRealFdSc(NT,site);
 			}
-//			int j; 	cout << "\n\tRight:\t"; if(NFreal) { FOR(i,m_iChar) { if(i == m_pData->m_ariSeq[NF][site] || m_pData->m_ariSeq[NF][site] == m_iChar) { cout << "\t1"; } else { cout << "\t0"; } } } else { FOR(i,m_iChar)	{ cout << "\t" << ForceRealFd(NF,site)[i]; } } cout << "\n\tLeft * P(t):"; FOR(j,m_iChar) { cout << "\t" << V[j]; }
-
 			// Get calculation of total = sum(Vec[i] = Vec[i] * BranchNode[i] * Eqm[i]);
 			if(NFreal)	{
 				Total = Sum_Vec(m_pData->m_ariSeq[NF][site],V,eqm);
@@ -2803,8 +2822,6 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 	// Do the model equilibrium distribution
 	AddCodonEqm(GenCode,m_pData->m_iChar,CE,false);
 	// Define the model parameters
-	cout << "\nAdding codon process" << flush;
-
 	if(Model == pM0DrDc) {
 		cout << "\nMaking random Radical matrix -> <Random.mat>";
 		ofstream outrand("Random.mat");

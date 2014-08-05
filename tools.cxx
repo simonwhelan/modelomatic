@@ -689,7 +689,7 @@ void ProbabilityScale(vector <CPar*> *P, bool Value2Scale,bool first, bool Reord
 		FOR(i,(int)PVal.size()) {
 			if(i==non_opt)	{ PVal[i] = 1/total; }
 			else			{ PVal[i] = PVal[i]/total; }
-			if(PVal[i] < MIN_PROB) { PVal[i] = MIN_PROB + FLT_EPSILON; ResetScales = true; }
+//			if(PVal[i] < MIN_PROB) { PVal[i] = MIN_PROB + FLT_EPSILON; ResetScales = true; }		// This is commented out because resetting probabilities during optimisation is really bad
 		}
 		PVal = NormaliseVector(PVal);
 		Sum = 0;
