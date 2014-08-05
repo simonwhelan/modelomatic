@@ -57,6 +57,35 @@ template <class IsNanType> int my_isnan(IsNanType X) {
 
 using namespace std;
 
+#define DO_MEMORY_CHECK 0
+#if DO_MEMORY_CHECK
+class CMemChecker {
+public:
+	CMemChecker() {
+		CountCBaseModel = 0;
+		CountCBaseProcess = 0;
+		CountCProb = 0;
+		CountCPar = 0;
+		CountCBaseEqm = 0;
+		CountCQMat = 0;
+		CountCSite = 0;
+		CountCTree = 0;
+		CountCNode = 0;
+		CountCData = 0;
+	}
+	int CountCBaseModel;
+	int CountCBaseProcess;
+	int CountCProb;
+	int CountCPar;
+	int CountCBaseEqm;
+	int CountCQMat;
+	int CountCSite;
+	int CountCTree;
+	int CountCNode;
+	int CountCData;
+};
+#endif
+
 // Define which models exist
 #define NoDNAModels 11
 #define NoAAModels 8
@@ -364,7 +393,7 @@ public:
 	CProb(double InitVal = 0.0);						// Constructor from double
 	CProb(CProb &Prob);									// Constructor from CProb object
 	CProb(double Val, int Scal);						// Constructor from Value and Scaling factor
-	~CProb() {};										// Explicit blank constructor
+	~CProb();											// Explicit blank constructor
 	// Basic operators
 	friend ostream &operator<<(ostream &os,CProb &Prob);// Output operator
 	CProb &operator=(CProb &Prob);						// Copy operator

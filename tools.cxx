@@ -1,6 +1,10 @@
 //////////////// Implementation of some useful tools //////////////////
 #include "tools.h"
 
+#if DO_MEMORY_CHECK
+CMemChecker memory_check;
+#endif
+
 ///////////////////////////////////////////////////////////////////////
 // Some tools
 bool ALLOW_PREDICTLNL = true;	// Whether to allow predicted lnLs in optimisation
@@ -323,6 +327,9 @@ ostream & operator<<(ostream &os, ParOp Par) {
 
 // Constructor
 CPar::CPar(string Name,double Value, bool Optimise, double LowBound, double UpBound,ParOp Type) {
+#if DO_MEMORY_CHECK
+	memory_check.CountCPar++;
+#endif
 #if PAR_DEBUG == 1
 	if(my_isnan(Value)) { Error("\nTrying to assign parameter " + Name + " with nan...\n\n"); }
 #endif
@@ -343,6 +350,10 @@ CPar::CPar(string Name,double Value, bool Optimise, double LowBound, double UpBo
 
 // Destructor
 CPar::~CPar() {
+#if DO_MEMORY_CHECK
+	memory_check.CountCPar--;
+#endif
+
 	int i;
 	FOR(i,(int)m_arpPar.size()) { m_arpPar[i] = NULL; }
 }
@@ -689,7 +700,7 @@ void ProbabilityScale(vector <CPar*> *P, bool Value2Scale,bool first, bool Reord
 		FOR(i,(int)PVal.size()) {
 			if(i==non_opt)	{ PVal[i] = 1/total; }
 			else			{ PVal[i] = PVal[i]/total; }
-			if(PVal[i] < MIN_PROB) { PVal[i] = MIN_PROB + FLT_EPSILON; ResetScales = true; }
+//			if(PVal[i] < MIN_PROB) { PVal[i] = MIN_PROB + FLT_EPSILON; ResetScales = true; }		// This is commented out because resetting probabilities during optimisation is really bad
 		}
 		PVal = NormaliseVector(PVal);
 		Sum = 0;
@@ -913,9 +924,28 @@ cout.precision(12);
 bool FlipBool(bool V)	{ if(V == true) { return false; } return true; }
 bool FlipBin(int i)		{ assert(i==0||i==1); if(i==0) { return 1; } return 0; }
 // Constructor
-CProb::CProb(double InitVal)	{ m_dValue = 0.0; assert(IsProb(InitVal)); Assign(InitVal); }
-CProb::CProb(CProb &Prob)		{ m_dValue = 0.0; Assign(Prob); }
-CProb::CProb(double Val, int Sc){ m_dValue = 0.0; Assign(Val,Sc); }
+CProb::CProb(double InitVal)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCProb++;
+#endif
+	m_dValue = 0.0; assert(IsProb(InitVal)); Assign(InitVal); }
+CProb::CProb(CProb &Prob)		{
+#if DO_MEMORY_CHECK
+	memory_check.CountCProb++;
+#endif
+	m_dValue = 0.0; Assign(Prob); }
+CProb::CProb(double Val, int Sc){
+#if DO_MEMORY_CHECK
+	memory_check.CountCProb++;
+#endif
+	m_dValue = 0.0; Assign(Val,Sc); }
+
+CProb::~CProb()	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCProb--;
+#endif
+
+}
 
 ///////////////////// Private functions //////////////////////////////////////////////////////
 

@@ -8,15 +8,35 @@
 #include "TreeList.h"
 #define TREE_DEBUG 0
 
+
+#if DO_MEMORY_CHECK
+extern CMemChecker memory_check;
+#endif
+
 // Firstly describe CNode
 /////////////////////////////////////////////////
 
 // General constructor
 ////////////////////////////////////////////
-CNode::CNode(int NoLinks,int *LinkList)	{ SetNode(NoLinks,LinkList); }
-CNode::CNode(int la, int lb, int lc, int ba, int bb, int bc,int IntVal) { SetNode(la,lb,lc,ba,bb,bc,IntVal); }
-CNode::CNode(int la, int lb, int IntVal) { SetNode(la,lb,IntVal); }
+CNode::CNode(int NoLinks,int *LinkList)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCNode++;
+#endif
+	SetNode(NoLinks,LinkList); }
+CNode::CNode(int la, int lb, int lc, int ba, int bb, int bc,int IntVal) {
+#if DO_MEMORY_CHECK
+	memory_check.CountCNode++;
+#endif
+SetNode(la,lb,lc,ba,bb,bc,IntVal); }
+CNode::CNode(int la, int lb, int IntVal) {
+#if DO_MEMORY_CHECK
+	memory_check.CountCNode++;
+#endif
+SetNode(la,lb,IntVal); }
 CNode::CNode(vector <int> L, vector <int>B, int IntVal)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCNode++;
+#endif
 	assert(L.size() == B.size());
 	switch(L.size())	{
 	case 1: SetNode(L[0],B[0],IntVal); break;
@@ -25,6 +45,9 @@ CNode::CNode(vector <int> L, vector <int>B, int IntVal)	{
 	}
 }
 CNode::CNode(const CNode &Node)	{int i;
+#if DO_MEMORY_CHECK
+	memory_check.CountCNode++;
+#endif
 	CleanNode();
     m_NodeType = Node.m_NodeType;
 	FOR(i,(int)Node.m_viBranch.size())	{ m_viBranch.push_back(Node.m_viBranch[i]); }
@@ -32,7 +55,11 @@ CNode::CNode(const CNode &Node)	{int i;
 }
 // Destructor function
 ///////////////////////////////////////////
-CNode::~CNode() { CleanNode(); }
+CNode::~CNode() {
+#if DO_MEMORY_CHECK
+	memory_check.CountCNode--;
+#endif
+	CleanNode(); }
 
 // SetNode functions for bifurcating trees
 // These are appallingly verbose, but work...
@@ -123,9 +150,16 @@ CNode &CNode::operator=(const CNode & Node) {
 // **********************************************************
 
 // Top level constructors
-CTree::CTree(string TREE, int NoSeq, bool AllowFail, CData *Data, bool AllowSubTree)	{ m_iRootNode = -1; m_bRooted = false; m_bValid = false; m_ariBraLinks = NULL; CreateTree(TREE,NoSeq,true,AllowFail,AllowSubTree, Data); }		// Basic constructor
+CTree::CTree(string TREE, int NoSeq, bool AllowFail, CData *Data, bool AllowSubTree)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCTree++;
+#endif
+	m_iRootNode = -1; m_bRooted = false; m_bValid = false; m_ariBraLinks = NULL; CreateTree(TREE,NoSeq,true,AllowFail,AllowSubTree, Data); }		// Basic constructor
 
 CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail, bool AllowSubTree)	{		// Risky constructor (may be wrong tree for data)
+#if DO_MEMORY_CHECK
+	memory_check.CountCTree++;
+#endif
 	/* If tree from file then TREE[] == filename, else TREE[] == the tree */
 	int FileNoSeq = -1;
 	string store;
@@ -154,6 +188,9 @@ int IsTreeGap(char Check)	{
 // CTree copy constructor
 /////////////////////////////////////////////////////
 CTree::CTree(const CTree &Tree)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCTree++;
+#endif
     int i;
 	m_bValid = false;
     m_Node = NULL; m_bReady = false ;m_iOutBra=false; m_ariBraLinks = NULL; m_bOldTree = Tree.m_bOldTree;
@@ -447,6 +484,9 @@ void CTree::CreateBranchLabels(bool Force) {
 // Blank constructor
 ///////////////////////////////////////////////////
 CTree::CTree(CData *D) {
+#if DO_MEMORY_CHECK
+	memory_check.CountCTree++;
+#endif
 	int i;
     m_Node = NULL; m_bReady = false ;m_iOutBra=0; m_ariBraLinks = NULL;
 	m_iNoNode = m_iNoBra = m_iNoOptBra = m_iNoSeq = m_iStartCalc = 0;
@@ -460,6 +500,9 @@ CTree::CTree(CData *D) {
 // Destructor function
 ///////////////////////////////////////////////////
 CTree::~CTree() {
+#if DO_MEMORY_CHECK
+	memory_check.CountCTree--;
+#endif
 	if(m_bReady == true) { CleanTree(); }
 }
 

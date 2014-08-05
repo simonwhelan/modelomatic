@@ -22,6 +22,8 @@ public:
 	CData(int NoSeq,int Size, vector <string> InSeq, vector <string> InName,EDataType Type = NONE);
 	// Blank data array
 	CData(int NoSeq, int Size, EDataType Type, vector <string> *Names = NULL);
+	// Copy constructor
+	CData(const CData &CopD);
 	// Takes strings into object
     void InputData(EDataType Type, vector <string> cInputSeq, vector <string> cInputName, vector <int> SiteLabels, bool AllowFail = false);
     // Takes a NEXUS file and it's tags into the object (Work Still in Progress...)

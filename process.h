@@ -99,7 +99,7 @@ public:
 #define INITIAL_GAMMA MODEL_INITIAL_GAMMA
 #define MIN_ALFA 0.05
 #define MAX_ALFA 100
-class CGammaPar : public CPar	{
+class CGammaPar : public CQPar	{
 public:
 	CGammaPar(string Name, int Char, CPar* Rate,double Value = INITIAL_GAMMA, bool Optimise=true, double Lowbound = MIN_ALFA, double Upbound=MAX_ALFA,ParOp Oper=REPLACE);	// Constructor
 	~CGammaPar();							// Destructor
@@ -124,6 +124,7 @@ class CQMat {
 public:
 	CQMat(EDataType Type,string Name = "Unnamed Q");
 	CQMat(int Char, EDataType Type = OTHER,string Name = "Unnamed Q");
+	~CQMat();
 	// Access functions
 	double *Q(int i=0,int j=0)	{ return &m_ardQMat[(i*m_iChar)+j]; };		// Access to the Q matrix
 	int Char()					{ return m_iChar; };						// Access to the number of characters
@@ -360,7 +361,7 @@ private:
 class CBaseProcess {
 public:
 	// Constructor
-	CBaseProcess(CData *Data, CTree *Tree,string Name = "Unnamed process");
+	CBaseProcess(CData *Data, CTree *Tree,string Name = "Unnamed process", bool DoTreeSearch = true);
 	// Destructor
 	~CBaseProcess();
 
@@ -420,6 +421,9 @@ public:
 	CData *MainData() { return m_pData; }						// Pointer to underlying data
 	inline bool IsSubTree() { if(m_pSubTree == NULL) { return false; } return true; }
 	inline bool IsCompressed() { return m_bCompressedSpace; }
+	bool CheckAllowTreeSearch();										// Check if memory set up to allow tree search
+	bool AllowTreeSearch() { if(!m_vSpace.empty()) { cout << "\nCannot change CBaseModel::AllowTreeSearch() while memory is allocated...\n"; exit(-1); } m_bAllowTreeSearch = true; }
+	bool DisallowTreeSearch() {  if(!m_vSpace.empty()) { cout << "\nCannot change CBaseModel::AllowTreeSearch() while memory is allocated...\n"; exit(-1); } m_bAllowTreeSearch = false; }
 
 	// Functions dealing with the processes probability
 	double Prob() { return m_pProcProb->Val() / *m_piProbFactor; }					// Returns the probability of the process
@@ -484,6 +488,7 @@ protected:
 	int m_iSize;						// Length of the sequences
 	int m_iSiCh;						// Is m_iChar * m_iLength
 	int m_iChar2;						// Is m_iChar * m_iChar
+	bool m_bAllowTreeSearch;			// Whether or not the model allows tree search (TRUE = allow)
 	string m_sName;						// Name of process
 	vector <CPar *> m_vpCovProbs;				// The probability parameters of each hidden state (size == m)
 	EDataType m_DataType;				// The type of data the process is meant to apply to
@@ -497,6 +502,7 @@ protected:
 	bool m_bDetailedOutput;				// Flag as to whether to do detailed output
 	bool m_bModelPerBranch;				// Flag highlighting whether parameters need estimating per branch
 	bool m_bDoStandardDecompose;		// Whether eigen vectors/values for the model are produced in the usual manner
+	bool m_bIsProcessCopy;				// Whether the current process is just a copy of the original process
 
 	////////////////////////////////////////////////////////////////////////////////////////
 	//			Parameter related definitions - Including some standard model stuff
@@ -558,7 +564,7 @@ protected:
 	CProb *m_ardL;						// The final likelihoods
 	CProb *m_arModelL;					// Pointer to the final model likelihoods (set in PrepareBraDer and calculated in CBaseModel::Sitewise
 	// Space access helpers
-	inline int InitNodePos(int Node)	{ return (Node * m_iSize); }
+	inline int InitNodePos(int Node)	{ if(!m_bAllowTreeSearch) { assert(Tree()->NoSeq() == m_pData->m_iNoSeq); Node -= m_pData->m_iNoSeq; assert(Node >= 0); } return (Node * m_iSize); }
 	inline int PartLNode()				{ return m_pTree->NoNode(); }
 
 	// Functions that define access to calculation space

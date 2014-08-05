@@ -8,6 +8,10 @@
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter;
 #endif
 
+#if DO_MEMORY_CHECK
+extern CMemChecker memory_check;
+#endif
+
 #define ANALYTIC_DERIVATIVE_DEBUG 0	// Checker for the analytical derivative functions
 #define ADD_SITE_MAX 3			// Maximum site for doing analytic derivative debug
 #define HARDCHECK_CALCS 0			// Hard check calculations for errors (not complete)
@@ -112,7 +116,7 @@ ostream &CQPar::Output(ostream &os)	{
 // Alpha parameter of gamma distribution definition
 ///////////////////////////////////////////////////////////////////////////////
 
-CGammaPar::CGammaPar(string Name, int Char, CPar * Rate, double Value, bool Optimise, double Lowbound, double Upbound,ParOp Oper) : CPar(Name,Value,Optimise,Lowbound,Upbound,Oper)	{
+CGammaPar::CGammaPar(string Name, int Char, CPar * Rate, double Value, bool Optimise, double Lowbound, double Upbound,ParOp Oper) : CQPar(Name,Char,Value,Optimise,Lowbound,Upbound,Oper)	{
 	m_iNoCat = 0; m_pProb = NULL; m_pProcRate = Rate;
 }
 
@@ -167,8 +171,23 @@ void CGammaPar::GlobalApply()	{
 // for turning it into a P(t) matrix
 
 // Constructor functions
-CQMat::CQMat(EDataType Type,string Name)			{ MakeSpace(Type,Name); }
-CQMat::CQMat(int Char, EDataType Type,string Name)	{ MakeSpace(Char,Type,Name); }
+CQMat::CQMat(EDataType Type,string Name)			{
+#if DO_MEMORY_CHECK
+	memory_check.CountCQMat++;
+#endif
+	MakeSpace(Type,Name); }
+CQMat::CQMat(int Char, EDataType Type,string Name)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCQMat++;
+#endif
+	MakeSpace(Char,Type,Name); }
+
+CQMat::~CQMat()	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCQMat--;
+#endif
+	CleanSpace();
+}
 
 // Memory management
 void CQMat::MakeSpace(int Char,EDataType Type,string Name)	{
@@ -360,11 +379,17 @@ ostream &CQMat::Output(ostream &os)	{
 
 ///////////////////////////// CBaseEqm class //////////////////////////////////
 CBaseEqm::CBaseEqm(int Char, vector <CQPar *> *ProcPar)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCBaseEqm++;
+#endif
 	m_iChar = Char;
 	GET_MEM(m_ardQModifier,double, m_iChar*m_iChar);
 	m_pProcPar = ProcPar;
 }
 CBaseEqm::~CBaseEqm()			{
+#if DO_MEMORY_CHECK
+	memory_check.CountCBaseEqm--;
+#endif
 	int i;
 	DEL_MEM(m_ardQModifier);
 	FOR(i,(int)m_vpEqmPar.size()) { m_vpEqmPar[i] = NULL; } m_vpEqmPar.clear();
@@ -661,6 +686,9 @@ void CBaseProcess::AddCodonEqm(int GenCode,int Char, ECodonEqm CE, bool Opt)	{
 //////// ///////////////////////////////////////////////////////////////////////
 
 CSite::CSite(int *Char)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCSite++;
+#endif
 	m_Char = Char;
 	GET_MEM(m_ardSpace,double,*m_Char);
 	m_bReal = true; m_iOriSite = -1; m_iScale = 0;
@@ -669,6 +697,9 @@ CSite::CSite(int *Char)	{
 	m_pScalePointer = &m_iScale;
 }
 CSite::CSite(const CSite &Site)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCSite++;
+#endif
 	m_Char = Site.m_Char;
 	assert(Site.m_bReal == true && *m_Char != -1);
 	GET_MEM(m_ardSpace,double,*m_Char);
@@ -678,6 +709,10 @@ CSite::CSite(const CSite &Site)	{
 	m_pScalePointer = &m_iScale;
 }
 CSite::~CSite()			{
+#if DO_MEMORY_CHECK
+	memory_check.CountCSite--;
+#endif
+
 	if(m_bReal == true) { DEL_MEM(m_ardSpace);  }
 	else if(m_pOrSite != NULL) { m_pOrSite->m_iCopyNum--; }
 	m_ardSpace =  NULL; m_pOrSite = NULL; m_pSpacePointer = NULL; m_pScalePointer = NULL;
@@ -724,31 +759,44 @@ ostream &operator<<(ostream &os, const CSite &Site)	{
 // Tree = Phylogenetic tree
 // Name = Name of process (default = "Unknown process")
 
-CBaseProcess::CBaseProcess(CData *Data, CTree *Tree,string Name)	{
+CBaseProcess::CBaseProcess(CData *Data, CTree *Tree,string Name, bool DoTreeSearch)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCBaseProcess++;
+#endif
 	// Get process ID
 	m_iProcID = GetProcID();
 	// Declare space as empty
 	m_pSubTree = NULL; m_arModelL = NULL; m_pRate = NULL;
+	m_ardQP = NULL; m_ardL = NULL; m_pProcProb = NULL;
 	// Get data and tree pointers
 	m_pData = Data; m_pTree = Tree; m_sName = Name;
 	// Initialise variables
 	m_iChar = m_iChar2 = m_iDataChar = m_iSize = m_iSiCh = -1; m_iHiddenChar = 1;
 	m_iSpaceSize = m_iSpaceNoSeq = 0;
 	m_dBaseVal = 1.0;
-	GET_MEM(m_piProbFactor,int,1); *m_piProbFactor = 1;
+	m_piProbFactor = NULL; GET_MEM(m_piProbFactor,int,1); *m_piProbFactor = 1;
 	// Set flags
 	m_bPseudoProcess = false; m_bIsGamma = false; m_bBraDerReady = false; m_bDetailedOutput = false;
 	m_bCheckSpace = false; m_bSubTreeActive = false; m_bCompressedSpace = false; m_bMaxRate = false;
 	m_bFailedL = true; m_bDoingPartial = false; m_bModelPerBranch = false; m_bDoStandardDecompose = true;
+	m_bIsProcessCopy = false;
+	m_bAllowTreeSearch = true;
 	// Initialise data
 	if(Data != NULL) { m_DataType = Data->m_DataType; } else { m_DataType = NONE; }
 	m_iRootQ = -1;
 }
 
 CBaseProcess::~CBaseProcess()		{
+#if DO_MEMORY_CHECK
+	memory_check.CountCBaseProcess--;
+#endif
 	CleanPar();
 	CleanSpace();
-	delete m_pRate; delete m_pProcProb;
+	if(m_pRate != NULL) { delete m_pRate; }
+	if(!m_bIsProcessCopy) { // If a process copy then probfactor and procprob are defined elsewhere
+		if(m_piProbFactor != NULL) { delete m_piProbFactor; }
+		if(m_pProcProb != NULL) { delete m_pProcProb; }
+	}
 }
 
 void CBaseProcess::MakeABET(EDataType Type) {
@@ -775,7 +823,6 @@ void CBaseProcess::ApplyNewTree(CTree *T) {
 	m_pTree = T;
 	if(T->NoSeq() > m_iSpaceNoSeq) { Error("\nTrying to apply new tree with not enough space\n\n"); }
 }
-
 
 //////////////////////// Output functions /////////////////////////
 ostream &CBaseProcess::Output(ostream &os)	{
@@ -925,6 +972,7 @@ CBaseProcess * CBaseProcess::RateProcessCopy()	{
 	NewProc = new CBaseProcess(m_pData, m_pTree,Name);
 	NewProc->MakeBasicSpace(m_iChar);
 	NewProc->m_DataType = m_DataType;
+	NewProc->m_bAllowTreeSearch = m_bAllowTreeSearch;
 	// Do the copy
 	NewProc->CleanPar();
 	NewProc->CleanQ();
@@ -936,6 +984,7 @@ CBaseProcess * CBaseProcess::RateProcessCopy()	{
 	FOR(i,(int)m_vpCovProbs.size()) { NewProc->m_vpCovProbs.push_back(m_vpCovProbs[i]); }
 	FOR(i,(int)m_vpEqm.size()) { NewProc->m_vpEqm.push_back(m_vpEqm[i]); }
 	NewProc->m_bMaxRate = m_bMaxRate;
+	NewProc->m_bIsProcessCopy = true;
 	// Return it
 	return NewProc;
 }
@@ -946,14 +995,16 @@ CBaseProcess *CBaseProcess::GammaRateProcessCopy()	{
 	CBaseProcess *NewProc;
 	NewProc = RateProcessCopy();
 	// Replace the probability stuff
-	delete NewProc->m_pProcProb; delete NewProc->m_piProbFactor;
+	delete NewProc->m_pProcProb; NewProc->m_pProcProb = NULL;
+	delete NewProc->m_piProbFactor; NewProc->m_piProbFactor = NULL;
 	NewProc->m_pProcProb = m_pProcProb; NewProc->m_piProbFactor = m_piProbFactor;
 	return NewProc;
 }
-//////////////////////// Space functions //////////////////////////
-// Currently the space consists of
+//////////////////////// Space functions ///////////////////////////////////////////////////////////
+// The structure of this space depends on whether the model is intended for tree search or not
 void CBaseProcess::MakeCalcSpace(bool AllowRemake)	{
 	int i, NoBra = (2*m_pData->m_iNoSeq)-3, NoNode = (2*m_pData->m_iNoSeq)-2;
+	if(!m_bAllowTreeSearch) { NoNode -= m_pData->m_iNoSeq; }
 	if(!m_vSpace.empty() || !m_vBackSp.empty()) {
 		if(AllowRemake == true) { CleanCalcSpace(); } else { Error("Trying to remake space when not allowed\n\n"); }
 	}
@@ -961,7 +1012,8 @@ void CBaseProcess::MakeCalcSpace(bool AllowRemake)	{
 	m_iSpaceNoSeq = m_pData->m_iNoSeq;
 	m_iSiCh = m_iChar * m_iSize;
 	// Get space vectors (The last node is the final partial likelihood
-	FOR(i,m_iSize * (NoNode + 1))	{ m_vSpace.push_back(CSite(&m_iChar)); m_vBackSp.push_back(CSite(&m_iChar)); }
+	m_vSpace.assign(m_iSize * (NoNode + 1),CSite(&m_iChar));
+	m_vBackSp.assign(m_iSize * (NoNode + 1),CSite(&m_iChar));
 	GET_MEM(m_ardQP,double,NoBra * m_iChar2);
 	GET_MEM(m_ardL,CProb,m_iSize);
 	m_bCheckSpace = true; m_bCompressedSpace = false; m_bBraDerReady = false;
@@ -994,6 +1046,9 @@ void CBaseProcess::ResetCalcSpace()	{
 	MakeCalcSpace(true);
 }
 
+// Special memory check to see if tree search is allowed: -1 = Allow; -2 = NoAllow;
+bool CBaseProcess::CheckAllowTreeSearch() { return m_bAllowTreeSearch; }
+
 // Sets all values in space to zero. Useful for debugging
 void CBaseProcess::ZeroSpace()	{
 	vector <CSite>::iterator i_Sp;
@@ -1003,9 +1058,8 @@ void CBaseProcess::ZeroSpace()	{
 
 // Cleaning routines
 void CBaseProcess::CleanSpace()	{
-	DEL_MEM(m_ardPT);
+	DEL_MEM(m_ardPT);	// Checked
 	CleanCalcSpace();
-
 	// Clear important pointers
 	m_pTree = NULL; m_pData = NULL;
 	// Reset flags
@@ -1013,18 +1067,23 @@ void CBaseProcess::CleanSpace()	{
 	CleanCPMapping();
 }
 void CBaseProcess::CleanCalcSpace()	{
-	DEL_MEM(m_ardQP); DEL_MEM(m_ardL);
+	int i;
+	DEL_MEM(m_ardQP);
+	DEL_MEM(m_ardL);
+	if(!m_bIsProcessCopy) {
+		FOR(i,m_vpQMat.size()) { if(m_vpQMat[i] != NULL) { delete m_vpQMat[i]; m_vpQMat[i] = NULL; } }
+	} else { FOR(i,m_vpQMat.size()) { m_vpQMat[i] = NULL; } }
+	m_vpQMat.clear();
 	m_vSpace.clear(); m_vBackSp.clear();
 	m_bCompressedSpace = false;
-	MainTree()->SetFastCalcOK(false);
-	m_vSpace.~vector();
-	m_vBackSp.~vector();
+	if(MainTree() != NULL) { MainTree()->SetFastCalcOK(false); }
 }
 void CBaseProcess::CleanPar()	{
 	int i;
 	FOR(i,(int)m_vpPar.size()) { delete m_vpPar[i]; m_vpPar[i] = NULL; }
-	FOR(i,(int)m_vpEqm.size()) { delete m_vpEqm[i]; m_vpEqm[i] = NULL; }
-	m_vpPar.clear();
+	if(!m_bIsProcessCopy) { FOR(i,(int)m_vpEqm.size()) { if(m_vpEqm[i] != NULL) { delete m_vpEqm[i]; m_vpEqm[i] = NULL; } } }
+
+	m_vpPar.clear(); m_vpEqm.clear();
 	m_bBraDerReady = false;
 }
 void CBaseProcess::CleanQ()	{
@@ -1047,6 +1106,7 @@ void CBaseProcess::CleanScale(int NodeNum, bool ForceAll)	{
 		if(ForceAll == false)	{ FOR(i,m_iSize)	{ *QkFdSc(NodePos) = 0; *QkBkSc(NodePos++) = 0; } }
 		else					{ FOR(i,m_iSize)	{ *QkForceRealFdSc(NodePos) = 0; *QkForceRealBkSc(NodePos++) = 0; } }
 }	}
+
 void CBaseProcess::TransScale(int NT, int NF,bool First, bool Partial,bool ForceReal)	{
 #if ALLOW_SCALE == 1
 	int i, NPosT, NPosF;
@@ -1098,6 +1158,8 @@ void CBaseProcess::TransScale(int NT, int NF,bool First, bool Partial,bool Force
 	}	}	}	}
 #endif
 }
+
+//#define ALLOW_SCALE 0
 void CBaseProcess::DoScale(int Node, bool ForceRealScale)	{
 #if ALLOW_SCALE == 1
 	int i,j, NodePos = InitNodePos(Node);
@@ -1116,7 +1178,7 @@ void CBaseProcess::DoScale(int Node, bool ForceRealScale)	{
 		// If max are small enough then scale
 		if(BkMax < P_SCALE_VAL)	{
 			// Allow true zero
-			if(BkMax < DBL_EPSILON || *QkForceRealBkSc(NodePos) > 1000000000) { p_b = QkForceRealBk(NodePos); FOR(j,m_iChar) { *(p_b++) = 0.0; *QkForceRealBkSc(NodePos) = 0; } }
+			if(Double_Zero(BkMax) || *QkForceRealBkSc(NodePos) > 1000000000) { p_b = QkForceRealBk(NodePos); FOR(j,m_iChar) { *(p_b++) = 0.0; *QkForceRealBkSc(NodePos) = 0; } }
 			else {
 				// Do normal scale
 				while(BkMax < 1.0)	{ BkMax *= 10; p_b = QkForceRealBk(NodePos); FOR(j,m_iChar)	{ *(p_b++) *= 10; } QkForceRealBkSc(NodePos)[0]++; }
@@ -1124,7 +1186,7 @@ void CBaseProcess::DoScale(int Node, bool ForceRealScale)	{
 		}	}
 		if(FdMax < P_SCALE_VAL)	{
 			// Allow true zero
-			if(FdMax < DBL_EPSILON || *QkForceRealFdSc(NodePos) > 1000000000) { FOR(j,m_iChar) { QkForceRealFd(NodePos)[j] = 0.0; } *QkForceRealFdSc(NodePos) = 0;  }
+			if(Double_Zero(FdMax)  || *QkForceRealFdSc(NodePos) > 1000000000) { FOR(j,m_iChar) { QkForceRealFd(NodePos)[j] = 0.0; } *QkForceRealFdSc(NodePos) = 0;  }
 			else {
 				// Do normal scale
 				while(FdMax < 1.0)	{ FdMax *= 10; p_f = QkForceRealFd(NodePos); FOR(j,m_iChar)	{ *(p_f++) *= 10; } QkForceRealFdSc(NodePos)[0]++; }
@@ -1178,7 +1240,8 @@ void CBaseProcess::PrepareFastCalc(vector <int> *C)	{
 	// If required get the compressed data (shouldn't be required because its passed by model)
 	if(C == NULL) { *C = GetCompressedData(m_pTree,m_pData); }
 	assert(C->size() == (m_pData->m_iSize * (m_pTree->NoNode() - m_pTree->NoSeq())));
-	NodeBase = m_pTree->NoSeq() * m_pData->m_iSize;
+	if(!m_bAllowTreeSearch) { NodeBase = 0; }
+	else { NodeBase = m_pTree->NoSeq() * m_pData->m_iSize; }
 	FOR(i,(int)C->size())	{
 		if(C->at(i) == -1) { continue; }
 		m_vSpace[NodeBase + i].Overwrite(m_vSpace[NodeBase + C->at(i)],NodeBase + C->at(i));
@@ -1393,6 +1456,7 @@ CProb &CBaseProcess::Lsum(int site)	{
 	CProb temp;
 	dVal.Assign(0.0);
 	m_vdEqm = RootEqm();
+
 #if DEVELOPER_BUILD == 1
 	if(site == 0) {
 		cout << "\n---------------- Site["<<site<<"] --------------------\nVec: ";
@@ -1400,7 +1464,9 @@ CProb &CBaseProcess::Lsum(int site)	{
 		cout << "\nEqm: " << m_vdEqm << endl;
 	}
 #endif
+//	double QUACK = 0.0;
 	FOR(i,m_iChar)	{
+
 		if(my_isnan(*(p_a))) {
 			int j;
 			cout << "\nIn LSum(site=" << site<< "): ";
@@ -1410,8 +1476,22 @@ CProb &CBaseProcess::Lsum(int site)	{
 			cout << "\n<PartL(site=" << site << "): "; FOR(j,m_iChar) { cout << PartL(site)[j] << ":"; }   cout << ">"; }
 		if(my_isnan(m_vdEqm[i])) { cout << " <eqm>"; }
 
+		/*
+		if(site == 215) {
+			cout .precision(12);
+			cout << "\nChar[" << i << "] In FulllnL::LSum: assigning: " << *p_a * m_vdEqm[i] << " with scale " << *LScale(site);
+			QUACK += *p_a * m_vdEqm[i];
+			cout << " MOO: " << QUACK;
+		}*/
+
+
 		temp.Assign(*(p_a++) * m_vdEqm[i],*LScale(site));
+
+//		if(site == 215) { cout << " \n\tGives CProb: " << temp << " = " << temp.LogP(); }
+
 		dVal.Add(temp,true);
+
+//		if(site == 215) { cout << "\n\t-> running total: " << dVal << " = " << dVal.LogP() << " cf. QUACK: " << QUACK << " = " << log(QUACK); cout << "\n\t\tdiff: " << log(QUACK) - dVal.LogP();  }
 	}
 #if DEVELOPER_BUILD == 1
 	if(site == 0) {
@@ -1419,7 +1499,6 @@ CProb &CBaseProcess::Lsum(int site)	{
 	}
 #endif
 	p_a = NULL;
-
 	return dVal;
 }
 
@@ -1890,6 +1969,8 @@ void CBaseProcess::LeafNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 	int i,site,Seq, SiteScale = 0;	// Counters
 	double Vec[MAX_CHAR], Value, *p_a = NULL, *p_b = NULL;
 	CProb NewL;
+//	cout << "\nLeafNode_Update: Branch = " << Br << " (" <<NTo <<"," << NFr << "): " << Tree()->B(Br); Make_PT(Br, true);
+//	cout << "\nP(T=" << Tree()->B(Br) << ")\n"; OutPT(cout,Br);
 	vector <double> eqm = m_vpQMat[QMat4Bra(Br)]->Eqm();
 	// Make sure leaf node is in NTo
 	if(NTo > NFr) { i = NFr; NFr = NTo; NTo = i; }
@@ -2003,7 +2084,7 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 	double Vec[MAX_CHAR], Vec2[MAX_CHAR];
 	assert(InRange(NFr,pTree->NoSeq(),pTree->NoNode()) || First == -1);
 	assert(pTree->NodeType(NTo) == branch);
-//	cout << "\nDoing BranNode_Update...";
+//	cout << "\nDoing BranNode_Update... Branch " << Br << " (" <<NTo <<"," << NFr << "): " << Tree()->B(Br);
 	// Direction makes no difference to calculation so whether first or later nodes doesn't matter
 	// Do derivative calculation and updating procedure
 	// For Update: if(first == true) {		then Fd(NFr) = vP(t) & Bk(NFr) *= vP(t)
@@ -2191,10 +2272,10 @@ double CBaseProcess::PartialGrad(int site,double Total,int SiteScale)	{
 	if(fabs(Total) < FLT_EPSILON) { return 0; }
 	if(abs(SiteScale) < 15)	{	// If scaling okay, then do normal calculations
 		if(SiteScale == 0)	{
-			if(fabs(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]) < DBL_EPSILON) { m_bFailedL = true; return -BIG_NUMBER; }
+			if(Double_Zero(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site])) { m_bFailedL = true; return -BIG_NUMBER; }
 			return (Total / ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]);
 		} else {
-			if(fabs(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]) < DBL_EPSILON) {
+			if(Double_Zero(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site])) {
 //				cout.precision(16);	cout << "\nFailed site["<<site<<"]: numerator: " << Total << ", denominator: " << ModelL(site).ScalVal() << " * " << m_pData->m_ariPatOcc[site];
 				m_bFailedL = true; return -BIG_NUMBER; }
 			return (Total / ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site] * pow((double)10,-SiteScale) );
@@ -2256,8 +2337,6 @@ void CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)	{
 //				FOR(i,m_iChar)	{ cout << "\t" << ForceRealFd(NT,site)[i]; }
 				VMat(ForceRealFd(NT,site),PT(B),V,m_iChar); SiteScale += *ForceRealFdSc(NT,site);
 			}
-//			int j; 	cout << "\n\tRight:\t"; if(NFreal) { FOR(i,m_iChar) { if(i == m_pData->m_ariSeq[NF][site] || m_pData->m_ariSeq[NF][site] == m_iChar) { cout << "\t1"; } else { cout << "\t0"; } } } else { FOR(i,m_iChar)	{ cout << "\t" << ForceRealFd(NF,site)[i]; } } cout << "\n\tLeft * P(t):"; FOR(j,m_iChar) { cout << "\t" << V[j]; }
-
 			// Get calculation of total = sum(Vec[i] = Vec[i] * BranchNode[i] * Eqm[i]);
 			if(NFreal)	{
 				Total = Sum_Vec(m_pData->m_ariSeq[NF][site],V,eqm);
@@ -2803,8 +2882,6 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 	// Do the model equilibrium distribution
 	AddCodonEqm(GenCode,m_pData->m_iChar,CE,false);
 	// Define the model parameters
-	cout << "\nAdding codon process" << flush;
-
 	if(Model == pM0DrDc) {
 		cout << "\nMaking random Radical matrix -> <Random.mat>";
 		ofstream outrand("Random.mat");

@@ -172,7 +172,7 @@ enum LazyType { fullopt, lazy, randomtree };		// The type of optimisation done w
 #define MULOPT_FACTOR 0.05		// Defines the number that the score is *= when multiple optima occur.
 // Definitions specifying how much optimimsation goes on between adding sequences
 #define NUM_OPT_SEQ_ADD 1		// Number of rounds of MulD optimisation that occur after adding a sequence
-#define DEFAULT_OPTNUM 50
+#define DEFAULT_OPTNUM 20 
 	// Number of values < DBL_EPSILON in loglikelihood function bails and returns -BIG_NUMBER
 
 // Definition of different THMM equilibrium classes

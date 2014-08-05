@@ -18,9 +18,12 @@
 #include <set>
 
 #define CHECK_LNL_OUT 1
-#define VERSION_NUMBER "1.0beta"
-#define DEVELOPER_VERSION_MAIN 1
+#define VERSION_NUMBER "1.0 (release)"
+#define DEVELOPER_VERSION_MAIN 0
 
+#if DO_MEMORY_CHECK == 1
+extern CMemChecker memory_check;
+#endif
 
 #if FUNC_COUNTERS == 1
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter, SPR_Log_Counter;
@@ -46,6 +49,16 @@ bool RunHadError = false;
 
 bool WarningMulD;
 
+
+int STRUCT_COUNTER = 0;
+class CMYTEST {
+public:
+	int number;
+	CMYTEST(int a) { cout << "+"; number = a; STRUCT_COUNTER++; }
+	CMYTEST(const CMYTEST &test) { cout << "="; number = test.number; STRUCT_COUNTER++; }
+	~CMYTEST() { cout << "-"; number = -1; STRUCT_COUNTER--; }
+};
+
 // File specific global variables
 int DebugOutput = 0;
 
@@ -58,6 +71,72 @@ std::map <string,double**> aa_model_map;
 std::set <string> codon_model_set;
 
 int main(int argc, char *argv[])	{
+/*
+	int o;
+
+	cout << "\nTesting memory allocations";
+	cout << "\nAllocation 1: ";
+	CMYTEST *p1 = new CMYTEST[5]::CMYTEST(3);
+	cout << "\nDeletion 1:   ";
+	delete [] p1;
+
+	cout << "\nAllocation 2: ";
+	vector <CMYTEST *> vp1;
+	cout << "\nBllocation 2: ";
+	FOR(o,5) {
+		CMYTEST *po = new CMYTEST;
+		vp1.push_back(po);
+		po = NULL;
+	}
+	cout << "\nDeletion 2  : ";
+	FOR(o,5) { delete vp1[o]; }
+	vp1.clear();
+
+
+	cout << "\nAllocation 3: ";
+	vector <CMYTEST> vp;
+	cout << "\nBllocation 3: ";
+	vp.assign(5,CMYTEST(25));
+	FOR(o,vp.size()) { vp[o].number = o *3; }
+	cout << "\nCHECK: "; FOR(o,vp.size()) { cout << vp[o].number << " "; }
+	cout << "\nDeletion 3:   ";
+	vp.clear();
+
+
+	cout << "\nAllocation 3: ";
+	vector <CMYTEST> sp(5,CMYTEST(15));
+	cout << "\nCHECK: "; FOR(o,sp.size()) { cout << sp[o].number << " "; }
+	cout << "\nDeletion 3:   ";
+	sp.clear();
+
+	cout << "\nTotal objects still instanced: " << STRUCT_COUNTER;
+
+//	exit(-1);
+	cout << "\n--- SPACE CHECK ---";
+	cout << "\nAssignment 1:  ";
+	vector <CSite> Space;
+	int Char = 4;
+	CSite HOLD(&Char);
+	cout << "\nBssignment 1:  ";
+	FOR(o,5) {
+		cout << "\n\t -> " << flush; Space.push_back(HOLD); }
+
+	cout << "\nDeletion 1:    " << flush;
+	Space.clear();
+
+
+	cout << "\nAssignment 2:  ";
+	vector <CSite> Space2;
+	cout << "\nBssignment 2:  ";
+	Space2.assign(5,CSite(&Char));
+	cout << "\nDeletion 1:    " << flush;
+	Space2.clear();
+
+
+	cout << "\n\nDONE";
+	exit(-1);
+*/
+
 		int GeneticCode = 0;
 		int count = 0;
 		int RY_count, DNA_count, AA_count, COD_count;
@@ -130,7 +209,7 @@ int main(int argc, char *argv[])	{
 		// Create a bionj starting tree
         CData tmp_AA_Data = *PhyDat.pData();
         tmp_AA_Data.Translate(GeneticCode);
-		CEQU EQU_PW(&tmp_AA_Data,NULL);
+		CEQU EQU_PW(&tmp_AA_Data,NULL); EQU_PW.DisallowTreeSearch();
 		PWDists = GetPW(&EQU_PW,NULL,true);  // Get pairwise distances
 		if(PhyDat.pData()->m_iNoSeq > 2) {
 			CTree T_bionj(DoBioNJ(PWDists,PhyDat.pData()->m_vsName,true),tmp_AA_Data.m_iNoSeq);
@@ -163,7 +242,7 @@ int main(int argc, char *argv[])	{
 		PhyDat.SetOut(argv[3]);
 	} else {
 		outfilestring = argv[1]; outfilestring += ".output";
-		cout << "\nTrying to work with: " << outfilestring;
+//		cout << "\nTrying to work with: " << outfilestring;
 		PhyDat.SetOut(outfilestring.c_str());
 	}
 	// 4. If needed do the DoItTrim option
@@ -265,18 +344,6 @@ int main(int argc, char *argv[])	{
 	cout << "\nScanning for modelomatic.ini file ...";
 	GetModels();
 	cout << " done";
-	// 9. Create the other data sets
-	CData NT_Data = *PhyDat.pData();
-	CData AA_Data = *PhyDat.pData();
-	CData AA_Temp = *PhyDat.pData();  AA_Temp.Translate(GeneticCode);	// Error check the translation for stop codons and so on
-	CData COD_Data = *PhyDat.pData(); //COD_Data.MakeCodonData();
-	CData RY_Data = *PhyDat.pData(); //RY_Data.DNA2RY();
-
-//	cout << "\nRY:  \t" << RY_Data.CountMSAChars();
-//	cout << "\nDNA: \t" << PhyDat.pData()->CountMSAChars();
-//	cout << "\nAA:  \t" << AA_Temp.CountMSAChars();
-//	cout << "\nCoD:  \t" << COD_Data.CountMSAChars();
-	// Set output
 	PhyDat.SetOut(outfilestring);
 
 	cout << "\nWorking with genetic code: " << GenCodeName[GeneticCode];
@@ -442,24 +509,24 @@ exit(-1);
 		out = new ofstream(TreeName.c_str());
 		//ofstream out(TreeName.c_str());
 	}
-	RY_count = GetRYModels(&RY_Data,&Tree,&Models,GeneticCode, *out);
+	RY_count = GetRYModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
         cout<<"\rRY Done ";
         end = clock();
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
-	DNA_count = GetNTModels(&NT_Data,&Tree,&Models,GeneticCode, *out);
+	DNA_count = GetNTModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
         cout<<"\rNT Done ";
         end = clock();
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
     if(RY_count != DNA_count) { Error("DNA[" + toString(DNA_count) + "] and RY[" + toString(RY_count) + "] character counts do not match... Fatal internal error\n"); }
-	AA_count = GetAAModels(&AA_Data,&Tree,&Models,GeneticCode, *out);
+	AA_count = GetAAModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
         cout<<"\rAA Done ";
         end = clock();
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
     if(AA_count * 3 != DNA_count) { Error("DNA[" + toString(DNA_count) + "] and AA[" + toString(AA_count) + "] character counts do not match... Fatal internal error\n"); }
-	COD_count = GetCODModels(&COD_Data,&Tree,&Models,GeneticCode, *out);
+	COD_count = GetCODModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
         cout<<"\rCodon Done ";
         end = clock();
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
@@ -492,6 +559,20 @@ exit(-1);
 	}
 	output.close();
 	if(RunHadError) { cout << "\nWARNING: Run had a potential error, but appeared to recover"; }
+
+#if DO_MEMORY_CHECK == 1
+	cout << "\nMEMORY ALLOCATION SUMMARY";
+	cout << "\n\tRemaining CData:           " << memory_check.CountCData;
+	cout << "\n\tRemaining CBaseModel:      " << memory_check.CountCBaseModel;
+	cout << "\n\tRemaining CBaseProcess:    " << memory_check.CountCBaseProcess;
+	cout << "\n\tRemaining CProb:           " << memory_check.CountCProb;
+	cout << "\n\tRemaining CPar:            " << memory_check.CountCPar;
+	cout << "\n\tRemaining CBaseEqm:        " << memory_check.CountCBaseEqm;
+	cout << "\n\tRemaining CQMat:           " << memory_check.CountCQMat;
+	cout << "\n\tRemaining CSite:           " << memory_check.CountCSite;
+	cout << "\n\tRemaining CNode:           " << memory_check.CountCNode << " - " << Tree.NoNode() << " declared in scope";
+	cout << "\n\tRemaining CTree:           " << memory_check.CountCTree << " - 1 declared in scope";
+#endif
 	cout << "\nSuccessful exit\n";
 	return 0;
 }
@@ -508,7 +589,7 @@ int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	CData RY_Data = *Data; RY_Data.DNA2RY();
 	Ret = RY_Data.CountMSAChars();
 	// 1. Get RYmodel
-	CRY RY(&RY_Data,Tree);
+	CRY RY(&RY_Data,Tree); RY.DisallowTreeSearch();
 	// Get the correction
 	double RY2Cod_Adj = Data->GetRYToCodonlnLScale(GeneticCode,&df);
 	if(df > 0) { Correction = L_EMP; }
@@ -548,7 +629,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	bool Fast = DoItFast;
 	CTree PlainTree, GammaTree;
 	// 1. JC
-	CJC *JC; JC = new CJC(Data,Tree); Model = JC;
+	CJC *JC; JC = new CJC(Data,Tree); Model = JC; Model->DisallowTreeSearch();
 	if(DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
 	Models->push_back(DoModelRun(Model,0,L_NA));
 	if(Fast) { PlainTree = *Model->Tree(); }
@@ -567,7 +648,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	delete JC;
 	DoItFast = Fast;
 	// 2. FEL
-	CFEL *FEL; FEL = new CFEL(Data,Tree); Model = FEL;
+	CFEL *FEL; FEL = new CFEL(Data,Tree); Model = FEL; Model->DisallowTreeSearch();
 	if(DoItFast) { *Model->Tree() = PlainTree; }
 	Models->push_back(DoModelRun(Model,3,L_NA));
 	if(ModelOut) { os << *FEL << endl << flush; }	// Output model details
@@ -584,7 +665,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 //	cout << "\nTree FELdG:\t" << Tree->TreeLength() << "\t" << FEL->lnL(true) << " cf. " << Models->at(count++).OrilnL;
 	delete FEL;
 	// 3. K2P
-	CK2P *K2P; K2P= new CK2P(Data,Tree); Model = K2P;
+	CK2P *K2P; K2P= new CK2P(Data,Tree); Model = K2P; Model->DisallowTreeSearch();
 	if(DoItFast) { *Model->Tree() = PlainTree; }
 	Models->push_back(DoModelRun(Model,1,L_NA));
 	if(ModelOut) { os << *K2P << endl << flush; }	// Output model details
@@ -598,7 +679,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	Model = NULL;
 	delete K2P;
 	// 4. HKY
-	CHKY *HKY; HKY = new CHKY(Data,Tree); Model = HKY;
+	CHKY *HKY; HKY = new CHKY(Data,Tree); Model = HKY; Model->DisallowTreeSearch();
 	if(DoItFast) { *Model->Tree() = PlainTree; }
 	Models->push_back(DoModelRun(Model,4,L_NA));
 	if(ModelOut) { os << *HKY<< endl << flush; }	// Output model details
@@ -612,7 +693,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	Model = NULL;
 	delete HKY;
 	// 5. GTR
-	CREV *REV; REV = new CREV(Data,Tree); Model = REV;
+	CREV *REV; REV = new CREV(Data,Tree); Model = REV; Model->DisallowTreeSearch();
 	if(DoItFast) { *Model->Tree() = PlainTree; }
 	Models->push_back(DoModelRun(Model,8,L_NA));
 	if(ModelOut) { os << *REV<< endl << flush; }	// Output model details
@@ -649,7 +730,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
     if (aa_model_map.find("EQU")!=aa_model_map.end()){
                 // 1. EQU
 //    			if(First) { DoItFast = false; }
-                CEQU *EQU; EQU = new CEQU(&AmA,Tree,false); Model = EQU;
+                CEQU *EQU; EQU = new CEQU(&AmA,Tree,false); Model = EQU; Model->DisallowTreeSearch();
                 if(DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
                 Models->push_back(DoModelRun(Model,0+df,Correction,AA2Cod_Adj));
                 if(First) { PlainTree = *Model->Tree(); }
@@ -666,7 +747,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 Model = NULL;
                 delete EQU;
                 // 2. EQU+F
-                EQU = new CEQU(&AmA,Tree,true); Model = EQU;
+                EQU = new CEQU(&AmA,Tree,true); Model = EQU; Model->DisallowTreeSearch();
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; }
                 Models->push_back(DoModelRun(Model,19+df,Correction,AA2Cod_Adj));
                 if(ModelOut) { os << *EQU << endl << flush; }	// Output model details
@@ -687,7 +768,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 double* myFreq=iter->second[1];
                 //model frequencies
 //                if(First) { DoItFast = false; }
-                EMP = new CEMP(&AmA,Tree,name,false,mySMat,myFreq); Model = EMP;
+                EMP = new CEMP(&AmA,Tree,name,false,mySMat,myFreq); Model = EMP; Model->DisallowTreeSearch();
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; } else if(DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
                 Models->push_back(DoModelRun(Model,0+df,Correction,AA2Cod_Adj));
                 if(First) { PlainTree = *Model->Tree(); }
@@ -703,7 +784,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 Model = NULL;
                 delete EMP;
                 //+F
-                EMP = new CEMP(&AmA,Tree,name,true,mySMat,myFreq); Model = EMP;
+                EMP = new CEMP(&AmA,Tree,name,true,mySMat,myFreq); Model = EMP; Model->DisallowTreeSearch();
                 if(ModelOut) { os << *EMP << endl << flush; }	// Output model details
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; }
                 Models->push_back(DoModelRun(Model,19+df,Correction,AA2Cod_Adj));
@@ -735,7 +816,7 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
         if (codon_model_set.count("F0")){
                 // 1. F0
                 CoD = *Data;
-                M0 = new CCodonM0(&CoD,Tree,cEQU,GeneticCode); Model = M0;
+                M0 = new CCodonM0(&CoD,Tree,cEQU,GeneticCode); Model = M0; Model->DisallowTreeSearch();
                 Ret = CoD.CountMSAChars();
                 // if(First) { DoItFast = false; }
                 if(First && DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
@@ -756,7 +837,7 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
         if (codon_model_set.count("F1X4")){
                         // 1. F1X4
                         CoD = *Data;
-                        M0 = new CCodonM0(&CoD,Tree,F1X4,GeneticCode); Model = M0;
+                        M0 = new CCodonM0(&CoD,Tree,F1X4,GeneticCode); Model = M0; Model->DisallowTreeSearch();
                         if(Ret == -1) { Ret = CoD.CountMSAChars(); }
 //                        if(First) { DoItFast = false; }
                         if(!First && DoItFast) { *Model->Tree() = PlainTree; }
@@ -779,7 +860,7 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
         if (codon_model_set.count("F3X4")){
                 // 1. F3X4
                 CoD = *Data;
-                M0 = new CCodonM0(&CoD,Tree,F3X4,GeneticCode); Model = M0;
+                M0 = new CCodonM0(&CoD,Tree,F3X4,GeneticCode); Model = M0; Model->DisallowTreeSearch();
                 if(Ret == -1) { Ret = CoD.CountMSAChars(); }
 //                if(First) { DoItFast = false; }
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; }
@@ -802,7 +883,7 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
         if (codon_model_set.count("F64")){
                 // 1. F64
                 CoD = *Data;
-                M0 = new CCodonM0(&CoD,Tree,F64,GeneticCode); Model = M0;
+                M0 = new CCodonM0(&CoD,Tree,F64,GeneticCode); Model = M0; Model->DisallowTreeSearch();
                 if(Ret == -1) { Ret = CoD.CountMSAChars(); }
 //                if(First) { DoItFast = false; }
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; }
