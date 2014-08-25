@@ -978,7 +978,7 @@ void CBaseProcess::MakeBasicSpace(int Char)	{
 	// Get the rate parameters and the process probability parameters
 	Name = "Rate(" + int_to_string(m_iProcID) + ")";
 	m_pRate = new CQPar(Name,m_iChar,1.0,false,0.0,MAX_PAR_VALUE,REPLACE);
-	Name = "Prob(" + int_to_string(m_iProcID) + ")";
+	Name = "Prob(Process_ID=" + int_to_string(m_iProcID) + ")";
 	m_pProcProb = new CQPar(Name,m_iChar,1.0,false,MIN_PROB,1.0,REPLACE);
 	GET_MEM(m_ardPT,double,NoBra * m_iChar2);
 	m_bCheckSpace = false; m_bCompressedSpace = false; m_bBraDerReady = false;
@@ -1376,7 +1376,7 @@ bool CBaseProcess::Likelihood(bool ForceReal)	{
 	FOR(i,m_iSize)	{ m_ardL[i].Assign(Lsum(i)); }
 	// Return if okay
 	m_bCompressedSpace = OldComp;
-//	cout << "\nDone likelihood...\n\n";
+//	cout << "\nDone likelihood for " << m_sName;
 	return true;
 }
 
@@ -2810,7 +2810,7 @@ CAAProcess::CAAProcess(CData *D, CTree *T, string Name, bool AddF, double *S_ij,
 }
 
 /* ******************************* Basic codon processes ************************************** */
-CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode, string RadicalFile) : CBaseProcess(D,T)	{
+CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode, string RadicalFile) : CBaseProcess(D,T,"CodonProcess")	{
 	int i, j, k, count;
 	CQPar *Par = NULL;
 	string sFrom, sTo,Name;
@@ -2848,6 +2848,7 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 
 	switch(Model)	{
 	case pM0:
+		m_sName = "CodonM0";
 		Add_CodRedQMat("M0",D->m_iChar);
 		AddMultiChangeZeros(GenCode);
 		AddOmega(GenCode);
@@ -2855,6 +2856,7 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 		break;
 	case pCodonEMPRest:
 		cout << "\nMaking RESTRAINED empirical codon model";
+		m_sName = "CodonEMPRest";
 		Add_CodRedQMat("CodonEMP",D->m_iChar);
 		count = 0;
 		FOR(i,m_iChar) {
@@ -2876,6 +2878,7 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 		break;
 	case pCodonEMPUnrest:
 		cout << "\nMaking UNRESTRAINED empirical codon model" << flush;
+		m_sName = "CodonEMPUnrest";
 		Add_CodRedQMat("CodonEMP",D->m_iChar);
 		count = 0;
 		FOR(i,m_iChar) {
@@ -2911,9 +2914,8 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 		assert(count == 1830);
 	case pM0DrDc:
 		cout << "\nMaking new Dr/Dc matrix with input from <"<<RadicalFile<<">!";
+		m_sName = "M0_DrDc";
 		// Read in Radical Mat
-
-
 		Add_CodRedQMat("M0_DrDc",D->m_iChar);
 		AddMultiChangeZeros(GenCode);
 		AddDrDcOmega(GenCode,RadMat,0);
@@ -3066,22 +3068,24 @@ void CCodonProcess::AddMultiChangeZeros(int GenCode)	{
 }
 */
 ////////////////// Functions to calculate various rates ///////////////////////////////////////////////////////////
-double CCodonProcess::ObsNonsynRate() {
-	int i,j,pos_i, pos_j;
+double CCodonProcess::NonsynRate(bool Observed) {
+	int i,j,pos_i, pos_j, Correction =0;
 	double Rate = 0.0;
-	vector <double> eq = RootEqm(); // ZZXX: m_vpEqm[0]->Eqm();
+	vector <double> eq;
 	// Do some error checking
 	if((int)m_vpQMat.size() > 1) { cout << "\nHaven't worked out how to do rates for multiple matrices in a single process"; }
 	assert(InRange(m_iGenCode,0,12));
 	// Get the rate
 	CCodonProcess::PrepareQMats();
+	if(!Observed) { eq.assign(m_iChar,1.0); } else { eq = RootEqm(); }
 	pos_i = 0; FOR(i,64) {
-		for(j=i+1,pos_j = i+1;j<64;j++) {
+		if(GenCodes[m_iGenCode][i] == -1) { Correction++; continue; }
+		for(j=i+1,pos_j = i+1-Correction;j<64;j++) {
 			if(GenCodes[m_iGenCode][i] == -1) { if(m_iChar != 64) { pos_i--; } break; }
 			if(GenCodes[m_iGenCode][j] == -1) { if(m_iChar == 64) { pos_j++; } continue; }
 			if(GenCodes[m_iGenCode][i] != GenCodes[m_iGenCode][j]) {
-				Rate += eq[i] * *m_vpQMat[0]->Q(pos_i,pos_j);
-				Rate += eq[j] * *m_vpQMat[0]->Q(pos_j,pos_i);
+				Rate += eq[pos_i] * *m_vpQMat[0]->Q(pos_i,pos_j);
+				Rate += eq[pos_j] * *m_vpQMat[0]->Q(pos_j,pos_i);
 			}
 			pos_j++;
 		}
@@ -3090,43 +3094,47 @@ double CCodonProcess::ObsNonsynRate() {
 	return Rate;
 }
 
-double CCodonProcess::ObsSynRate() {
-	int i,j,pos_i, pos_j;
+double CCodonProcess::SynRate(bool Observed) {
+	int i,j,pos_i, pos_j, Correction = 0;
 	double Rate = 0.0;
-	vector <double> eq = RootEqm(); // ZZXX: m_vpEqm[0]->Eqm();
+	vector <double> eq;
 	// Do some error checking
 	if((int)m_vpQMat.size() > 1) { cout << "\nHaven't worked out how to do rates for multiple matrices in a single process"; }
 	assert(InRange(m_iGenCode,0,12));
 	// Get the rate
 	CCodonProcess::PrepareQMats();
+	if(!Observed) { eq.assign(m_iChar,1.0); } else { eq = RootEqm(); }
+
 	pos_i = 0; FOR(i,64) {
-		for(j=i+1,pos_j = i+1;j<64;j++) {
-//			cout << "\nComparing ["<<i<<":" << pos_i <<"][" << j << ":" << pos_j <<"] == " << m_vpQMat[0]->Q(pos_i,pos_j) << ": " << GenCodes[m_iGenCode][i] << " cf. " << GenCodes[m_iGenCode][j];
-			if(GenCodes[m_iGenCode][i] == -1) { if(m_iChar != 64) { pos_i--; } break; }
+		if(GenCodes[m_iGenCode][i] == -1) { Correction++; continue; }
+		for(j=i+1,pos_j = i+1-Correction;j<64;j++) {
 			if(GenCodes[m_iGenCode][j] == -1) { if(m_iChar == 64) { pos_j++; } continue; }
+//			cout << "\nComparing ["<<i<<":" << pos_i <<"][" << j << ":" << pos_j <<"] eqm = " << eq[pos_i] << " == " << *m_vpQMat[0]->Q(pos_i,pos_j) << ": " << GenCodes[m_iGenCode][i] << " cf. " << GenCodes[m_iGenCode][j];
 			if(GenCodes[m_iGenCode][i] == GenCodes[m_iGenCode][j]) {
-//				cout << " ... adding";
-				Rate += eq[i] * *m_vpQMat[0]->Q(pos_i,pos_j);
-				Rate += eq[j] * *m_vpQMat[0]->Q(pos_j,pos_i);
+//				cout << " ... adding " << eq[i] * *m_vpQMat[0]->Q(pos_i,pos_j) << " and " << eq[j] * *m_vpQMat[0]->Q(pos_j,pos_i);
+				Rate += eq[pos_i] * *m_vpQMat[0]->Q(pos_i,pos_j);
+				Rate += eq[pos_j] * *m_vpQMat[0]->Q(pos_j,pos_i);
 			}
 			pos_j++;
 		}
 		pos_i++;
 	}
+//	cout << "\nReturning rate: " << Rate;
+//	exit(-1);
 	return Rate;
 }
 
 ostream &CCodonProcess::Output(ostream &os)	{
 	int i;
-	os<< "\n----- CodonProcess: " << m_sName << " : ID = " << m_iProcID << "; Rate = " << m_pRate->Val() << " -----";
+	os<< "\n----- CodonProcess: " << m_sName << " : ID = " << m_iProcID << "; Rate = " << m_pRate->Val() << "; Prob = " << Prob() << " -----";
 	if(m_bPseudoProcess == true) { os << "\nPseudoprocess"; }
 	else {
 		os << "\n" << m_vpPar.size() << " Parameters";
 		FOR(i,(int)m_vpPar.size()) { os << "\n\t" << *m_vpPar[i]; }
-		os << "\nObservedRateNonsynonymous:\t" << ObsNonsynRate();
-		os << "\nObservedRateSynonymous:\t" << ObsSynRate();
-		os << "\n" << m_vpQMat.size() << " Q matrices";
-		FOR(i,(int)m_vpQMat.size()) { os << "\n\t" << *m_vpQMat[i]; os << "\nEqm: " << m_vpQMat[i]->Eqm();  }
+		os << "\nObservedRateNonsynonymous:\t" << NonsynRate(true);
+		os << "\nObservedRateSynonymous:\t" << SynRate(true);
+//		os << "\n" << m_vpQMat.size() << " Q matrices";
+//		FOR(i,(int)m_vpQMat.size()) { os << "\n\t" << *m_vpQMat[i]; os << "\nEqm: " << m_vpQMat[i]->Eqm();  }
 /*		FOR(i,(int)m_vpQMat.size()) {
 			os << "\n\t" << *m_vpQMat[i];
 		}

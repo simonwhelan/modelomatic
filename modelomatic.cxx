@@ -18,9 +18,13 @@
 #include <set>
 
 #define CHECK_LNL_OUT 1
-#define VERSION_NUMBER "1.0 (release)"
-#define DEVELOPER_VERSION_MAIN 0
 
+#define DEVELOPER_VERSION_MAIN 1
+#if DEVELOPER_VERSION_MAIN == 1
+#define VERSION_NUMBER "1.1 (development)"
+#else
+#define VERSION_NUMBER "1.0 (release)"
+#endif
 
 #if FUNC_COUNTERS == 1
 	extern int Matrix_Log_Counter, MakeQ_Log_Counter, MakePT_Log_Counter, LFunc_Log_Counter, SubLFunc_Log_Counter, SPR_Log_Counter;
@@ -318,6 +322,71 @@ int main(int argc, char *argv[])	{
 	CCodonM0 *M0Test = NULL;
 	CData Cod1 = *PhyDat.pData();
 	M0Test = new CCodonM0(&Cod1,&Tree);
+
+	// Checking rate idea...
+	cout << "\n\nParameters:";
+	FOR(i,M0Test->m_vpProc[0]->NoPar()) {
+		cout << "\nPar[" << i<<"]: " << *M0Test->m_vpProc[0]->pPar(i);
+	}
+	M0Test->lnL(true);
+	cout << "\nALPHABET\n";
+	FOR(i,64) {
+		cout << i << ":" << State(COD,i) << "[" << GenCodes[0][i] << "] ";
+	}
+	cout << "\nEqm: " << M0Test->m_vpProc[0]->Eqm(0);
+	double SetOmegaVal;
+
+	M0Test->m_vpProc[0]->pPar(14)->SetVal(1.0);
+
+	// Omega = 0.1
+	SetOmegaVal = 0.1;
+	M0Test->m_vpProc[0]->pPar(13)->SetVal(SetOmegaVal);
+	cout << "\nHave Omega = " << SetOmegaVal << " == " << *M0Test->m_vpProc[0]->pPar(13) << " ; lnL = " << M0Test->lnL(true);
+	// Observed rates
+	cout << "\nObsSynRate:    " << M0Test->m_vpProc[0]->SynRate(true);
+	cout << "\nObsNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(true);
+	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(true) / M0Test->m_vpProc[0]->SynRate(true);
+	cout << "\nTotal rate:    "<< M0Test->m_vpProc[0]->NonsynRate(true) + M0Test->m_vpProc[0]->SynRate(true);
+	// Actual rates
+	cout << "\nSynRate:    " << M0Test->m_vpProc[0]->SynRate(false);
+	cout << "\nNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(false);
+	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(false) / M0Test->m_vpProc[0]->SynRate(false);
+
+	// Omega = 0.5
+	SetOmegaVal = 0.5;
+	M0Test->m_vpProc[0]->pPar(13)->SetVal(SetOmegaVal);
+	cout << "\nHave Omega = " << SetOmegaVal << " == " << *M0Test->m_vpProc[0]->pPar(13) << " ; lnL = " << M0Test->lnL(true);
+	// Observed rates
+	cout << "\nObsSynRate:    " << M0Test->m_vpProc[0]->SynRate(true);
+	cout << "\nObsNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(true);
+	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(true) / M0Test->m_vpProc[0]->SynRate(true);
+	cout << "\nTotal rate:    "<< M0Test->m_vpProc[0]->NonsynRate(true) + M0Test->m_vpProc[0]->SynRate(true);
+	// Actual rates
+	cout << "\nSynRate:    " << M0Test->m_vpProc[0]->SynRate(false);
+	cout << "\nNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(false);
+	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(false) / M0Test->m_vpProc[0]->SynRate(false);
+
+	// Omega = 1.0
+	SetOmegaVal = 1.0;
+	M0Test->m_vpProc[0]->pPar(13)->SetVal(SetOmegaVal);
+	cout << "\nHave Omega = " << SetOmegaVal << " == " << *M0Test->m_vpProc[0]->pPar(13) << " ; lnL = " << M0Test->lnL(true);
+	// Observed rates
+	cout << "\nObsSynRate:    " << M0Test->m_vpProc[0]->SynRate(true);
+	cout << "\nObsNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(true);
+	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(true) / M0Test->m_vpProc[0]->SynRate(true);
+	cout << "\nTotal rate:    "<< M0Test->m_vpProc[0]->NonsynRate(true) + M0Test->m_vpProc[0]->SynRate(true);
+	// Actual rates
+	cout << "\nSynRate:    " << M0Test->m_vpProc[0]->SynRate(false);
+	cout << "\nNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(false);
+	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(false) / M0Test->m_vpProc[0]->SynRate(false);
+
+
+//	cout << "\nQMat";
+//	M0Test->m_vpProc[0]->OutQ();
+
+	exit(-1);
+
+
 	FullOpt(M0Test,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
 //	FullOpt(M0Test);
 	cout << "\nRun M0: " << M0Test->lnL(true);
@@ -341,6 +410,7 @@ int main(int argc, char *argv[])	{
 //	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
 //	CheckAllPar(CBaseModel *M, double lnL, vector <double *> x, double Tol, ostream &os)	{
 
+	// ************* Do Basic DrDc Model *******************
 	CCodonDrDc *M0New = NULL;
 	CData Cod2 = *PhyDat.pData();
 	M0New = new CCodonDrDc(&Cod2,&Tree);
@@ -348,6 +418,34 @@ int main(int argc, char *argv[])	{
 	M0New->m_vpPar[0]->SetVal(M0Test->m_vpPar[0]->Val()+0.001);
 	M0New->m_vpPar[1]->SetVal(M0Test->m_vpPar[0]->Val());
 	M0New->m_vpPar[2]->SetVal(M0Test->m_vpPar[1]->Val());
+
+//	cout << "\nStarting model: " << *M0New;
+//	exit(-1);
+	//exit(-1);
+//	FullOpt(M0New);
+//	FullOpt(M0New,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+	cout << "\nRun M0: " << M0New->lnL(true);
+	cout << "\nModel: " << *M0New;
+
+	cVal = GetAminoAcidCountFromCodon( M0New->m_vpProc[0]->GetQMat(0), 0, RadMat, 0);		// Conservative
+	rVal = GetAminoAcidCountFromCodon( M0New->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
+	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+
+	// Do some parameter checking
+//	cout << "\nChecking parameters: ";
+//	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
+
+	// ************* Do First mixture DrDc Model *******************
+	CCodonMixDrSingleDc *M0New1 = NULL;
+	CData Cod3 = *PhyDat.pData();
+	M0New = new CCodonMixDrSingleDc(&Cod3,&Tree);
+	// Set starting values as those from previous model
+	M0New->m_vpPar[0]->SetVal(M0Test->m_vpPar[0]->Val()+0.001);
+	M0New->m_vpPar[1]->SetVal(M0Test->m_vpPar[0]->Val());
+	M0New->m_vpPar[2]->SetVal(M0Test->m_vpPar[1]->Val());
+
+	exit(-1);
+//	CCodonMixDrSingleDc(CData *Data, CTree *Tree, ECodonEqm CE, string File, int GenCode)
 
 //	cout << "\nStarting model: " << *M0New;
 //	exit(-1);
@@ -361,9 +459,6 @@ int main(int argc, char *argv[])	{
 	rVal = GetAminoAcidCountFromCodon( M0New->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
 	cout << "\nExpectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
 
-	// Do some parameter checking
-//	cout << "\nChecking parameters: ";
-//	CheckAllPar(M0Test,M0Test->lnL(),M0Test->GetOptPar(false,false,true,false),FULL_LIK_ACC,cout,true);
 
 	exit(-1);
 

@@ -46,7 +46,7 @@ void CBaseModel::CleanPar()	{
 void CBaseModel::CleanMemory()	{
 	int i;
 	// Do public
-	m_vpProc.clear(); m_vdProbProc.clear();
+	m_vpProc.clear();
 	m_pData = NULL; m_pTree = NULL; m_pSubTree = NULL;
 	DEL_MEM(m_arL); m_sName = "Unassigned";
 	// Do private
@@ -114,12 +114,29 @@ void CBaseModel::RemovePar(string Name)	{
 
 // Basic function that gets the optimised parameters into the model
 vector <CPar *> CBaseModel::CreateOptPar()	{
-	int i,j;
+	int i,j,k,count = 0;
 	CleanPar();
+	// Do the Q parameters
 	FOR(i,(int)m_vpProc.size())	{
 		FOR(j,m_vpProc[i]->NoPar())	{
-			if(m_vpProc[i]->pPar(j)->Opt() == true) { m_vpPar.push_back(m_vpProc[i]->pPar(j)); }
+			if(m_vpProc[i]->pPar(j)->Opt() == true) {
+				// Check parameter doesn't already exist. Catch for mixed models with multiple copies of parameters
+				FOR(k,m_vpPar.size()) { if(m_vpPar[k] == m_vpProc[i]->pPar(j)) { continue; } }
+				// Add to the vector
+				m_vpPar.push_back(m_vpProc[i]->pPar(j));
+			}
 	}	}
+	// Do the process probabilities
+	if(m_vpProc.size() > 1) {
+		count = 0;
+		FOR(i,m_vpProc.size()) {
+			if(m_vpProc[i]->ProbPar()->Opt() == true) {
+				count++;
+				m_vpPar.push_back(m_vpProc[i]->ProbPar());
+		}	}
+		assert(count == 0 || count == m_vpProc.size() -1);		// Assuming I will always optimise all process probabilities except the special one
+	}
+
 /*
 	cout << "\nThe optimised parameters are: ";
 	FOR(i,(int)m_vpPar.size())	{ cout << endl << *m_vpPar[i]; }
@@ -645,9 +662,6 @@ double CBaseModel::GetNumDerivative(double *x, double Old_lnL)	{
 // Function that does any extra initialisations required before calculations
 void CBaseModel::FinalInitialisation()		{
 	CreateOptPar();			// Create the optimised parameters
-	// Get the probability vector sorted
-	if(m_vdProbProc.empty()) { m_vdProbProc.assign((int)m_vpProc.size(),1.0 / (double) m_vpProc.size());  }
-	assert(m_vdProbProc.size() == m_vpProc.size());
 	// Create the partial likelihood
 	GET_MEM(m_arL,CProb,m_pData->m_iSize);
 }

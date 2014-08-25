@@ -393,7 +393,7 @@ public:
 	CQPar * Kappa(EDataType Type);					// Adds kappa to a DNA (4x4) or Codon (64x64) process
 	int Size() { return m_iSize; }						// Returns the size
 	int PatOcc(int i) { assert(m_pData != NULL); assert(InRange(i,0,m_pData->m_iSize)); return m_pData->m_ariPatOcc[i]; }
-	inline string Name()	{ return m_sName; }
+	inline string Name(string NewName="")	{ if(NewName.size() == 0) return m_sName; else m_sName = NewName; }
 	inline int NoPar()		{ return (int)m_vpPar.size(); }			// Returns the number of parameters
 	inline int Char() { return m_iChar; };				// Returns the number of states in the model
 	inline int HiddenChar() { return m_iHiddenChar; }	// Returns the number of hidden states in the process
@@ -402,7 +402,8 @@ public:
 	bool PseudoProcess() { return m_bPseudoProcess; }	// Returns whether process is a pseudoprocess
 	CQPar *RatePar() { return m_pRate; }			// Returns a pointer to the rate parameter
 	CQPar *ProbPar() { return m_pProcProb; }		// Returns a pointer to the probability parameters
-	CPar *pPar(int i){ assert(i<NoPar()); return m_vpPar[i]; }	// Return a parameter
+	CPar *pPar(int i){ assert(i<NoPar()); return m_vpPar[i]; }	// Return a parameter when I want a CPar object
+	CQPar *pQPar(int i) { assert(i<NoPar()); return m_vpPar[i]; }	// Return a parameter when I want a CQPar object
 	CPar *AddQPar(CQPar *P) { assert(P!=NULL); m_vpPar.push_back(P); return P; }	// Adds a parameter
 	CTree *Tree() { if(IsSubTree()) { return m_pSubTree; } return m_pTree; }	// Returns a pointer to the tree
 	vector <CBaseEqm *> EqmPar() { return m_vpEqm; }			// Returns the Eqm parameters
@@ -424,6 +425,10 @@ public:
 	// Functions dealing with the processes probability
 	double Prob() { return m_pProcProb->Val() / *m_piProbFactor; }					// Returns the probability of the process
 	void SetProbFactor(int i) { *m_piProbFactor = i; }
+
+	// Place holders for accessing codon model information
+	virtual double SynRate(bool Observed) 	{ return 0.0; }					// Gets the observed rate of synonymous substitutions
+	virtual double NonsynRate(bool Observed)	{ return 0.0; }					// Gets the observed rate of non-synonymous substitutions
 
 	// Functions for shuffling parameters
 	virtual void ShuffleParameters() { cout << "\nDoing an empty shuffle..."; exit(-1); };				// Useful for mixture models where parameters combinations cause problems...
@@ -706,8 +711,8 @@ public:
 	CQPar * AddDrDcOmega(int GenCode, vector <int> RadFile, int Val2Add);
 	void AddMultiChangeZeros(int GenCode);
 	// Functions for getting overall rates of certain types of events
-	double ObsSynRate();					// Gets the observed rate of synonymous substitutions
-	double ObsNonsynRate();					// Gets the observed rate of non-synonymous substitutions
+	double SynRate(bool Observed);					// Gets the observed rate of synonymous substitutions
+	double NonsynRate(bool Observed);					// Gets the observed rate of non-synonymous substitutions
 	// Other interaction functions
 	int GenCode() { return m_iGenCode; }
 	// Output

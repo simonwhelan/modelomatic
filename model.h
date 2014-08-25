@@ -29,7 +29,6 @@ public:
 	~CBaseModel();
 	// Variables
 	vector <CBaseProcess *> m_vpProc;		// The list of proceses
-	vector <double>	m_vdProbProc;			// The probability of the individual processes
 	vector <CPar *> m_vpPar;				// The parameters in the processes (not to be deleted. That is done by the processes themselves
 	vector <CPar *> m_vpAllOptPar;			// All the optimised parameters including branches
 	CProb *m_arL;							// The vector of sitewise likleihoods for the model (used for calculating GetLogLikelihood
@@ -515,9 +514,18 @@ class CCodonDrDc : public CBaseModel {
 public:
 	CCodonDrDc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
 	vector <int> m_viRadMat;
+	string m_sRadicalFile;
 };
 
 double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType);
+
+// Class where there are two Dr values in a mixture model, but a single Dc value
+class CCodonMixDrSingleDc : public CCodonDrDc {
+public:
+	CCodonMixDrSingleDc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	~CCodonMixDrSingleDc();	// Destructor function to clear parameter mappings
+};
+
 
 class CEMPCodonREST : public CBaseModel {
 public:

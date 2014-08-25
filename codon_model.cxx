@@ -666,12 +666,13 @@ CCodonDrDc::CCodonDrDc(CData *Data, CTree *Tree, ECodonEqm CE, string RadicalFil
 	case F1X4: m_sName += "F1X4";	break;
 	case F3X4: m_sName += "F3X4";	break;
 	case F64:  m_sName += "F64";	break;
-	default:   Error("\nUnknown CE option in CCodonM0::CCodonM0\n\n");
+	default:   Error("\nUnknown CE option in CCodonDrDc::CCodonDrDc\n\n");
 	}
 	// Add the process
 	m_vpProc.push_back(AddCodonProcess(Data,Tree,pM0DrDc,CE,GenCode,RadicalFile));
 
 	// Store the RadicalFile matrix
+	m_sRadicalFile = RadicalFile;
 	m_viRadMat.assign(20*20,-1);
 	FINOPEN(Radin, RadicalFile.c_str());
 		FOR(i,20)	{
@@ -725,6 +726,62 @@ double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, 
 //	cout << "\nOverall obs for ChangeType[" << ChangeType << "]: " << ExpObs << "\n//";
 	return ExpObs;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// A new version of the codon model for conservative and radical amino acid changes, defined by matrix Radical.mat
+// Functions as a mixture model where Dr has two values and Dc a single value
+CCodonMixDrSingleDc::CCodonMixDrSingleDc(CData *Data, CTree *Tree, ECodonEqm CE, string File, int GenCode) : CCodonDrDc(Data,Tree,CE,File,GenCode) {
+	cout << "\nCreating mixture model!";
+
+	int i,j;
+	int Omega_R = -1, Kappa = -1;
+	// Add the second component
+	m_vpProc.push_back(AddCodonProcess(Data,Tree,pM0DrDc,CE,GenCode,m_sRadicalFile));
+	// Prepare the mixing probabilities
+	PrepareProcessProbs(true);
+	// Name processes
+	m_vpProc[0]->Name(m_vpProc[0]->Name() + "[0]");
+	m_vpProc[1]->Name(m_vpProc[1]->Name() + "[1]");
+	cout << "\nI think I have parameters [NoPar: " << NoPar() << "]";
+	FOR(i,m_vpPar.size()) {
+		cout << "\n[" << "]: "<< *m_vpPar[i];
+	}
+	// Create the joint parameters
+	m_vpProc[1]->RemovePar("Omega_Radical");
+	m_vpProc[1]->RemovePar("Kappa");
+	FOR(i,m_vpProc[0]->NoPar()) {
+		if(m_vpProc[0]->pPar(i)->Name().find("Omega_Radical") !=  string::npos) { assert(Omega_R == -1); Omega_R = i; }
+		if(m_vpProc[0]->pPar(i)->Name().find("Kappa") !=  string::npos) { assert(Kappa == -1); Kappa = i; }
+	}
+	assert(m_vpProc[0]->NoPar() -2 == m_vpProc[1]->NoPar() && Omega_R != -1 && Kappa != -1);	// Check everything has worked
+	m_vpProc[1]->AddQPar(m_vpProc[0]->pQPar(Omega_R));
+	m_vpProc[1]->AddQPar(m_vpProc[0]->pQPar(Kappa));
+
+
+
+	FinalInitialisation();
+
+
+	// DEBUG
+	// Randomise par a little
+	m_vpProc[0]->pPar(13)->SetVal(0.35);
+	m_vpProc[0]->pPar(14)->SetVal(0.45);
+	m_vpProc[0]->pPar(15)->SetVal(0.55);
+
+
+	cout << "\nParameter checking: ";
+	FOR(i,m_vpPar.size()) {
+		cout << "\n\tPar[" << i << "]: " << *m_vpPar[i];
+	}
+
+
+	cout << "\nHave two models... lnL: " << lnL(true);
+
+	ComplexOutput();
+	cout << "\nThe model is: " << *this;
+	exit(-1);
+}
+
 
 
 
