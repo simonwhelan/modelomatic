@@ -56,7 +56,7 @@ public:
 	void FinalInitialisation();			// Function that does any extra initialisations required before calculations
 	void PrepareFastCalc();				// Prepare for fast computation
 	void CleanFastCalc(bool Force = false);				// Clean the fast calc stuff
-	void PreparelnL(bool ForceRemake = false);			// Prepares the Q matrices in the model and sets the rate
+	virtual void PreparelnL(bool ForceRemake = false);			// Prepares the Q matrices in the model and sets the rate
 	virtual double lnL(bool ForceReal = false);	// perform a likelihood calculation (if over-ridden, be careful other likelihood functions are too e.g. DoBralnL(...) )
 	double CalculateL(CBaseProcess *Process = NULL, bool DoFulllnL = true);			// Calculate the overall log-likelihood from a single process
 	vector <double> SitewiseL(CBaseProcess *Process = NULL, bool DoFulllnL = true);	// Calculate the per site log-likelihood from a single process
@@ -519,11 +519,35 @@ public:
 
 double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType);
 
-// Class where there are two Dr values in a mixture model, but a single Dc value
-class CCodonMixDrSingleDc : public CCodonDrDc {
+// Mixture class for DrDc type models
+// Based on the original function it allows a set of mixture components and provides the tools to scale them appropriately
+// Either \Kappa or \omega can vary between the components
+// Class contains the components that allow correct scaling and mixing for the likelihood computation
+class CCodonDrDcMixer : public CCodonDrDc {
 public:
-	CCodonMixDrSingleDc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
-	~CCodonMixDrSingleDc();	// Destructor function to clear parameter mappings
+	// Constructor
+	CCodonDrDcMixer(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	// Destructor
+	~CCodonDrDcMixer();
+	// Implementation
+	void PreparelnL(bool ForceRemake = false);		// Prepares the correctly scaled Qs for computation
+};
+
+// Mixture classes for DrDc models. Names should be self explanatory
+class CCodon2Dr1Dc : public CCodonDrDcMixer {
+public:
+	CCodon2Dr1Dc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	~CCodon2Dr1Dc();	// Destructor function to clear parameter mappings
+};
+class CCodon1Dr2Dc : public CCodonDrDcMixer {
+public:
+	CCodon1Dr2Dc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	~CCodon1Dr2Dc();	// Destructor function to clear parameter mappings
+};
+class CCodon2Dr2Dc : public CCodonDrDcMixer {
+public:
+	CCodon2Dr2Dc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	~CCodon2Dr2Dc();	// Destructor function to clear parameter mappings
 };
 
 

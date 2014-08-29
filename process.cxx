@@ -236,7 +236,7 @@ void CQMat::ScaleQ(double Rate)	{
 	m_bAlwaysI = false;
 	// Deal with zero rates
 	assert(Rate >= 0.0);
-//	cout << "\nScaling Q by " << Rate<<": "; OutQ();
+//	cout << "\nScaling Q by " << Rate<<": "; // OutQ();
 	if(Rate < 1.0E-6 || m_dScale < DBL_EPSILON || fabs(Rate - MAX_PAR_VALUE) < DX) {
 		if(OverallSubRate() > DBL_EPSILON && m_dScale < DBL_EPSILON) { Error("\nUnexpected values in CQMat::ScaleQ.\n"); }
 		m_bAlwaysI = true;  // This is true even for covarion processes -- cannot have zero substitutions with changes of state!
@@ -879,6 +879,16 @@ void CBaseProcess::OutEqm(int ENum,ostream &os)	{
 	}
 }
 
+//////////////////////////////////////////////////////////
+// Calculate the rate of a full specified Q matrix as sum of pi[i]*Q[i][i]
+// QMat specifies which matrix to compute (default = 0);
+double CBaseProcess::CalcRate(int QMat)	{
+	// Error check
+	assert(InRange(QMat,0,(int)m_vpQMat.size()));
+	// Get the substitution rate
+	return m_vpQMat[QMat]->OverallSubRate();
+}
+
 //////////////////////// Parameter functions //////////////////////
 // Set rate
 double CBaseProcess::Rate(double NewRate, bool MakeRateOpt)	{
@@ -898,17 +908,35 @@ CQPar *CBaseProcess::AddRatePar2Opt()	{
 }
 
 // Remove parameter function
-void CBaseProcess::RemovePar(string Name)	{
-	int i = 0;
+void CBaseProcess::RemovePar(string Name, bool AllowFail)	{
+	int i = 0,count = 0;
 	vector <CQPar *>::iterator iPar;
 	IFOR(iPar,m_vpPar)	{
 		if(m_vpPar[i]->Name().find(Name) != string::npos) {
-			m_vpPar.erase(iPar);
+			m_vpPar.erase(iPar); count ++;
 			if(iPar == m_vpPar.end()) { break; }
 		}
 		else { i++; }
 	}
+	if(!AllowFail && count != 1) { cout << "\nError in CBaseProcess::RemovePar(" << Name << ") which removed " << i << " parameters...\n"; exit(-1); }
 }
+
+// Gets a parameter of a specific name
+CQPar *CBaseProcess::GetPar(string Name, bool AllowFail) {
+	int i = 0, count = 0;
+	vector <CQPar *>::iterator iPar;
+	CQPar *RetPar = NULL;
+	IFOR(iPar,m_vpPar)	{
+		if(m_vpPar[i]->Name().find(Name) != string::npos) {
+			RetPar = m_vpPar[i]; count ++;
+			if(iPar == m_vpPar.end()) { break; }
+		}
+		i++; // Only move counter on if not erased
+	}
+	if((!AllowFail && count != 1) || RetPar == NULL) { cout << "\nError in CBaseProcess::GetPar(" << Name << ") which found " << i << " parameters...\n"; exit(-1); }
+	return RetPar;
+}
+
 
 //////////////////////// Process copying functions ////////////////
 //
@@ -1303,7 +1331,7 @@ vector <double> CBaseProcess::RootEqm()	{
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Prepare the Q matrices for the calculations
-bool CBaseProcess::PrepareLikelihood(bool DoQ, bool ForceRemake)	{
+bool CBaseProcess::PrepareLikelihood(bool DoQ, bool ForceRemake, bool DoScale)	{
 	int i;
 	vector <bool>  LockedProcs;
 //	cout << "\nPrepareLikelihood for process " << flush;
@@ -1311,7 +1339,7 @@ bool CBaseProcess::PrepareLikelihood(bool DoQ, bool ForceRemake)	{
 	// Allow remakes if required
 	if(ForceRemake) { FOR(i,(int)m_vpQMat.size()) { LockedProcs.push_back(m_vpQMat[i]->IsLocked()); m_vpQMat[i]->Unlock(); } }
 	// Prepare Q matrices
-	if(DoQ&& m_bDoStandardDecompose) { if(PrepareQMats() == false) { return false; } }
+	if(DoQ&& m_bDoStandardDecompose) { if(PrepareQMats(DoScale) == false) { return false; } }
 	// Get the equilibrium of the root
 
 	m_vdEqm = RootEqm();

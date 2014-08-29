@@ -795,7 +795,7 @@ double CBaseModel::lnL(bool ForceReal)	{
 		logL -= pLikelihood(NULL); // Called as blank. Other arguments intended to allow functionality
 	}
 //	if(m_bMainModel) { cout << "\n\tReturning likelihood: " << logL << endl;  }
-//	cout << "\n\tReturning likelihood: " << logL << endl;  exit(-1);
+//	cout << "\n\tReturning likelihood: " << logL << endl;  // exit(-1);
 	return logL;
 }
 
@@ -825,7 +825,10 @@ bool CBaseModel::FormMixtureSitewiseL()	{
 	cout << "\n--- Forming mixture model from sitewise likelihoods --- ";
 #endif
 	// Do the looping through processes and then by data size
+//	cout << "\n === Sitewise likelihoods === ";
+
 	FOR(ProcNum,(int)m_vpProc.size())	{
+//		cout << "\nProcess["<<ProcNum<<"]: Prob = " << m_vpProc[ProcNum]->Prob();
 #if LIKELIHOOD_FUNC_DEBUG == 1
 		cout << "\nProcess["<<ProcNum<<"]: Prob = " << m_vpProc[ProcNum]->Prob();
 		//FOR(i,min(m_pData->m_iSize,5)) { cout << "\n\tSite["<<i<<"]: " << m_vpProc[ProcNum]->L(i) << " = " << m_vpProc[ProcNum]->L(i).LogP(); }
@@ -833,9 +836,15 @@ bool CBaseModel::FormMixtureSitewiseL()	{
 #endif
 		if(m_vpProc[ProcNum]->Prob() < MIN_PROB) { continue; }
 		if(ProcNum == 0) {	// For the first process transfer values
-			FOR(i,m_pData->m_iSize)	{ m_arL[i] = m_vpProc[ProcNum]->L(i); }
+			FOR(i,m_pData->m_iSize)	{
+//				if(i<5) { cout << "\n\tSite["<<i<<"] = " << m_vpProc[ProcNum]->L(i); }
+				m_arL[i] = m_vpProc[ProcNum]->L(i); }
 		} else {			// Otherwise they need to be summed
-			FOR(i,m_pData->m_iSize) { m_arL[i].Add(m_vpProc[ProcNum]->L(i),true); }
+			FOR(i,m_pData->m_iSize) {
+//				if(i<5) { cout << "\n\tSite["<<i<<"] = " << m_arL[i] << " + " << m_vpProc[ProcNum]->L(i); }
+				m_arL[i].Add(m_vpProc[ProcNum]->L(i),true);
+//				if(i<5) { cout << " = " << m_arL[i]; }
+			}
 	}	}
 	return true;
 }
@@ -1408,6 +1417,10 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	CPar *Par  = Tree()->pBra(Br);
 	ori_x = x2 = *p_x;	ori_lnL = *BestlnL;
 //	ori_lnL = *BestlnL = DoBralnL(Br,NFr,NTo);
+
+//	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
+//	cout << "\nExpecting likelihood of: " << lnL(true); exit(-1);
+
 #if FASTBRANCHOPT_DEBUG == 1
 	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
 	if(fabs(*BestlnL - DoBralnL(Br,NFr,NTo)) > 1.0E-6) {

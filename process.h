@@ -370,7 +370,7 @@ public:
 	void PrepareFastCalc(vector <int> *C = NULL);					// Prepares the columns for fast calculations from vector (if blank it makes its own
 	void DecompressSpace();																// Reverts to normal memory allocation
 
-	bool PrepareLikelihood(bool DoQ, bool ForceRemake);		// Prepare for the main likelihood function
+	bool PrepareLikelihood(bool DoQ, bool ForceRemake, bool DoScale = true);		// Prepare for the main likelihood function
 	bool CreatePTMats(int Bra = -1);				// Creates the PT matrices ready for for branch [Bra]; if(Bra == -1) Do all branches...
 	bool Likelihood(bool ForceReal = false);		// Main likelihood function
 	virtual double Penalty() { return 0.0; }		// Returns a penalty value for penalized likelihood (if appropriate)
@@ -410,12 +410,14 @@ public:
 	vector<double> Eqm(int QMatNum) { return m_vpQMat[QMatNum]->Eqm(); };	// Returns the numerical value of equilibrium
 	virtual vector <double> RootEqm();				// Returns the root equilibrium for likelihood calculations
 	void OutEqm(int QMat = -1, ostream &os = cout);	// Returns the eqm distribution
-	double Rate(double NewRate = -1.0,bool MakeRateOpt = false);// Returns the rate and if NewRate >= 0 sets m_pRate = NewRate
+	double Rate(double NewRate = -1.0,bool MakeRateOpt = false);// Returns the rate and if NewRate >= 0 sets m_pRate = NewRate; Access to the rate *parameter*
+	double CalcRate(int QMat = 0);								// Calculate the overall rate of a process (sum of pi[i] * Q[i][i])
 	bool MaxRate() { return m_bMaxRate;}						// Whether the process is meant to be max rate
 	bool MakeMaxRate() { m_bMaxRate = true; }					// Enforces max rate
 	bool MakeNormalRate() { m_bMaxRate = false;	}  				// Goes back to a 'normal' rate
 	CQPar *AddRatePar2Opt();									// Adds rate parameter to the optimised parameters
-	void RemovePar(string Name);						// Removes a parameter from the process
+	void RemovePar(string Name, bool AllowFail = false);		// Removes a parameter from the process
+	CQPar *GetPar(string Name, bool AllowFail = false);			// Returns a parameter with a specific name
 
 	CTree *MainTree(CTree *T = NULL);							// Pointer to underlying tree
 	CData *MainData() { return m_pData; }						// Pointer to underlying data

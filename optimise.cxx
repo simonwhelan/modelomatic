@@ -1612,7 +1612,7 @@ double SubSetlnsrch(double Prob, vector <double *> x,double *step_xi, vector <do
 	delete [] hessin; delete [] pold; delete [] xi; DEL_MEM(grad_delta); DEL_MEM(oldxi);  \
 	optout <<"\nDoing hard check: "; CheckAllPar(Model,-fp,x,1.0E-4,optout); optout.close();
 #else
-#define FREEALL DEL_MEM(dg); DEL_MEM(hdg); for(i=0;i<n;i++) { DEL_MEM(hessin[i]);}; DEL_MEM(sub_xi); \
+#define FREEALL if(DoBasicOutput) {  cout << "END[" << its << "]"; } DEL_MEM(dg); DEL_MEM(hdg); for(i=0;i<n;i++) { DEL_MEM(hessin[i]);}; DEL_MEM(sub_xi); \
 	DEL_MEM(hessin); DEL_MEM(pold); DEL_MEM(xi); DEL_MEM(grad_delta); DEL_MEM(oldxi); \
 	//cout << "\nDoing hard check: "; CheckAllPar(Model,-fp,x,1.0E-4);
 	//cout << "\n\tThere were " << its << " iterations: " << -fp << flush; /*  << "\n\t  grads ="; FOR(i,n) { cout << g[i] << " "; } cout << "\n\t  Paras ="; FOR(i,n) { cout << *x[i] << " "; }*/ \
