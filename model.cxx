@@ -496,14 +496,80 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 			else if(Grads[i] < -RMSD_GRAD_LIM)	{ OK = false; Grads[i] = -RMSD_GRAD_LIM; }
 	}	} else {			////////////////////////// Do likelihood derivatives /////////////////
 #if ALLOW_ANALYTICAL_BRANCH_DERIVATIVES
-//		cout << "\nTrying analytical derivatives...";
-		if((int)m_vpAllOptPar.size() > 1) {
+/*		cout << "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Trying analytical derivatives...";
+		cout << "\nm_vbDoBranchDer.size() = " << m_vbDoBranchDer.size() << ": ";
+		FOR(i,m_vbDoBranchDer.size())  { cout << " " << m_vbDoBranchDer[i]; }
+		cout << "\nPars:"; FOR(i,m_vpAllOptPar.size()) { cout << " " << m_vpAllOptPar[i]->Name(); }
+*/		if((int)m_vpAllOptPar.size() > 1) {
 			int j;
 			// Get the derivatives by process
 			temp.assign((int)m_vpAllOptPar.size(),0.0);
 			// Initialise
 			FOR(i,(int)m_vpAllOptPar.size()) { m_vpAllOptPar[i]->InitialiseDerivativeType(); }
 
+			///////////////////////////////////////////////////////////////////
+			// For analytical derivatives
+			// 1. Set up the Q matrices
+			PreparelnL();
+			// 2. Build all the partial likelihoods and get the processes sitewise likelihood and use it to get the derivatives
+			if(m_vbDoBranchDer[0] == true) { FOR(i,(int)m_vpProc[0]->Tree()->NoBra()) { temp[i] = 0.0; } }
+			FOR(i,(int)m_vpProc.size())	{
+				if(m_vbDoBranchDer[i] != m_vbDoBranchDer[0]) { cout << "\nHaven't checked how to do lots of independent branch derivatives..."; }
+				if(m_vbDoBranchDer[i])	{		// Do branch derivatives
+					if(m_vpProc[0]->Tree() != m_vpProc[i]->Tree()) { Error("\nHaven't checked that multiple trees work..."); exit(-1); }
+					m_vpProc[i]->PrepareBraDer();									// Includes initialising the likelihood
+					if(!m_vpProc[i]->GetBraDer()) {	ForceNumBra = true; break; }	// Now do the look calculating the partial derivatives for each process
+					FOR(j,m_vpProc[i]->Tree()->NoBra()) { temp[j] += m_vpAllOptPar[j]->grad() * m_vpProc[i]->Prob(); }		// Add the contribution of the gradient. Note it's not scaled in the process
+					// STOPPING WORK HERE 2/9/14; Have just deleted a whole load of code using ModelL and replaced it with a fucntion where ModelL looks at m_ardL instead of it's own specified one...
+
+				}
+			}
+			if(!FormMixtureSitewiseL()) { ForceNumBra = true; } // Form the mixture distribution
+/*
+			CurlnL = lnL(true);
+			if(m_vbDoBranchDer[0] == true)	{
+				cout << "\nDone branch derivatives";
+				FOR(i,m_vpAllOptPar.size())	{
+					cout << "\nParameter["<<i<<"] = " << m_vpAllOptPar[i]->Name();
+					if(i<m_vpProc[0]->Tree()->NoBra()) { cout << " = " << temp[i]; cout << " = " << GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL); }
+
+				}
+			}
+
+			cout << "\n...Done New version"; // exit(-1);
+
+			///////////////////////////////////////////////////////////////////
+			// For analytical derivatives
+			// 1. Set up the Q matrices
+			PreparelnL();
+			FOR(i,temp.size()) { temp[i] = 0.0; }
+			// 2. Build all the partial likelihoods and get the processes sitewise likelihood
+			FOR(i,(int)m_vpProc.size())	{
+				if(m_vbDoBranchDer[i] == true) {
+					if(m_vpProc[0]->Tree() != m_vpProc[i]->Tree()) { Error("\nHaven't checked that multiple trees work..."); exit(-1); }
+					m_vpProc[i]->PrepareBraDer();
+			}	}
+			if(!FormMixtureSitewiseL()) { ForceNumBra = true; } // Form the mixture distribution
+			// 3. Now get the branch derivatives
+			FOR(i,(int)m_vpProc.size())	{
+				if(m_vbDoBranchDer[i] == true) {
+					if(!m_vpProc[i]->GetBraDer()) { ForceNumBra = true; break; }
+					FOR(j,m_vpProc[i]->Tree()->NoBra())	{ temp[j] += m_vpAllOptPar[j]->grad(); }
+			}	}
+			CurlnL = lnL(true);
+			cout << "\nOKAY TO HERE" << flush;
+			FOR(j,m_vpAllOptPar.size())	{
+				if(j > m_vpAllOptPar.size()) {  break; }
+				cout << "\nParameter["<<j<<"]: " << m_vpAllOptPar[j]->Name() << flush;
+				cout << " = " << temp[j] << " == " << flush;
+				cout << GetNumDerivative(m_vpAllOptPar[j]->OptimiserValue(),CurlnL);
+			}
+
+
+			cout << "\n...Done Old version";  exit(-1);
+*/
+			// Old version
+/*
 			///////////////////////////////////////////////////////////////////
 			// For analytical derivatives
 			// 1. Set up the Q matrices
@@ -521,6 +587,29 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 					if(!m_vpProc[i]->GetBraDer(m_arL)) { ForceNumBra = true; break; }
 					FOR(j,m_vpProc[i]->Tree()->NoBra())	{ temp[j] += m_vpAllOptPar[j]->grad(); }
 			}	}
+			if(ForceNumBra == true)	{
+				assert(CheckSameTree());
+//				if(Tree()->NoSeq() > 2) { cout << "\n <<<<<<<<<<<<<<< DOING NUMERICAL DERIVATIVES: CurlnL = " << CurlnL << "; diff: "<< fabs(CurlnL-lnL()) <<" >>>>>>>>>>>>>>>>>>>>>>>>>>>>"; }
+				FOR(i,m_vpProc[0]->Tree()->NoBra()) {
+					assert(m_vpAllOptPar[i]->IsBranch());
+//					cout << "\nGetting branch derivative for ["<<i<<"]: " << *m_vpAllOptPar[i];
+					temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+//					cout << " ... have " << m_vpAllOptPar[i]->grad() << " = " << temp[i];
+				}
+				// Error check here
+				temp_lnL = lnL(true);
+				if(fabs(temp_lnL - CurlnL) > 0.00001) {
+					// If there's an error try one more time
+					CurlnL = temp_lnL;
+					FOR(i,m_vpProc[0]->Tree()->NoBra()) {
+						assert(m_vpAllOptPar[i]->IsBranch());
+						temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+					}
+					// I shouldn't let it continue, but I'll try...
+					if(fabs(temp_lnL - CurlnL) > 0.001) { cout.precision(10); cout << "\nError in CModel::GetDerivatives(...): likelihoods don't match lnL()= " << CurlnL << " cf. "<< lnL() << " cf. " << lnL(true); exit(-1); }
+				}
+			}*/
+
 			if(ForceNumBra == true)	{
 				assert(CheckSameTree());
 //				if(Tree()->NoSeq() > 2) { cout << "\n <<<<<<<<<<<<<<< DOING NUMERICAL DERIVATIVES: CurlnL = " << CurlnL << "; diff: "<< fabs(CurlnL-lnL()) <<" >>>>>>>>>>>>>>>>>>>>>>>>>>>>"; }
@@ -795,7 +884,8 @@ double CBaseModel::lnL(bool ForceReal)	{
 		logL -= pLikelihood(NULL); // Called as blank. Other arguments intended to allow functionality
 	}
 //	if(m_bMainModel) { cout << "\n\tReturning likelihood: " << logL << endl;  }
-//	cout << "\n\tReturning likelihood: " << logL << endl;  // exit(-1);
+
+	// cout << "\n\tReturning likelihood: " << logL << endl;  // exit(-1);
 	return logL;
 }
 
@@ -819,6 +909,7 @@ void CBaseModel::Bran_update(int NTo, int NFr, int Br, CTree *T, int First, bool
 // -- This function will be changed for HMMs and other dependent structures --
 bool CBaseModel::FormMixtureSitewiseL()	{
 	int i,ProcNum;
+	bool First = true;
 	// Check some entry conditions
 	assert(m_arL != NULL);
 #if LIKELIHOOD_FUNC_DEBUG == 1
@@ -835,15 +926,16 @@ bool CBaseModel::FormMixtureSitewiseL()	{
 		i = 120;  cout << "\n\tSite["<<i<<"]: " << m_vpProc[ProcNum]->L(i) << " = " << m_vpProc[ProcNum]->L(i).LogP();
 #endif
 		if(m_vpProc[ProcNum]->Prob() < MIN_PROB) { continue; }
-		if(ProcNum == 0) {	// For the first process transfer values
+		if(First) {	// For the first process transfer values
 			FOR(i,m_pData->m_iSize)	{
 //				if(i<5) { cout << "\n\tSite["<<i<<"] = " << m_vpProc[ProcNum]->L(i); }
 				m_arL[i] = m_vpProc[ProcNum]->L(i); }
+			First = false;
 		} else {			// Otherwise they need to be summed
 			FOR(i,m_pData->m_iSize) {
 //				if(i<5) { cout << "\n\tSite["<<i<<"] = " << m_arL[i] << " + " << m_vpProc[ProcNum]->L(i); }
 				m_arL[i].Add(m_vpProc[ProcNum]->L(i),true);
-//				if(i<5) { cout << " = " << m_arL[i]; }
+//				if(i<5) { cout << " = " << m_arL[i] << " == " << m_arL[i].LogP(); }
 			}
 	}	}
 	return true;
@@ -1265,7 +1357,7 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		// Check branches are actually being optimised!
 		FOR(i,(int)m_vpAllOptPar.size())	{ if(m_vpAllOptPar[i]->Name().find("Branch") != string::npos) { break; } }
 		// Return if conditions not met
-		if(Branches != Tree()->NoBra() || i == (int)m_vpAllOptPar.size()) { return CurlnL; }
+		if(Branches != Tree()->NoBra() || i == (int)m_vpAllOptPar.size()) {  return CurlnL; }
 	}
 	///////////////////////////////////////////////////////////////////
 	// 1. Set up the Q matrices
@@ -1315,6 +1407,7 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 	if(Conv != NULL) { if(i==NoIter) { *Conv = false; } else { *Conv = true; } }
 //	cout << "\nReturning: " << BestlnL << " cf. " << lnL() << " fabs: " << fabs(BestlnL - lnL()); // exit(-1);
 	assert(BestlnL < 0);
+//	cout << "\nRETURN 3: " << BestlnL << " cf. " << lnL(true);
 	return BestlnL;
 }
 
@@ -1418,7 +1511,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	ori_x = x2 = *p_x;	ori_lnL = *BestlnL;
 //	ori_lnL = *BestlnL = DoBralnL(Br,NFr,NTo);
 
-//	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
+//	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL; // RETURN_DOBRAOPT;
 //	cout << "\nExpecting likelihood of: " << lnL(true); exit(-1);
 
 #if FASTBRANCHOPT_DEBUG == 1
@@ -1635,6 +1728,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	m_iFastBralnL_Calls++;
 	if(x2_lnL > ori_lnL) { *p_x = x2; *BestlnL = x2_lnL; } else { if(fabs(x2_lnL - ori_lnL) > tol) { cout << "\nWeird... optimiser (tol=" << tol << ") made worse likelihood in CBaseModel::DoBraOpt(...)\n"; cout << " should have: " << ori_lnL << " and have " << DoBralnL(Br,NFr,NTo) << " diff = " << DoBralnL(Br,NFr,NTo) - ori_lnL; } *p_x = ori_x; *BestlnL = ori_lnL;  }
 	Par->StoreOptBounds(x1,x3);
+//	cout << " ... Opt: " << *BestlnL;
 	RETURN_DOBRAOPT;
 }
 

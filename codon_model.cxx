@@ -833,9 +833,10 @@ CCodon1Dr2Dc::CCodon1Dr2Dc(CData *Data, CTree *Tree, ECodonEqm CE, string File, 
 	m_vpProc[1]->AddQPar(m_vpProc[0]->GetPar("Omega_Radical"));
 
 
-//	m_vpProc[0]->GetPar("Omega_Radical")->SetVal(0.1);
-//	m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(0.2);
-//	m_vpProc[1]->GetPar("Omega_Conservative")->SetVal(0.5);
+	// Make sure the parameters are seperate so optimisation is easy
+	m_vpProc[0]->ProbPar()->SetVal(0.9); m_vpProc[1]->ProbPar()->SetVal(0.1);
+	m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(0.2);
+	m_vpProc[1]->GetPar("Omega_Conservative")->SetVal(0.5);
 
 	PrepareProcessProbs(true);		// Prepare the process probabilities and true == optimise them
 	FinalInitialisation();

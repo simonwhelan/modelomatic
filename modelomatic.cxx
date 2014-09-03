@@ -296,10 +296,13 @@ int main(int argc, char *argv[])	{
 
 	// Some general settings
 	bool OptM0 = true;
-	bool OptDrDc = false;
+	bool OptDrDc = true;
 	bool Opt1Dr2Dc = true;
-	bool Opt2Dr1Dc = false;
-	bool Simulation = true;
+	bool Opt2Dr1Dc = true;
+	bool Simulation = false;
+	// Some optimiser stuff
+	bool DoBra = false;
+	bool DoPar = true;
 
 	vector <int> RadMat(20*20,-1);
 	FINOPEN(Radin, sRadicalFileName.c_str());
@@ -396,7 +399,7 @@ int main(int argc, char *argv[])	{
 	M0calc = new CCodonM0(&Cod0,&Tree);
 	ModelPointer = M0calc;
 	testval = ModelPointer->lnL(true);
-	if(OptM0) {  FullOpt(ModelPointer,true,true,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
+	if(OptM0) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
 	if(OptM0)	{
 	cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
 	cout << "\n" << *ModelPointer;
@@ -415,7 +418,7 @@ int main(int argc, char *argv[])	{
 	CData Cod2 = *PhyDat.pData();
 	M0New = new CCodonDrDc(&Cod2,&Tree);
 	ModelPointer = M0New;
-	if(OptDrDc) {  FullOpt(ModelPointer,true,true,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(); }
+	if(OptDrDc) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
 	if(OptDrDc) { cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
 	cout << "\n" << *ModelPointer;
 	FOR(i,ModelPointer->m_vpProc.size())	{
@@ -431,9 +434,9 @@ int CompCount;
 const int MIXTURECAT = 4;
 const double Dr[] = {0.2, 0.2, 0.4, 0.4};
 const double Dc[] = {0.4, 0.8, 0.4, 0.8};
-const int SimSize[] = {500, 500, 0, 0};
+const int SimSize[] = {250, 500, 0, 0};
 
-	CTree SimTree("(1:0.043780,3:0.033414,(((14:0.060604,(11:0.045839,15:0.016823):0.001403):0.018734,(2:0.022529,10:0.063247):0.1):0.1,(12:0.039199,((5:0.066535,((8:0.023001,16:0.069946):0.020357,(4:0.020514,13:0.045726):0.012160):0.1):0.1,(6:0.053979,(7:0.117510,9:0.030727):0.1):0.1):0.1):0.1):0.018207);",16);
+	CTree SimTree("(1:0.1,3:0.1,(((14:0.1,(11:0.1,15:0.1):0.1):0.1,(2:0.1,10:0.1):0.1):0.1,(12:0.1,((5:0.1,((8:0.1,16:0.1):0.1,(4:0.1,13:0.1):0.1):0.1):0.1,(6:0.1,(7:0.1,9:0.1):0.1):0.1):0.1):0.1):0.1);",16);
 	*M0New->m_pTree = SimTree;
 	int NoSeq = 16, Size = 0;
 	vector <int> Blob;
@@ -485,6 +488,7 @@ const int SimSize[] = {500, 500, 0, 0};
 	// Do the actual simulation
 
 	FOR(CompCount,MIXTURECAT)	{
+
 		assert(NewSeq.empty());
 		*M0New->m_pTree = SimTree;
 //		cout << "\nBranchesProc[CompCount]: ";
@@ -502,6 +506,24 @@ const int SimSize[] = {500, 500, 0, 0};
 			FOR(i,NoSeq) {
 				FullSeq[i].insert(FullSeq[i].end(),NewSeq[i].begin(),NewSeq[i].end());
 			}
+			// Output the individual sim for a category
+			string OutName = "sim.data." + int_to_string(CompCount+1);
+			ofstream chouder(OutName.c_str());
+			chouder << NoSeq << "  " << SimSize[CompCount];
+			FOR(i,NoSeq) {
+				chouder << "\n\nSeq_" << i << "\t ";
+				FOR(j,SimSize[CompCount]) {
+					assert(InRange(NewSeq[i][j],0,62));
+					if(NewSeq[i][j] == 61) { chouder << "---"; }
+					else {
+						FOR(k,3) { chouder << Cod2.m_sABET[(NewSeq[i][j]*3)+k]; }
+					}
+				}
+			}
+			chouder << "\n";
+			chouder.close();
+
+			// Clear the sequences
 			NewSeq.clear();
 		}
 	}
@@ -541,7 +563,7 @@ const int SimSize[] = {500, 500, 0, 0};
 //	cout << "\n>>>>>>>>>>>>>> Likelihood computation" << flush;
 
 	testval = M0NewTester->lnL(true);
-	if(Opt2Dr1Dc) { FullOpt(ModelPointer,true,false,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(); }
+	if(Opt2Dr1Dc) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
 
 	if(Opt2Dr1Dc) { cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
 
@@ -563,7 +585,8 @@ const int SimSize[] = {500, 500, 0, 0};
 //	cout << "\n>>>>>>>>>>>>>> Likelihood computation" << flush;
 
 	testval = ModelPointer->lnL(true);
-	if(Opt1Dr2Dc) { FullOpt(ModelPointer,true,false,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(); }
+
+	if(Opt1Dr2Dc) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
 
 	if(Opt1Dr2Dc) { cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
 	cout << "\n" << *ModelPointer;
