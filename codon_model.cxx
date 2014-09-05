@@ -751,18 +751,19 @@ void CCodonDrDcMixer::PreparelnL(bool ForceRemake)	{
 	// Prepare for likelihood computations
 	FOR(i,(int)m_vpProc.size()) { m_vpProc[i]->PrepareLikelihood(true,ForceRemake,false); }		// Prepare the process Q matrices, but don't scale them yet
 	// Get process probabilities
-	FOR(i,(int) m_vpProc.size()) { if(m_vpProc[i]->MaxRate()) { Probs.push_back(0.0); } else { Probs.push_back(m_vpProc[i]->Prob()); } }
+	FOR(i,(int) m_vpProc.size()) {
+//		cout << "\nMatrix["<<i<<"]\n"; m_vpProc[i]->OutQ(0); cout << "\nEqm: " << m_vpProc[i]->Eqm(0);
+		if(m_vpProc[i]->MaxRate()) { Probs.push_back(0.0); } else { Probs.push_back(m_vpProc[i]->Prob()); } }
 	Probs = NormaliseVector(Probs);
 	// Get the current rate of the individual processes (they currently scaled correctly relative to one another, just not the right mean rate)
 	FOR(i,(int)m_vpProc.size()) { if(m_vpProc[i]->MaxRate()) { continue; }  Rates.push_back(m_vpProc[i]->CalcRate()); TotalRate += Rates[i] * Probs[i]; }
 	// Do the rate assignment
+//	cout << "\nModel: " << Name();
 	FOR(i,(int)m_vpProc.size()) {
 		m_vpProc[i]->Rate(Rates[i]/TotalRate);
 //		cout << "\nProcess["<<i<<"] has rate: " << m_vpProc[i]->Rate() << " == " << Rates[i] / TotalRate;
 		m_vpProc[i]->ScaleQ();
-
 //		cout << "\nProcess["<<i<<"] syn rate: " << m_vpProc[i]->SynRate(true) << " and non-syn rate: " << m_vpProc[i]->NonsynRate(true);
-
 	}
 
 	// Output for checking
@@ -834,10 +835,12 @@ CCodon1Dr2Dc::CCodon1Dr2Dc(CData *Data, CTree *Tree, ECodonEqm CE, string File, 
 
 
 	// Make sure the parameters are seperate so optimisation is easy
-	m_vpProc[0]->ProbPar()->SetVal(0.9); m_vpProc[1]->ProbPar()->SetVal(0.1);
-	m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(0.2);
-	m_vpProc[1]->GetPar("Omega_Conservative")->SetVal(0.5);
-
+/*	m_vpProc[0]->ProbPar()->SetVal(1.0/3.0); m_vpProc[1]->ProbPar()->SetVal(2.0/3.0);
+	m_vpProc[0]->GetPar("Omega_Radical")->SetVal(0.2);
+	m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(0.4);
+	m_vpProc[1]->GetPar("Omega_Conservative")->SetVal(0.8);
+	m_vpProc[0]->GetPar("Kappa")->SetVal(2.5);
+*/
 	PrepareProcessProbs(true);		// Prepare the process probabilities and true == optimise them
 	FinalInitialisation();
 

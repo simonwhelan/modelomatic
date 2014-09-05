@@ -1464,7 +1464,8 @@ double lnsrch(vector <double *> x,double fold,vector <double> g, double p[], dou
 */
     // Start main loop
     for(;;)	{
-/*    	// Hard debug code...
+/*
+    	// Hard debug code...
     	cout << "\nChecking each step (alam = " << alam << ")";
     	FOR(i,n) { *x[i] = pold[i]; }
     	cout << "\nReset: ori=" << fold << " cf. " << -Model->lnL(true) << " -- diff: " << fold + Model->lnL(true);
@@ -1686,16 +1687,17 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		if(its < THOROUGH_LINE_SEARCH)  { Do_GS = true; }
 		if(fabs(fold - fp) > 0.25) { step_max = SMALL_STEP_MAX; }
 		fold = fp;
-
+/*
 		// --------------------------------- Perform the line search ----------------------------------
 		// Debug information
-/*		cout << "\n<<<<<< ITER " << its << ": " << fp << " >>>>>>>>";
+		cout << "\n<<<<<< ITER " << its << ": " << fp << " >>>>>>>>";
 		cout << "\n\tPnames:"; FOR(i,n) {
 			if(Model->m_vpAllOptPar[i]->Special()) { cout << "*SPECIAL*"; exit(-1); }
 			cout << "\t" << Model->m_vpAllOptPar[i]->Name(); }
 		cout << "\n\tPreals:"; FOR(i,n) { cout<< "\t" << Model->m_vpAllOptPar[i]->Val(); }
 		cout << "\n\tP:     "; FOR(i,n) { cout << "\t" << *x[i]; }
-		cout << "\n\tG:     "; FOR(i,n) { cout << "\t" << g[i]; }*/
+		cout << "\n\tG:     "; FOR(i,n) { cout << "\t" << g[i]; }
+*/
 		// Before performing line-search decide whether only a subset of parameters are worth examining
 		// This is decided when there are very large gradients relative to all other gradients.
 		double GOOD_IMPROVE = 0.5;
@@ -1710,9 +1712,24 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 			FOR(i,(int)g.size()) {
 				if(g[i] > 0 && xi[i] > 0) { xi[i] *= -1; flag = true; } // if(fabs(xi[i]) > 0.01) { xi[i] = -0.01;  } }
 				if(g[i] < 0 && xi[i] < 0) { xi[i] *= -1; flag = true; } // if(fabs(xi[i]) > 0.01) { xi[i] = 0.01; } }
+//				if(Model->m_vpAllOptPar[i]->IsProb()) { cout << "\nPar["<<Model->m_vpAllOptPar[i]->Name() << "]: grad = " << g[i] << "; step = " << xi[i]; }
 			}
 			if(flag == true) { HessWarning ++; }
 		}
+/*
+		cout << "\n==================== Stepper check =================";
+		FOR(i,(int)g.size()) {
+			double Direction, Dinner;
+			double Curp1  = Model->lnL(true), Curp2;
+
+			if(xi[i] > 0) { Direction = 1.0; } else { Direction = -1.0; }
+			Dinner = *x[i];
+			*x[i] = *x[i] + (Direction * 0.001);
+			Curp2 = Model->lnL(true);
+			*x[i] = Dinner;
+			cout << "\n" << Model->m_vpAllOptPar[i]->Name() << " Step  = " << Direction * 0.001 << " gives " << Curp2 - Curp1;
+		}
+*/
 		// Now adjust the step sizes to conform to step_max
 		max_g = -BIG_NUMBER; FOR(i,(int)g.size()) { if(fabs(xi[i]) > max_g) { max_g = fabs(xi[i]); } }
 		if(max_g > step_max) {

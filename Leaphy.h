@@ -103,6 +103,7 @@ enum LazyType { fullopt, lazy, randomtree };		// The type of optimisation done w
 #define PART_LIK_ACC 1.0e-1		// Accuracy of approximate likelihood routines
 #define RMSD_ACC 1.0e-2			// Accuracy of RMSD optimisation
 #define DX 5.0E-5				// Delta(x) used for optimisation
+#define PROB_DX 1.0E-4			// Delta(x) for probabilities
 #define BOUND_GRAD 0			// Whether gradients should be bounded at GRAD_LIM
 #define GRAD_LIM 1000			// Maximum value allowed in derivative functions
 #define RMSD_GRAD_LIM 10		// Maximum value allowed in RMSD derivative functions

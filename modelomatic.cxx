@@ -299,9 +299,9 @@ int main(int argc, char *argv[])	{
 	bool OptDrDc = true;
 	bool Opt1Dr2Dc = true;
 	bool Opt2Dr1Dc = true;
-	bool Simulation = false;
+	bool Simulation = true;
 	// Some optimiser stuff
-	bool DoBra = false;
+	bool DoBra = true;
 	bool DoPar = true;
 
 	vector <int> RadMat(20*20,-1);
@@ -432,11 +432,18 @@ int main(int argc, char *argv[])	{
 	cout << "\n>>>>>>>>>>>>> TRYING SIMULATION" << flush;
 int CompCount;
 const int MIXTURECAT = 4;
-const double Dr[] = {0.2, 0.2, 0.4, 0.4};
-const double Dc[] = {0.4, 0.8, 0.4, 0.8};
-const int SimSize[] = {250, 500, 0, 0};
+// Type 1
+//const double Dr[] = {0.2, 0.6, 0.2, 0.6};
+//const double Dc[] = {0.4, 0.4, 0.8, 0.8};
+// Type 2
+const double Dr[] = {0.6, 0.6, 0.2, 0.6};
+const double Dc[] = {0.4, 0.8, 0.8, 0.8};
 
-	CTree SimTree("(1:0.1,3:0.1,(((14:0.1,(11:0.1,15:0.1):0.1):0.1,(2:0.1,10:0.1):0.1):0.1,(12:0.1,((5:0.1,((8:0.1,16:0.1):0.1,(4:0.1,13:0.1):0.1):0.1):0.1,(6:0.1,(7:0.1,9:0.1):0.1):0.1):0.1):0.1):0.1);",16);
+const int SimSize[] = {200, 300, 0, 0};
+
+//	CTree SimTree("(1:0.1,3:0.1,(((14:0.1,(11:0.1,15:0.1):0.1):0.1,(2:0.1,10:0.1):0.1):0.1,(12:0.1,((5:0.1,((8:0.1,16:0.1):0.1,(4:0.1,13:0.1):0.1):0.1):0.1,(6:0.1,(7:0.1,9:0.1):0.1):0.1):0.1):0.1):0.1);",16);
+	CTree SimTree("(1:0.3,3:0.3,(((14:0.3,(11:0.3,15:0.3):0.3):0.3,(2:0.3,10:0.3):0.3):0.3,(12:0.3,((5:0.3,((8:0.3,16:0.3):0.3,(4:0.3,13:0.3):0.3):0.3):0.3,(6:0.3,(7:0.3,9:0.3):0.3):0.3):0.3):0.3):0.3);",16);
+	CTree TreeStore; TreeStore = Tree;
 	*M0New->m_pTree = SimTree;
 	int NoSeq = 16, Size = 0;
 	vector <int> Blob;
@@ -470,6 +477,10 @@ const int SimSize[] = {250, 500, 0, 0};
 		FOR(i,(int)M0New->NoPar()) { M0New->m_vpPar[i]->GlobalApply(); }
 		// Prepare for likelihood computations
 		M0New->m_vpProc[0]->PrepareLikelihood(true,true,false);
+//		cout << "\n==================== SIMULATION MATRIX " << CompCount << "=================";
+//		M0New->m_vpProc[0]->OutQ(0);
+//		cout << "\n//";
+//		cout << "\nEqm: " << M0New->m_vpProc[0]->Eqm(0);
 		// Get the current rate of the individual processes (they currently scaled correctly relative to one another, just not the right mean rate)
 		Rates.push_back(M0New->m_vpProc[0]->CalcRate());
 		FullRates.push_back(Rates[CompCount] * Probs[CompCount]);
@@ -492,7 +503,7 @@ const int SimSize[] = {250, 500, 0, 0};
 		assert(NewSeq.empty());
 		*M0New->m_pTree = SimTree;
 //		cout << "\nBranchesProc[CompCount]: ";
-		FOR(i,M0New->m_pTree->NoSeq()) {
+		FOR(i,M0New->m_pTree->NoBra()) {
 			M0New->m_pTree->SetB(i,M0New->m_pTree->B(i) * FullRates[CompCount]);
 //			if(i <4) { cout << "\t" << SimTree.B(i) << "->" << M0New->m_pTree->B(i); }
 		}
@@ -546,7 +557,7 @@ const int SimSize[] = {250, 500, 0, 0};
 	}
 	simout << "\n";
 	simout.close();
-
+	Tree = TreeStore;
 	}
 //	exit(-1);	// Set here for testing...
 
@@ -561,6 +572,9 @@ const int SimSize[] = {250, 500, 0, 0};
 	cout << "\n>>>>>>>>>>>>>> Created new model" << flush;
 
 //	cout << "\n>>>>>>>>>>>>>> Likelihood computation" << flush;
+
+	Tree.OutBra();
+	cout << "\nTree: " << Tree;
 
 	testval = M0NewTester->lnL(true);
 	if(Opt2Dr1Dc) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
@@ -586,7 +600,7 @@ const int SimSize[] = {250, 500, 0, 0};
 
 	testval = ModelPointer->lnL(true);
 
-	if(Opt1Dr2Dc) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
+	if(Opt1Dr2Dc) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,200,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
 
 	if(Opt1Dr2Dc) { cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
 	cout << "\n" << *ModelPointer;

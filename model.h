@@ -149,7 +149,7 @@ public:
 	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
 	int CountOptPar(bool ExtBranch = true, bool InBranch = true, bool Parameters = true, bool Eqm = false);
 	virtual vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);		// Calculate the processes derivatives
-	double GetNumDerivative(double *Par, double lnL);
+	double GetNumDerivative(double *Par, double lnL, CPar *pPar = NULL);
 	virtual CBaseModel *PreOptModel()	{ return NULL; }								// Returns the 'preoptimisation' model for complex models (e.g. THMMs)
 	virtual void ApplyPreOptModel(CBaseModel *PreOpt)		{  }						// Applies the pre-opt model to the data
 	bool ReplaceParValue(CPar *Par);				// Searches for *Par in current model and replaces it (if it exists)

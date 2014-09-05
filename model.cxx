@@ -115,13 +115,17 @@ void CBaseModel::RemovePar(string Name)	{
 // Basic function that gets the optimised parameters into the model
 vector <CPar *> CBaseModel::CreateOptPar()	{
 	int i,j,k,count = 0;
+	bool Skip;
 	CleanPar();
 	// Do the Q parameters
 	FOR(i,(int)m_vpProc.size())	{
 		FOR(j,m_vpProc[i]->NoPar())	{
 			if(m_vpProc[i]->pPar(j)->Opt() == true) {
 				// Check parameter doesn't already exist. Catch for mixed models with multiple copies of parameters
-				FOR(k,m_vpPar.size()) { if(m_vpPar[k] == m_vpProc[i]->pPar(j)) { continue; } }
+				Skip = false; FOR(k,m_vpPar.size()) {
+					if(m_vpPar[k] == m_vpProc[i]->pPar(j)) { Skip = true; break; }
+				}
+				if(Skip) { continue; }
 				// Add to the vector
 				m_vpPar.push_back(m_vpProc[i]->pPar(j));
 			}
@@ -137,10 +141,10 @@ vector <CPar *> CBaseModel::CreateOptPar()	{
 		assert(count == 0 || count == m_vpProc.size() -1);		// Assuming I will always optimise all process probabilities except the special one
 	}
 
-/*
-	cout << "\nThe optimised parameters are: ";
-	FOR(i,(int)m_vpPar.size())	{ cout << endl << *m_vpPar[i]; }
-*/
+
+//	cout << "\nThe optimised parameters are: ";
+//	FOR(i,(int)m_vpPar.size())	{ cout << endl << *m_vpPar[i]; }
+
 	return m_vpPar;
 }
 
@@ -359,6 +363,7 @@ vector <double *> CBaseModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 	// Get values fo optimising parameters
 	if(Parameters == true && !Locked())	{
 		FOR(i,(int)m_vpPar.size())	{
+			// Ignore non-optimised parameters, special probabilities, frequencies
 			if(m_vpPar[i]->Opt() == false || m_vpPar[i]->Special()) { continue; }
 			string::size_type loc = m_vpPar[i]->Name().find("Freq",0);
 			if(Eqm == false && loc != string::npos) { continue; }
@@ -525,75 +530,13 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 				}
 			}
 			if(!FormMixtureSitewiseL()) { ForceNumBra = true; } // Form the mixture distribution
-/*
-			CurlnL = lnL(true);
-			if(m_vbDoBranchDer[0] == true)	{
-				cout << "\nDone branch derivatives";
-				FOR(i,m_vpAllOptPar.size())	{
-					cout << "\nParameter["<<i<<"] = " << m_vpAllOptPar[i]->Name();
-					if(i<m_vpProc[0]->Tree()->NoBra()) { cout << " = " << temp[i]; cout << " = " << GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL); }
-
-				}
-			}
-
-			cout << "\n...Done New version"; // exit(-1);
-
-			///////////////////////////////////////////////////////////////////
-			// For analytical derivatives
-			// 1. Set up the Q matrices
-			PreparelnL();
-			FOR(i,temp.size()) { temp[i] = 0.0; }
-			// 2. Build all the partial likelihoods and get the processes sitewise likelihood
-			FOR(i,(int)m_vpProc.size())	{
-				if(m_vbDoBranchDer[i] == true) {
-					if(m_vpProc[0]->Tree() != m_vpProc[i]->Tree()) { Error("\nHaven't checked that multiple trees work..."); exit(-1); }
-					m_vpProc[i]->PrepareBraDer();
-			}	}
-			if(!FormMixtureSitewiseL()) { ForceNumBra = true; } // Form the mixture distribution
-			// 3. Now get the branch derivatives
-			FOR(i,(int)m_vpProc.size())	{
-				if(m_vbDoBranchDer[i] == true) {
-					if(!m_vpProc[i]->GetBraDer()) { ForceNumBra = true; break; }
-					FOR(j,m_vpProc[i]->Tree()->NoBra())	{ temp[j] += m_vpAllOptPar[j]->grad(); }
-			}	}
-			CurlnL = lnL(true);
-			cout << "\nOKAY TO HERE" << flush;
-			FOR(j,m_vpAllOptPar.size())	{
-				if(j > m_vpAllOptPar.size()) {  break; }
-				cout << "\nParameter["<<j<<"]: " << m_vpAllOptPar[j]->Name() << flush;
-				cout << " = " << temp[j] << " == " << flush;
-				cout << GetNumDerivative(m_vpAllOptPar[j]->OptimiserValue(),CurlnL);
-			}
-
-
-			cout << "\n...Done Old version";  exit(-1);
-*/
-			// Old version
-/*
-			///////////////////////////////////////////////////////////////////
-			// For analytical derivatives
-			// 1. Set up the Q matrices
-			PreparelnL();
-			// 2. Build all the partial likelihoods and get the processes sitewise likelihood
-			FOR(i,(int)m_vpProc.size())	{
-				if(m_vbDoBranchDer[i] == true) {
-					if(m_vpProc[0]->Tree() != m_vpProc[i]->Tree()) { Error("\nHaven't checked that multiple trees work..."); exit(-1); }
-					m_vpProc[i]->PrepareBraDer();
-			}	}
-			if(!FormMixtureSitewiseL()) { ForceNumBra = true; } // Form the mixture distribution
-			// 3. Now get the branch derivatives
-			FOR(i,(int)m_vpProc.size())	{
-				if(m_vbDoBranchDer[i] == true) {
-					if(!m_vpProc[i]->GetBraDer(m_arL)) { ForceNumBra = true; break; }
-					FOR(j,m_vpProc[i]->Tree()->NoBra())	{ temp[j] += m_vpAllOptPar[j]->grad(); }
-			}	}
 			if(ForceNumBra == true)	{
 				assert(CheckSameTree());
 //				if(Tree()->NoSeq() > 2) { cout << "\n <<<<<<<<<<<<<<< DOING NUMERICAL DERIVATIVES: CurlnL = " << CurlnL << "; diff: "<< fabs(CurlnL-lnL()) <<" >>>>>>>>>>>>>>>>>>>>>>>>>>>>"; }
 				FOR(i,m_vpProc[0]->Tree()->NoBra()) {
 					assert(m_vpAllOptPar[i]->IsBranch());
 //					cout << "\nGetting branch derivative for ["<<i<<"]: " << *m_vpAllOptPar[i];
-					temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+					temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL,m_vpAllOptPar[i]));
 //					cout << " ... have " << m_vpAllOptPar[i]->grad() << " = " << temp[i];
 				}
 				// Error check here
@@ -603,30 +546,7 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 					CurlnL = temp_lnL;
 					FOR(i,m_vpProc[0]->Tree()->NoBra()) {
 						assert(m_vpAllOptPar[i]->IsBranch());
-						temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
-					}
-					// I shouldn't let it continue, but I'll try...
-					if(fabs(temp_lnL - CurlnL) > 0.001) { cout.precision(10); cout << "\nError in CModel::GetDerivatives(...): likelihoods don't match lnL()= " << CurlnL << " cf. "<< lnL() << " cf. " << lnL(true); exit(-1); }
-				}
-			}*/
-
-			if(ForceNumBra == true)	{
-				assert(CheckSameTree());
-//				if(Tree()->NoSeq() > 2) { cout << "\n <<<<<<<<<<<<<<< DOING NUMERICAL DERIVATIVES: CurlnL = " << CurlnL << "; diff: "<< fabs(CurlnL-lnL()) <<" >>>>>>>>>>>>>>>>>>>>>>>>>>>>"; }
-				FOR(i,m_vpProc[0]->Tree()->NoBra()) {
-					assert(m_vpAllOptPar[i]->IsBranch());
-//					cout << "\nGetting branch derivative for ["<<i<<"]: " << *m_vpAllOptPar[i];
-					temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
-//					cout << " ... have " << m_vpAllOptPar[i]->grad() << " = " << temp[i];
-				}
-				// Error check here
-				temp_lnL = lnL(true);
-				if(fabs(temp_lnL - CurlnL) > 0.00001) {
-					// If there's an error try one more time
-					CurlnL = temp_lnL;
-					FOR(i,m_vpProc[0]->Tree()->NoBra()) {
-						assert(m_vpAllOptPar[i]->IsBranch());
-						temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+						temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL,m_vpAllOptPar[i]));
 					}
 					// I shouldn't let it continue, but I'll try...
 					if(fabs(temp_lnL - CurlnL) > 0.001) { cout.precision(10); cout << "\nError in CModel::GetDerivatives(...): likelihoods don't match lnL()= " << CurlnL << " cf. "<< lnL() << " cf. " << lnL(true); exit(-1); }
@@ -641,7 +561,7 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 				if(m_vpAllOptPar[i]->DoNumDer()) {
 //					cout << "\n================== Getting derivative for " << *m_vpAllOptPar[i] << " ==============";
 //					cout << "\nCurrent lnL: " << lnL() << " cf. " << CurlnL;
-					m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+					m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL,m_vpAllOptPar[i]));
 				}
 
 			}
@@ -649,7 +569,7 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 			m_vpAllOptPar[0]->grad(GetNumDerivative(m_vpAllOptPar[0]->OptimiserValue(),CurlnL));
 		}
 #else
-		FOR(i,(int)m_vpAllOptPar.size())	{ m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL)); }
+		FOR(i,(int)m_vpAllOptPar.size())	{ m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL,m_vpAllOptPar[i])); }
 #endif
 		// Store the gradients
 		FOR(i,(int)m_vpAllOptPar.size()) { Grads.push_back(m_vpAllOptPar[i]->grad()); }
@@ -679,69 +599,80 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 }
 
 
-double CBaseModel::GetNumDerivative(double *x, double Old_lnL)	{
+double CBaseModel::GetNumDerivative(double *x, double Old_lnL, CPar *pPar)	{
 	double grad = 0.0, OldPar = *x, UseDX = max(DX,*x * DX), new_lnL, new_par;
-	bool UpBound = false, LowBound = false;
+	bool UpBound = false, LowBound = false, IsProb = false;
 	Old_lnL = -fabs(Old_lnL);		// Correct the likelihood (may not be necessary...).
 	if(OldPar < 0) { UseDX *= -1; }
-	// Get the derivative
-#if DERIVATIVE_DEBUG == 1
-	if(fabs(Old_lnL -lnL()) > 1.0E-5)	{ cout << "\nNumerical derivative starting; ori_p: " << OldPar << " == lnL: " << Old_lnL << " != actual lnL: " << lnL() << " diff: " << fabs(Old_lnL - lnL()); Error("Hmm");}
-	cout << "\nNumerical derivative: ori_p: " << OldPar << " == " << Old_lnL;
-	if(fabs(fabs(Old_lnL) - fabs(lnL(true))) > FLT_EPSILON) { cout << "(unstable: " << fabs(Old_lnL - lnL(true)) << ")"; }
-#endif
-	if(OldPar < 0.5)	{ *x = OldPar + UseDX; }
-	else				{ *x = OldPar * (1 + UseDX); }
-	new_lnL = lnL();
-//#if DERIVATIVE_DEBUG == 1
-//	cout << " -> new_p: " << *x << " == " << new_lnL; *x = OldPar; cout << " ==> " << lnL();
-//#endif
-	// If at the upper bound then sort it out
-	if(fabs(new_lnL - Old_lnL) < FLT_EPSILON || fabs(OldPar - *x) < FLT_EPSILON)	{
-//		cout.precision(12); cout << "\nDifficult derivative: " << OldPar;
-		UseDX *= 2;
-		while(fabs(UseDX) < 0.99)	{
-			if(fabs(OldPar) < 0.5)	{ new_par = *x = OldPar + UseDX; }
-			else { new_par = *x = OldPar * (1 + UseDX); }
-//			cout << "\n\tUseDX = " << UseDX << "; OldPar: " << OldPar << "; New par: " << *x;
-			new_lnL = lnL();
-//			cout << " -> " << *x << ": " << new_lnL;
-			// Correct is it's a boundary problem (e.g. original value was past bound)
-			if(fabs(*x - new_par) > FLT_EPSILON)	{
-				*x = OldPar;
-#if DERIVATIVE_DEBUG == 1
-					if(fabs(lnL() - Old_lnL) > 1.0E-6) {
-						cout.precision(7);
-						cout << "\nDiff(" << lnL() << " cf. " << Old_lnL << " = " << fabs(lnL() - Old_lnL);
-						Error("\nIn CBaseModel::GetNumDerivative the likelihoods aren't matching...\n\n");
-					}
-#endif
-				OldPar = *x;
+	// If pPar != NULL check whether it's a probability or not
+	if(pPar != NULL)	{ if(pPar->IsProb()) { IsProb = true; } }
+	// Do the derivative
+	if(IsProb)	{	// Probabilities are different as they're on a continuous scale (-inf,+inf)
+		*x = OldPar + PROB_DX;
+		new_lnL = lnL(true);
+		grad = (new_lnL - Old_lnL) / PROB_DX;
+		*x = OldPar;
+		return -grad;
+	} else {	// Everything else uses this
+		// Get the derivative
+	#if DERIVATIVE_DEBUG == 1
+		if(fabs(Old_lnL -lnL()) > 1.0E-5)	{ cout << "\nNumerical derivative starting; ori_p: " << OldPar << " == lnL: " << Old_lnL << " != actual lnL: " << lnL() << " diff: " << fabs(Old_lnL - lnL()); Error("Hmm");}
+		cout << "\nNumerical derivative: ori_p: " << OldPar << " == " << Old_lnL;
+		if(fabs(fabs(Old_lnL) - fabs(lnL(true))) > FLT_EPSILON) { cout << "(unstable: " << fabs(Old_lnL - lnL(true)) << ")"; }
+	#endif
+		if(fabs(OldPar) < 0.5)	{ *x = OldPar + UseDX; }
+		else				{ *x = OldPar * (1 + UseDX); }
+		new_lnL = lnL();
+	//#if DERIVATIVE_DEBUG == 1
+	//	cout << " -> new_p: " << *x << " == " << new_lnL; *x = OldPar; cout << " ==> " << lnL();
+	//#endif
+		// If at the upper bound then sort it out
+		if(fabs(new_lnL - Old_lnL) < FLT_EPSILON || fabs(OldPar - *x) < FLT_EPSILON)	{
+	//		cout.precision(12); cout << "\nDifficult derivative: " << OldPar;
+			UseDX *= 2;
+			while(fabs(UseDX) < 0.99)	{
+				if(fabs(OldPar) < 0.5)	{ new_par = *x = OldPar + UseDX; }
+				else { new_par = *x = OldPar * (1 + UseDX); }
+	//			cout << "\n\tUseDX = " << UseDX << "; OldPar: " << OldPar << "; New par: " << *x;
+				new_lnL = lnL();
+	//			cout << " -> " << *x << ": " << new_lnL;
+				// Correct is it's a boundary problem (e.g. original value was past bound)
+				if(fabs(*x - new_par) > FLT_EPSILON)	{
+					*x = OldPar;
+	#if DERIVATIVE_DEBUG == 1
+						if(fabs(lnL() - Old_lnL) > 1.0E-6) {
+							cout.precision(7);
+							cout << "\nDiff(" << lnL() << " cf. " << Old_lnL << " = " << fabs(lnL() - Old_lnL);
+							Error("\nIn CBaseModel::GetNumDerivative the likelihoods aren't matching...\n\n");
+						}
+	#endif
+					OldPar = *x;
+				}
+				if(fabs(new_lnL - Old_lnL) > FLT_EPSILON) {	break; }
+				if(fabs(OldPar) < 0.5) { UseDX *= -2; } // Switch the sign regularly to try and ensure as much of parameter space as possible is investigated }
+				else { UseDX *= 2; }
 			}
-			if(fabs(new_lnL - Old_lnL) > FLT_EPSILON) {	break; }
-			if(fabs(OldPar) < 0.5) { UseDX *= -2; } // Switch the sign regularly to try and ensure as much of parameter space as possible is investigated }
-			else { UseDX *= 2; }
+			if(fabs(new_lnL - Old_lnL) < FLT_EPSILON || fabs(OldPar - *x) < FLT_EPSILON) {
+	//			cout << "\nWarning: flat gradient located... lnL diff=" << fabs(new_lnL - Old_lnL) << "; par diff=" << fabs(OldPar - *x);
+	//			int i; cout << "\nNew: " << *x << " = " << lnL(); FOR(i,m_vpPar.size()) {
+	//			cout << "[" << m_vpPar[i]->LowBound() << "," << m_vpPar[i]->UpBound() << "]";
+		//		*x = OldPar; cout << "\nOld: " << *x << " = "<< lnL();cout << " ... " << m_vpPar[i]->Name() << " = " << m_vpPar[i]->Val();
+				*x = OldPar; return 0.0;
+			}
+			if(fabs(OldPar - *x) < FLT_EPSILON)	{ Error("\nTrying to do derivative when parameters are the same...\n\n"); }
+			grad = (new_lnL - Old_lnL) / (*x - OldPar);
+		} else { // Otherwise get the normal gradient
+			if(fabs(OldPar - *x) < FLT_EPSILON)	{ Error("\nTrying to do derivative when parameters are the same...\n\n"); }
+			grad = (Old_lnL - new_lnL) / (*x - OldPar);
+	#if DERIVATIVE_DEBUG == 1
+			cout << "\n\tPar: " << OldPar << " *x: " << *x <<"; UseDX: " << UseDX << " -> Grad: (" << Old_lnL << " - " << new_lnL << ") / " << *x - OldPar << " == " << grad;
+	#endif
 		}
-		if(fabs(new_lnL - Old_lnL) < FLT_EPSILON || fabs(OldPar - *x) < FLT_EPSILON) {
-//			cout << "\nWarning: flat gradient located... lnL diff=" << fabs(new_lnL - Old_lnL) << "; par diff=" << fabs(OldPar - *x);
-//			int i; cout << "\nNew: " << *x << " = " << lnL(); FOR(i,m_vpPar.size()) {
-//			cout << "[" << m_vpPar[i]->LowBound() << "," << m_vpPar[i]->UpBound() << "]";
-	//		*x = OldPar; cout << "\nOld: " << *x << " = "<< lnL();cout << " ... " << m_vpPar[i]->Name() << " = " << m_vpPar[i]->Val();
-			*x = OldPar; return 0.0;
-		}
-		if(fabs(OldPar - *x) < FLT_EPSILON)	{ Error("\nTrying to do derivative when parameters are the same...\n\n"); }
-		grad = (new_lnL - Old_lnL) / (*x - OldPar);
-	} else { // Otherwise get the normal gradient
-		if(fabs(OldPar - *x) < FLT_EPSILON)	{ Error("\nTrying to do derivative when parameters are the same...\n\n"); }
-		grad = (Old_lnL - new_lnL) / (*x - OldPar);
-#if DERIVATIVE_DEBUG == 1
-		cout << "\n\tPar: " << OldPar << " *x: " << *x <<"; UseDX: " << UseDX << " -> Grad: (" << Old_lnL << " - " << new_lnL << ") / " << *x - OldPar << " == " << grad;
-#endif
+		*x = OldPar;
+	#if DERIVATIVE_DEBUG == 1
+		if(diff(Old_lnL,lnL()))	{ cout << "\nNumerical derivative ending; ori_p: " << OldPar << " == lnL: " << Old_lnL << " != actual lnL: " << lnL(); }
+	#endif
 	}
-	*x = OldPar;
-#if DERIVATIVE_DEBUG == 1
-	if(diff(Old_lnL,lnL()))	{ cout << "\nNumerical derivative ending; ori_p: " << OldPar << " == lnL: " << Old_lnL << " != actual lnL: " << lnL(); }
-#endif
 	return grad;
 }
 
