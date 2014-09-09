@@ -295,14 +295,28 @@ int main(int argc, char *argv[])	{
 	cout << "\nDoing codon based analysis"; cout.precision(10); // exit(-1);
 
 	// Some general settings
+	// Whether to do calculations for models
 	bool OptM0 = true;
 	bool OptDrDc = true;
 	bool Opt1Dr2Dc = true;
 	bool Opt2Dr1Dc = true;
-	bool Simulation = true;
+	bool Simulation = false;
 	// Some optimiser stuff
-	bool DoBra = true;
-	bool DoPar = true;
+	bool DoBra = false;
+	bool DoPar = false;
+	int NumIt = 150;
+
+	// Model definitions
+	CCodonM0 *M0calc = NULL;
+	CCodonDrDc *M0_DrDc = NULL;
+	CCodon2Dr1Dc *M0_2Dr1Dc = NULL;
+	CCodon1Dr2Dc *M0_1Dr2Dc = NULL;
+	CTree SimTree("(1:0.3,3:0.3,(((14:0.3,(11:0.3,15:0.3):0.3):0.3,(2:0.3,10:0.3):0.3):0.3,(12:0.3,((5:0.3,((8:0.3,16:0.3):0.3,(4:0.3,13:0.3):0.3):0.3):0.3,(6:0.3,(7:0.3,9:0.3):0.3):0.3):0.3):0.3):0.3);",16);
+	CData Cod0 = *PhyDat.pData(), Cod2 = *PhyDat.pData(), Cod3 = *PhyDat.pData(), Cod10 = *PhyDat.pData(), Cod11 = *PhyDat.pData();
+	int ModelSize = 4;
+	vector <double> AIC(ModelSize,BIG_NUMBER), DeltaAIC(ModelSize,BIG_NUMBER), MaxlnL(ModelSize,-BIG_NUMBER), TreeLength(ModelSize,-BIG_NUMBER), Omega1Dr(ModelSize,-BIG_NUMBER), Omega2Dr(ModelSize,-BIG_NUMBER), Omega1Dc(ModelSize,-BIG_NUMBER), Omega2Dc(ModelSize,-BIG_NUMBER);
+	vector <string> ModelName(ModelSize,"");
+
 
 	vector <int> RadMat(20*20,-1);
 	FINOPEN(Radin, sRadicalFileName.c_str());
@@ -329,235 +343,187 @@ int main(int argc, char *argv[])	{
 //	cout << "\nOriginal data:		   " << PhyDat.pData()->m_iNoSeq << " " << PhyDat.pData()->m_iTrueSize << "\t" << PhyDat.pData()->m_vsTrueSeq[ShowSeq].substr(0,15);;
 
 
-	/*
-	// Checking rate idea...
-	cout << "\n\nParameters:";
-	FOR(i,M0Test->m_vpProc[0]->NoPar()) {
-		cout << "\nPar[" << i<<"]: " << *M0Test->m_vpProc[0]->pPar(i);
-	}
-	M0Test->lnL(true);
-	cout << "\nALPHABET\n";
-	FOR(i,64) {
-		cout << i << ":" << State(COD,i) << "[" << GenCodes[0][i] << "] ";
-	}
-	cout << "\nEqm: " << M0Test->m_vpProc[0]->Eqm(0);
-	double SetOmegaVal;
 
-	M0Test->m_vpProc[0]->pPar(14)->SetVal(2.5);
-
-	// Omega = 0.1
-	SetOmegaVal = 0.1;
-	M0Test->m_vpProc[0]->pPar(13)->SetVal(SetOmegaVal);
-	cout << "\nHave Omega = " << SetOmegaVal << " == " << *M0Test->m_vpProc[0]->pPar(13) << " ; lnL = " << M0Test->lnL(true);
-	// Observed rates
-	cout << "\nObsSynRate:    " << M0Test->m_vpProc[0]->SynRate(true);
-	cout << "\nObsNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(true);
-	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(true) / M0Test->m_vpProc[0]->SynRate(true);
-	cout << "\nTotal rate:    "<< M0Test->m_vpProc[0]->NonsynRate(true) + M0Test->m_vpProc[0]->SynRate(true);
-	// Actual rates
-/*	cout << "\nSynRate:    " << M0Test->m_vpProc[0]->SynRate(false);
-	cout << "\nNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(false);
-	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(false) / M0Test->m_vpProc[0]->SynRate(false); */
-//	cout << "\n\nQMat: "; M0Test->m_vpProc[0]->OutQ();
-//	cout << "\n\nEqm: " << M0Test->m_vpProc[0]->Eqm(0);
-//	cout << "\nModel: " << *M0Test;
-/*
-	// Omega = 0.5
-	SetOmegaVal = 0.5;
-	M0Test->m_vpProc[0]->pPar(13)->SetVal(SetOmegaVal);
-	cout << "\nHave Omega = " << SetOmegaVal << " == " << *M0Test->m_vpProc[0]->pPar(13) << " ; lnL = " << M0Test->lnL(true);
-	// Observed rates
-	cout << "\nObsSynRate:    " << M0Test->m_vpProc[0]->SynRate(true);
-	cout << "\nObsNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(true);
-	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(true) / M0Test->m_vpProc[0]->SynRate(true);
-	cout << "\nTotal rate:    "<< M0Test->m_vpProc[0]->NonsynRate(true) + M0Test->m_vpProc[0]->SynRate(true);
-	// Actual rates
-	cout << "\nSynRate:    " << M0Test->m_vpProc[0]->SynRate(false);
-	cout << "\nNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(false);
-	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(false) / M0Test->m_vpProc[0]->SynRate(false);
-
-	// Omega = 1.0
-	SetOmegaVal = 1.0;
-	M0Test->m_vpProc[0]->pPar(13)->SetVal(SetOmegaVal);
-	cout << "\nHave Omega = " << SetOmegaVal << " == " << *M0Test->m_vpProc[0]->pPar(13) << " ; lnL = " << M0Test->lnL(true);
-	// Observed rates
-	cout << "\nObsSynRate:    " << M0Test->m_vpProc[0]->SynRate(true);
-	cout << "\nObsNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(true);
-	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(true) / M0Test->m_vpProc[0]->SynRate(true);
-	cout << "\nTotal rate:    "<< M0Test->m_vpProc[0]->NonsynRate(true) + M0Test->m_vpProc[0]->SynRate(true);
-	// Actual rates
-	cout << "\nSynRate:    " << M0Test->m_vpProc[0]->SynRate(false);
-	cout << "\nNonsynRate: " << M0Test->m_vpProc[0]->NonsynRate(false);
-	cout << "\nRatio:         " << M0Test->m_vpProc[0]->NonsynRate(false) / M0Test->m_vpProc[0]->SynRate(false);
-*/
 	double testval = 0.0;
 
 	// ************* Do Basic M0 Model *******************
-	cout << "\nCreating M0";
-	CCodonM0 *M0calc = NULL;
-	CData Cod0 = *PhyDat.pData();
-	M0calc = new CCodonM0(&Cod0,&Tree);
-	ModelPointer = M0calc;
-	testval = ModelPointer->lnL(true);
-	if(OptM0) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
 	if(OptM0)	{
-	cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
-	cout << "\n" << *ModelPointer;
-	FOR(i,ModelPointer->m_vpProc.size())	{
-		cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
-		rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
-		cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
-	} 	}
-	ModelPointer = NULL;
+		cout << "\nCreating M0";
+		M0calc = new CCodonM0(&Cod0,&Tree);
+		ModelPointer = M0calc;
+		testval = ModelPointer->lnL(true);
+		FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,NumIt,-BIG_NUMBER,FULL_LIK_ACC,true);
 
+		cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
+		cout << "\n" << *ModelPointer;
+		FOR(i,ModelPointer->m_vpProc.size())	{
+			cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
+			rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
+			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+		}
+		i = 0;
+		ModelName[i] = ModelPointer->Name();
+		MaxlnL[i] = ModelPointer->lnL(true);
+		TreeLength[i] = ModelPointer->Tree()->TreeLength();
+		Omega1Dr[i] = Omega2Dr[i] = Omega1Dc[i] = Omega2Dc[i] = ModelPointer->m_vpProc[0]->GetPar("Omega")->Val();
+		ModelPointer = NULL;
+	}
 
 
 	// ************* Do Basic DrDc Model *******************
-	cout << "\n>>>>>>>>>>>>>> Created DrDc model" << flush;
-	CCodonDrDc *M0New = NULL;
-	CData Cod2 = *PhyDat.pData();
-	M0New = new CCodonDrDc(&Cod2,&Tree);
-	ModelPointer = M0New;
-	if(OptDrDc) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
-	if(OptDrDc) { cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
-	cout << "\n" << *ModelPointer;
-	FOR(i,ModelPointer->m_vpProc.size())	{
-		cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
-		rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
-		cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
-	} 	}
-	ModelPointer = NULL;
+	if(OptDrDc)	{
+		cout << "\n>>>>>>>>>>>>>> Created DrDc model" << flush;
+		M0_DrDc = new CCodonDrDc(&Cod3,&Tree);
+		ModelPointer = M0_DrDc;
+		FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,NumIt,-BIG_NUMBER,FULL_LIK_ACC,true);
+		cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
+		cout << "\n" << *ModelPointer;
+		FOR(i,ModelPointer->m_vpProc.size())	{
+			cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
+			rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
+			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+		}
+		i = 1;
+		ModelName[i] = ModelPointer->Name();
+		MaxlnL[i] = ModelPointer->lnL(true);
+		TreeLength[i] = ModelPointer->Tree()->TreeLength();
+		Omega1Dr[i] = Omega2Dr[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Radical")->Val();
+		Omega1Dc[i] = Omega2Dc[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Conservative")->Val();
+		ModelPointer = NULL;
+	}
 
 	if(Simulation)	{
-	cout << "\n>>>>>>>>>>>>> TRYING SIMULATION" << flush;
-int CompCount;
-const int MIXTURECAT = 4;
-// Type 1
-//const double Dr[] = {0.2, 0.6, 0.2, 0.6};
-//const double Dc[] = {0.4, 0.4, 0.8, 0.8};
-// Type 2
-const double Dr[] = {0.6, 0.6, 0.2, 0.6};
-const double Dc[] = {0.4, 0.8, 0.8, 0.8};
-
-const int SimSize[] = {200, 300, 0, 0};
-
-//	CTree SimTree("(1:0.1,3:0.1,(((14:0.1,(11:0.1,15:0.1):0.1):0.1,(2:0.1,10:0.1):0.1):0.1,(12:0.1,((5:0.1,((8:0.1,16:0.1):0.1,(4:0.1,13:0.1):0.1):0.1):0.1,(6:0.1,(7:0.1,9:0.1):0.1):0.1):0.1):0.1):0.1);",16);
-	CTree SimTree("(1:0.3,3:0.3,(((14:0.3,(11:0.3,15:0.3):0.3):0.3,(2:0.3,10:0.3):0.3):0.3,(12:0.3,((5:0.3,((8:0.3,16:0.3):0.3,(4:0.3,13:0.3):0.3):0.3):0.3,(6:0.3,(7:0.3,9:0.3):0.3):0.3):0.3):0.3):0.3);",16);
-	CTree TreeStore; TreeStore = Tree;
-	*M0New->m_pTree = SimTree;
-	int NoSeq = 16, Size = 0;
-	vector <int> Blob;
-	vector <vector <int> > NewSeq, FullSeq;
-	vector <double> Probs, Rates, FullRates; // Rates = RawProcessRates; FullRates = Those used for scaling
-	double SumRate;
-
-	// Get memory sorted
-	FOR(i,MIXTURECAT) { Size += SimSize[i]; }
-	Blob.reserve(Size);
-	FOR(i,NoSeq) {
-		FullSeq.push_back(Blob);
-	}
-	Blob.clear();
-
-	// Create the relative probabilities & scales
-	FOR(CompCount,MIXTURECAT)	{
-		Probs.push_back((double)SimSize[CompCount]/(double)Size);
-	}
-	cout << "\nDoing simulation of length " << Size;
-	FOR(CompCount,MIXTURECAT)	{
-		cout << "\n\tCat[" << CompCount << "]: P(" << CompCount<<") =  " << Probs[CompCount] <<  "; Dc = " << Dc[CompCount] << " & Dr = " << Dr[CompCount];
-		assert(NewSeq.empty());
-		M0New->m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(Dc[CompCount]);
-		M0New->m_vpProc[0]->GetPar("Omega_Radical")->SetVal(Dr[CompCount]);
-		M0New->m_vpProc[0]->GetPar("Kappa")->SetVal(2.5);
-
-		// Copied from DrDc mixer
-		// ---
-		// Go through and apply all global parameters
-		FOR(i,(int)M0New->NoPar()) { M0New->m_vpPar[i]->GlobalApply(); }
-		// Prepare for likelihood computations
-		M0New->m_vpProc[0]->PrepareLikelihood(true,true,false);
-//		cout << "\n==================== SIMULATION MATRIX " << CompCount << "=================";
-//		M0New->m_vpProc[0]->OutQ(0);
-//		cout << "\n//";
-//		cout << "\nEqm: " << M0New->m_vpProc[0]->Eqm(0);
-		// Get the current rate of the individual processes (they currently scaled correctly relative to one another, just not the right mean rate)
-		Rates.push_back(M0New->m_vpProc[0]->CalcRate());
-		FullRates.push_back(Rates[CompCount] * Probs[CompCount]);
-
-	}
-
-	SumRate = Sum(&FullRates);
-	cout << "\nProbs:     " << Probs;
-//	cout << "\nRates:     " << Rates;
-	FOR(i,MIXTURECAT) { FullRates[i] = Rates[i] / SumRate; }
-	cout << "\nRates: " << FullRates;
-
-	SumRate = 0.0; FOR(i,MIXTURECAT) { SumRate += Probs[i] * FullRates[i]; }
-	cout << " == TotalRate: " << SumRate;
-
-	// Do the actual simulation
-
-	FOR(CompCount,MIXTURECAT)	{
-
-		assert(NewSeq.empty());
-		*M0New->m_pTree = SimTree;
-//		cout << "\nBranchesProc[CompCount]: ";
-		FOR(i,M0New->m_pTree->NoBra()) {
-			M0New->m_pTree->SetB(i,M0New->m_pTree->B(i) * FullRates[CompCount]);
-//			if(i <4) { cout << "\t" << SimTree.B(i) << "->" << M0New->m_pTree->B(i); }
+		cout << "\n>>>>>>>>>>>>> DOING SIMULATION" << flush;
+		if(M0_DrDc == NULL) {
+			M0_DrDc = new CCodonDrDc(&Cod2,&Tree);
 		}
-		M0New->m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(Dc[CompCount]);
-		M0New->m_vpProc[0]->GetPar("Omega_Radical")->SetVal(Dr[CompCount]);
-		M0New->m_vpProc[0]->GetPar("Kappa")->SetVal(2.5);
-//		cout << "\nSimulating from model for size: " << SimSize[CompCount] <<   flush; // *M0New;
-		if(SimSize[CompCount]> 0) {
-			M0New->DoSimulation(NoSeq,SimSize[CompCount],&NewSeq,false);
-//			cout << "\nSimulation done... " << flush;
-			FOR(i,NoSeq) {
-				FullSeq[i].insert(FullSeq[i].end(),NewSeq[i].begin(),NewSeq[i].end());
+		int CompCount;
+		const int MIXTURECAT = 4;
+		// Type 1
+		//const double Dr[] = {0.2, 0.6, 0.2, 0.6};
+		//const double Dc[] = {0.4, 0.4, 0.8, 0.8};
+		// Type 2
+		const double Dr[] = {0.6, 0.6, 0.2, 0.6};
+		const double Dc[] = {0.4, 0.8, 0.8, 0.8};
+
+		const int SimSize[] = {200, 300, 0, 0};
+
+	//	CTree SimTree("(1:0.1,3:0.1,(((14:0.1,(11:0.1,15:0.1):0.1):0.1,(2:0.1,10:0.1):0.1):0.1,(12:0.1,((5:0.1,((8:0.1,16:0.1):0.1,(4:0.1,13:0.1):0.1):0.1):0.1,(6:0.1,(7:0.1,9:0.1):0.1):0.1):0.1):0.1):0.1);",16);
+		CTree TreeStore; TreeStore = Tree;
+		*M0_DrDc->m_pTree = SimTree;
+		int NoSeq = 16, Size = 0;
+		vector <int> Blob;
+		vector <vector <int> > NewSeq, FullSeq;
+		vector <double> Probs, Rates, FullRates; // Rates = RawProcessRates; FullRates = Those used for scaling
+		double SumRate;
+
+		// Get memory sorted
+		FOR(i,MIXTURECAT) { Size += SimSize[i]; }
+		Blob.reserve(Size);
+		FOR(i,NoSeq) {
+			FullSeq.push_back(Blob);
+		}
+		Blob.clear();
+
+		// Create the relative probabilities & scales
+		FOR(CompCount,MIXTURECAT)	{
+			Probs.push_back((double)SimSize[CompCount]/(double)Size);
+		}
+		cout << "\nDoing simulation of length " << Size;
+		FOR(CompCount,MIXTURECAT)	{
+			cout << "\n\tCat[" << CompCount << "]: P(" << CompCount<<") =  " << Probs[CompCount] <<  "; Dc = " << Dc[CompCount] << " & Dr = " << Dr[CompCount];
+			assert(NewSeq.empty());
+			M0_DrDc->m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(Dc[CompCount]);
+			M0_DrDc->m_vpProc[0]->GetPar("Omega_Radical")->SetVal(Dr[CompCount]);
+			M0_DrDc->m_vpProc[0]->GetPar("Kappa")->SetVal(2.5);
+
+			// Copied from DrDc mixer
+			// ---
+			// Go through and apply all global parameters
+			FOR(i,(int)M0_DrDc->NoPar()) { M0_DrDc->m_vpPar[i]->GlobalApply(); }
+			// Prepare for likelihood computations
+			M0_DrDc->m_vpProc[0]->PrepareLikelihood(true,true,false);
+	//		cout << "\n==================== SIMULATION MATRIX " << CompCount << "=================";
+	//		M0New->m_vpProc[0]->OutQ(0);
+	//		cout << "\n//";
+	//		cout << "\nEqm: " << M0New->m_vpProc[0]->Eqm(0);
+			// Get the current rate of the individual processes (they currently scaled correctly relative to one another, just not the right mean rate)
+			Rates.push_back(M0_DrDc->m_vpProc[0]->CalcRate());
+			FullRates.push_back(Rates[CompCount] * Probs[CompCount]);
+
+		}
+
+		SumRate = Sum(&FullRates);
+		cout << "\nProbs:     " << Probs;
+	//	cout << "\nRates:     " << Rates;
+		FOR(i,MIXTURECAT) { FullRates[i] = Rates[i] / SumRate; }
+		cout << "\nRates: " << FullRates;
+
+		SumRate = 0.0; FOR(i,MIXTURECAT) { SumRate += Probs[i] * FullRates[i]; }
+		cout << " == TotalRate: " << SumRate;
+
+		// Do the actual simulation
+
+		FOR(CompCount,MIXTURECAT)	{
+
+			assert(NewSeq.empty());
+			*M0_DrDc->m_pTree = SimTree;
+	//		cout << "\nBranchesProc[CompCount]: ";
+			FOR(i,M0_DrDc->m_pTree->NoBra()) {
+				M0_DrDc->m_pTree->SetB(i,M0_DrDc->m_pTree->B(i) * FullRates[CompCount]);
+	//			if(i <4) { cout << "\t" << SimTree.B(i) << "->" << M0New->m_pTree->B(i); }
 			}
-			// Output the individual sim for a category
-			string OutName = "sim.data." + int_to_string(CompCount+1);
-			ofstream chouder(OutName.c_str());
-			chouder << NoSeq << "  " << SimSize[CompCount];
-			FOR(i,NoSeq) {
-				chouder << "\n\nSeq_" << i << "\t ";
-				FOR(j,SimSize[CompCount]) {
-					assert(InRange(NewSeq[i][j],0,62));
-					if(NewSeq[i][j] == 61) { chouder << "---"; }
-					else {
-						FOR(k,3) { chouder << Cod2.m_sABET[(NewSeq[i][j]*3)+k]; }
+			M0_DrDc->m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(Dc[CompCount]);
+			M0_DrDc->m_vpProc[0]->GetPar("Omega_Radical")->SetVal(Dr[CompCount]);
+			M0_DrDc->m_vpProc[0]->GetPar("Kappa")->SetVal(2.5);
+	//		cout << "\nSimulating from model for size: " << SimSize[CompCount] <<   flush; // *M0New;
+			if(SimSize[CompCount]> 0) {
+				M0_DrDc->DoSimulation(NoSeq,SimSize[CompCount],&NewSeq,false);
+	//			cout << "\nSimulation done... " << flush;
+				FOR(i,NoSeq) {
+					FullSeq[i].insert(FullSeq[i].end(),NewSeq[i].begin(),NewSeq[i].end());
+				}
+				// Output the individual sim for a category
+				string OutName = "sim.data." + int_to_string(CompCount+1);
+				ofstream chouder(OutName.c_str());
+				chouder << NoSeq << "  " << SimSize[CompCount];
+				FOR(i,NoSeq) {
+					chouder << "\n\nSeq_" << i << "\t ";
+					FOR(j,SimSize[CompCount]) {
+						assert(InRange(NewSeq[i][j],0,62));
+						if(NewSeq[i][j] == 61) { chouder << "---"; }
+						else {
+							FOR(k,3) { chouder << Cod2.m_sABET[(NewSeq[i][j]*3)+k]; }
+						}
 					}
 				}
-			}
-			chouder << "\n";
-			chouder.close();
+				chouder << "\n";
+				chouder.close();
 
-			// Clear the sequences
-			NewSeq.clear();
-		}
-	}
-	cout << "\n>>>>>>>>>>>>> Simulation done";
-//	cout << "\nHave data " << Cod2.m_iChar;
-//	cout << "\nABET[" << Cod2.m_sABET.size() <<" ]: " << Cod2.m_sABET;
-	ofstream simout("sim.data");
-//	cout << "\nHave " << FullSeq.size() << " of sizes"; FOR(i,NoSeq) { cout << "\n[" << i << "] " << FullSeq[i].size() << " " << FullSeq[i]; }
-	assert(FullSeq[0].size() == Size);
-	simout << NoSeq << "  " << Size;
-	FOR(i,NoSeq) {
-		simout << "\n\nSeq_" << i << "\t ";
-		FOR(j,Size) {
-			assert(InRange(FullSeq[i][j],0,62));
-			if(FullSeq[i][j] == 61) { simout << "---"; }
-			else {
-				FOR(k,3) { simout << Cod2.m_sABET[(FullSeq[i][j]*3)+k]; }
+				// Clear the sequences
+				NewSeq.clear();
 			}
 		}
-	}
-	simout << "\n";
-	simout.close();
-	Tree = TreeStore;
+		cout << "\n>>>>>>>>>>>>> Simulation done";
+	//	cout << "\nHave data " << Cod2.m_iChar;
+	//	cout << "\nABET[" << Cod2.m_sABET.size() <<" ]: " << Cod2.m_sABET;
+		ofstream simout("sim.data");
+	//	cout << "\nHave " << FullSeq.size() << " of sizes"; FOR(i,NoSeq) { cout << "\n[" << i << "] " << FullSeq[i].size() << " " << FullSeq[i]; }
+		assert(FullSeq[0].size() == Size);
+		simout << NoSeq << "  " << Size;
+		FOR(i,NoSeq) {
+			simout << "\n\nSeq_" << i << "\t ";
+			FOR(j,Size) {
+				assert(InRange(FullSeq[i][j],0,62));
+				if(FullSeq[i][j] == 61) { simout << "---"; }
+				else {
+					FOR(k,3) { simout << Cod2.m_sABET[(FullSeq[i][j]*3)+k]; }
+				}
+			}
+		}
+		simout << "\n";
+		simout.close();
+		Tree = TreeStore;
 	}
 //	exit(-1);	// Set here for testing...
 
@@ -565,54 +531,73 @@ const int SimSize[] = {200, 300, 0, 0};
 	// Mixture models
 
 	// 2Dr1Dc
-	CCodon2Dr1Dc *M0NewTester = NULL;
-	CData Cod10 = *PhyDat.pData();
-	M0NewTester = new CCodon2Dr1Dc(&Cod10,&Tree);
-	ModelPointer = M0NewTester;
-	cout << "\n>>>>>>>>>>>>>> Created new model" << flush;
-
-//	cout << "\n>>>>>>>>>>>>>> Likelihood computation" << flush;
-
-	Tree.OutBra();
-	cout << "\nTree: " << Tree;
-
-	testval = M0NewTester->lnL(true);
-	if(Opt2Dr1Dc) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
-
-	if(Opt2Dr1Dc) { cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
-
-	cout << "\n" << *ModelPointer;
-	FOR(i,ModelPointer->m_vpProc.size())	{
-		cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
-		rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
-		cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
-	}	}
-	ModelPointer = NULL;
-
+	if(Opt2Dr1Dc)	{
+		M0_2Dr1Dc = new CCodon2Dr1Dc(&Cod10,&Tree);
+		ModelPointer = M0_2Dr1Dc;
+		cout << "\n>>>>>>>>>>>>>> Created new model" << flush;
+		testval = ModelPointer->lnL(true);
+		FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,NumIt,-BIG_NUMBER,FULL_LIK_ACC,true);
+		cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
+		cout << "\n" << *ModelPointer;
+		FOR(i,ModelPointer->m_vpProc.size())	{
+			cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
+			rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
+			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+		}
+		i = 2;
+		ModelName[i] = ModelPointer->Name();
+		MaxlnL[i] = ModelPointer->lnL(true);
+		TreeLength[i] = ModelPointer->Tree()->TreeLength();
+		Omega1Dr[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Radical")->Val();
+		Omega2Dr[i] = ModelPointer->m_vpProc[1]->GetPar("Omega_Radical")->Val();
+		Omega1Dc[i] = Omega2Dc[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Conservative")->Val();
+		ModelPointer = NULL;
+	}
 	// 1Dr2Dc
-	CCodon1Dr2Dc *M0NewTester2 = NULL;
-	CData Cod11 = *PhyDat.pData();
-	M0NewTester2 = new CCodon1Dr2Dc(&Cod11,&Tree);
-	ModelPointer = M0NewTester2;
-	cout << "\n>>>>>>>>>>>>>> Created new model" << flush;
+	if(Opt1Dr2Dc)	{
+		M0_1Dr2Dc = new CCodon1Dr2Dc(&Cod11,&Tree);
+		ModelPointer = M0_1Dr2Dc;
+		cout << "\n>>>>>>>>>>>>>> Created new model" << flush;
+		testval = ModelPointer->lnL(true);
+		FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,NumIt,-BIG_NUMBER,FULL_LIK_ACC,true);
+		cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
+		cout << "\n" << *ModelPointer;
+		FOR(i,ModelPointer->m_vpProc.size())	{
+			cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
+			rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
+			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+		}
+		i = 3;
+		ModelName[i] = ModelPointer->Name();
+		MaxlnL[i] = ModelPointer->lnL(true);
+		TreeLength[i] = ModelPointer->Tree()->TreeLength();
+		Omega1Dr[i] = Omega2Dr[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Radical")->Val();
+		Omega1Dc[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Conservative")->Val();
+		Omega2Dc[i] = ModelPointer->m_vpProc[1]->GetPar("Omega_Conservative")->Val();
+		ModelPointer = NULL;
+	}
 
-//	cout << "\n>>>>>>>>>>>>>> Likelihood computation" << flush;
+	// Organise output
+	// Set up AIC
+	if(OptM0) { AIC[0] = (2*(Tree.NoBra() + 2)) - (2 * MaxlnL[0]); }
+	if(OptDrDc) { AIC[1] = (2*(Tree.NoBra() + 2)) - (2 * MaxlnL[1]); }
+	if(Opt2Dr1Dc) { AIC[2] = (2*(Tree.NoBra() + 2)) - (2 * MaxlnL[2]); }
+	if(Opt1Dr2Dc) { AIC[3] = (2*(Tree.NoBra() + 2)) - (2 * MaxlnL[3]); }
+	cout << "\nAIC: " << AIC;
+	double max_AIC = BIG_NUMBER; FOR(i,AIC.size()) { if(AIC[i] < max_AIC) { max_AIC = AIC[i]; } }
+	cout << "\nmax_AIC: " << max_AIC;
+	FOR(i,AIC.size()) { DeltaAIC[i] = AIC[i] - max_AIC; }
+	cout << "\nDeltaAIC: " << DeltaAIC;
 
-	testval = ModelPointer->lnL(true);
-
-	if(Opt1Dr2Dc) {  FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,200,-BIG_NUMBER,FULL_LIK_ACC,true); } else { ModelPointer->lnL(true); }
-
-	if(Opt1Dr2Dc) { cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
-	cout << "\n" << *ModelPointer;
-	FOR(i,ModelPointer->m_vpProc.size())	{
-		cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
-		rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
-		cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
-	}	}
-	ModelPointer = NULL;
-
-
+	cout << "\nModelName\tLikelihood\tAIC\tDeltaAIC\tOmegaDr1\tOmegaDr2\tOmegaDc1\tOmegaDc2\tTreeLength";
+	FOR(i,4) {
+		if(ModelName[i].size() > 0) {
+			cout << endl << ModelName[i] << "\t" << MaxlnL[i] << "\t" << AIC[i] <<"\t" << DeltaAIC[i]<< "\t" << Omega1Dr[i] << "\t" << Omega2Dr[i] << "\t" << Omega1Dc[i] << "\t" << Omega2Dc[i] << "\t" << TreeLength[i];
+		}
+	}
 	exit(-1);	// Set here for testing...
+
+
 
 	// 2Dr2Dc
 	CCodon2Dr2Dc *M0NewTester3 = NULL;
