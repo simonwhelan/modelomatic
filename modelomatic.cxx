@@ -302,8 +302,8 @@ int main(int argc, char *argv[])	{
 	bool Opt2Dr1Dc = true;
 	bool Simulation = false;
 	// Some optimiser stuff
-	bool DoBra = false;
-	bool DoPar = false;
+	bool DoBra = true;
+	bool DoPar = true;
 	int NumIt = 150;
 
 	// Model definitions
@@ -314,7 +314,7 @@ int main(int argc, char *argv[])	{
 	CTree SimTree("(1:0.3,3:0.3,(((14:0.3,(11:0.3,15:0.3):0.3):0.3,(2:0.3,10:0.3):0.3):0.3,(12:0.3,((5:0.3,((8:0.3,16:0.3):0.3,(4:0.3,13:0.3):0.3):0.3):0.3,(6:0.3,(7:0.3,9:0.3):0.3):0.3):0.3):0.3):0.3);",16);
 	CData Cod0 = *PhyDat.pData(), Cod2 = *PhyDat.pData(), Cod3 = *PhyDat.pData(), Cod10 = *PhyDat.pData(), Cod11 = *PhyDat.pData();
 	int ModelSize = 4;
-	vector <double> AIC(ModelSize,BIG_NUMBER), DeltaAIC(ModelSize,BIG_NUMBER), MaxlnL(ModelSize,-BIG_NUMBER), TreeLength(ModelSize,-BIG_NUMBER), Omega1Dr(ModelSize,-BIG_NUMBER), Omega2Dr(ModelSize,-BIG_NUMBER), Omega1Dc(ModelSize,-BIG_NUMBER), Omega2Dc(ModelSize,-BIG_NUMBER);
+	vector <double> AIC(ModelSize,BIG_NUMBER), DeltaAIC(ModelSize,BIG_NUMBER), MaxlnL(ModelSize,-BIG_NUMBER), TreeLength(ModelSize,-BIG_NUMBER), Omega1Dr(ModelSize,-BIG_NUMBER), Omega2Dr(ModelSize,-BIG_NUMBER), Omega1Dc(ModelSize,-BIG_NUMBER), Omega2Dc(ModelSize,-BIG_NUMBER), ProbProc1(ModelSize,-1);
 	vector <string> ModelName(ModelSize,"");
 
 
@@ -366,6 +366,7 @@ int main(int argc, char *argv[])	{
 		MaxlnL[i] = ModelPointer->lnL(true);
 		TreeLength[i] = ModelPointer->Tree()->TreeLength();
 		Omega1Dr[i] = Omega2Dr[i] = Omega1Dc[i] = Omega2Dc[i] = ModelPointer->m_vpProc[0]->GetPar("Omega")->Val();
+		ProbProc1[i] = ModelPointer->m_vpProc[0]->Prob();
 		ModelPointer = NULL;
 	}
 
@@ -389,6 +390,7 @@ int main(int argc, char *argv[])	{
 		TreeLength[i] = ModelPointer->Tree()->TreeLength();
 		Omega1Dr[i] = Omega2Dr[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Radical")->Val();
 		Omega1Dc[i] = Omega2Dc[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Conservative")->Val();
+		ProbProc1[i] = ModelPointer->m_vpProc[0]->Prob();
 		ModelPointer = NULL;
 	}
 
@@ -551,6 +553,7 @@ int main(int argc, char *argv[])	{
 		Omega1Dr[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Radical")->Val();
 		Omega2Dr[i] = ModelPointer->m_vpProc[1]->GetPar("Omega_Radical")->Val();
 		Omega1Dc[i] = Omega2Dc[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Conservative")->Val();
+		ProbProc1[i] = ModelPointer->m_vpProc[0]->Prob();
 		ModelPointer = NULL;
 	}
 	// 1Dr2Dc
@@ -574,6 +577,7 @@ int main(int argc, char *argv[])	{
 		Omega1Dr[i] = Omega2Dr[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Radical")->Val();
 		Omega1Dc[i] = ModelPointer->m_vpProc[0]->GetPar("Omega_Conservative")->Val();
 		Omega2Dc[i] = ModelPointer->m_vpProc[1]->GetPar("Omega_Conservative")->Val();
+		ProbProc1[i] = ModelPointer->m_vpProc[0]->Prob();
 		ModelPointer = NULL;
 	}
 
@@ -583,16 +587,16 @@ int main(int argc, char *argv[])	{
 	if(OptDrDc) { AIC[1] = (2*(Tree.NoBra() + 2)) - (2 * MaxlnL[1]); }
 	if(Opt2Dr1Dc) { AIC[2] = (2*(Tree.NoBra() + 2)) - (2 * MaxlnL[2]); }
 	if(Opt1Dr2Dc) { AIC[3] = (2*(Tree.NoBra() + 2)) - (2 * MaxlnL[3]); }
-	cout << "\nAIC: " << AIC;
+//	cout << "\nAIC: " << AIC;
 	double max_AIC = BIG_NUMBER; FOR(i,AIC.size()) { if(AIC[i] < max_AIC) { max_AIC = AIC[i]; } }
-	cout << "\nmax_AIC: " << max_AIC;
+//	cout << "\nmax_AIC: " << max_AIC;
 	FOR(i,AIC.size()) { DeltaAIC[i] = AIC[i] - max_AIC; }
-	cout << "\nDeltaAIC: " << DeltaAIC;
-
-	cout << "\nModelName\tLikelihood\tAIC\tDeltaAIC\tOmegaDr1\tOmegaDr2\tOmegaDc1\tOmegaDc2\tTreeLength";
+//	cout << "\nDeltaAIC: " << DeltaAIC;
+	cout << "\n## Model results";
+	cout << "\nModelName\tLikelihood\tAIC\tDeltaAIC\tOmegaDr1\tOmegaDr2\tOmegaDc1\tOmegaDc2\tProbProc1\tTreeLength";
 	FOR(i,4) {
 		if(ModelName[i].size() > 0) {
-			cout << endl << ModelName[i] << "\t" << MaxlnL[i] << "\t" << AIC[i] <<"\t" << DeltaAIC[i]<< "\t" << Omega1Dr[i] << "\t" << Omega2Dr[i] << "\t" << Omega1Dc[i] << "\t" << Omega2Dc[i] << "\t" << TreeLength[i];
+			cout << endl << ModelName[i] << "\t" << MaxlnL[i] << "\t" << AIC[i] <<"\t" << DeltaAIC[i]<< "\t" << Omega1Dr[i] << "\t" << Omega2Dr[i] << "\t" << Omega1Dc[i] << "\t" << Omega2Dc[i] << "\t" << ProbProc1[i] << "\t" << TreeLength[i];
 		}
 	}
 	exit(-1);	// Set here for testing...
