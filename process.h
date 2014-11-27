@@ -272,6 +272,7 @@ public:
 	ECodonEqm m_EqmType;														// Stores the eqm type
 	int m_iGenCode;																// Store the genetic code
 	vector <double> Eqm();														// Returns eqm distribution
+	void ResetEqm(vector <double> Eqm, bool RandomFactor);					// Resets the equlibrium distribution
 private:
 	ECodonEqm m_CE;
 	void ConstructCodonEqm(vector <double> eqm);								// Construct the eqm

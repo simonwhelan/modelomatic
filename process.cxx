@@ -646,6 +646,24 @@ vector <double> CCodonEqm::Eqm()	{
 	}
 	return retEqm;
 }
+
+void CCodonEqm::ResetEqm(vector <double> New, bool RandomBit)	{
+	int i,j = -1;
+	if((int)New.size() != m_iChar) { Error("Error: CSimpleEqm::ResetEqm -- vector <double> New has wrong number of states...\n"); }
+	New = NormaliseVector(New);
+//	cout << "\nResetEqm: ";
+	FOR(i,m_iChar) {
+		if(m_vpEqmPar[i]->Special()) { assert(j == -1); j = i; continue; }
+		if(!RandomBit) { m_vpEqmPar[i]->SetVal(New[i],false,true,false);  }
+		else { m_vpEqmPar[i]->SetVal(New[i] + (0.1 * Random()),false,true,false); }
+//		cout << "\n\t["<<i<<"]: " << New[i]; // << " --> " << m_vpEqmPar[i]->Val();
+
+	}
+	assert(j != -1);
+	m_vpEqmPar[j]->SetVal(New[j],true,true,true);
+}
+
+
 /////////////////// Function to add a codon Equilibrium //////////////////////////
 void CBaseProcess::AddCodonEqm(int GenCode,int Char, ECodonEqm CE, bool Opt)	{
 	CCodonEqm *Eqm;

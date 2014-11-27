@@ -292,6 +292,16 @@ int main(int argc, char *argv[])	{
 #if DEVELOPER_VERSION_MAIN
 	CBaseModel *ModelPointer = NULL;
 	double cVal,rVal;
+
+	// Get GC content
+	double GC = 0.0, AT = 0.0;
+	FOR(i,PhyDat.pData()->m_iNoSeq) {
+		FOR(j,PhyDat.pData()->m_iTrueSize)	{
+			if(PhyDat.pData()->m_vsTrueSeq[i][j] == 'C' || PhyDat.pData()->m_vsTrueSeq[i][j] == 'G') { GC += 1.0; }
+			if(PhyDat.pData()->m_vsTrueSeq[i][j] == 'A' || PhyDat.pData()->m_vsTrueSeq[i][j] == 'T') { AT += 1.0; }
+		}
+	}
+	cout << "\nGCcontent: " << GC / (GC + AT);
 	cout << "\nDoing codon based analysis"; cout.precision(10); // exit(-1);
 
 	// Some general settings
@@ -352,6 +362,75 @@ int main(int argc, char *argv[])	{
 		M0calc = new CCodonM0(&Cod0,&Tree);
 		ModelPointer = M0calc;
 		testval = ModelPointer->lnL(true);
+
+		cout << "\nChecker to here";
+		CData TestData = *PhyDat.pData(); TestData.MakeCodonData();
+		CCodonM0 TestModel (&TestData,&Tree,F64);
+
+
+		bool TestGC = true;
+		bool TestKappa = true;
+		bool TestOmega = false;;
+
+		TestModel.lnL(true);
+		ModelPointer = &TestModel;
+
+		double Omega = 0.2;
+		double Kappa = 2.5;
+		double GC = 0.1;
+		cout << "\nGC\tKappa\tOmega\tKr\tKc\tKr/Kc";
+		for(GC=0.1;GC<=0.9;GC+=0.1)	{
+			if(!TestGC) { GC = 0.5; }
+			for(Kappa = 0.25;Kappa <= 4;Kappa += 0.25)	{
+				if(!TestKappa) { Kappa = 2.5; }
+				for(Omega = 0.05;Omega<=1.0;Omega+=0.05)	{
+					if(!TestOmega) { Omega = 0.2; }
+					// Do the GC
+					vector <double> Freqs;
+					count = 0;
+					FOR(i,4) {	// Site 1
+						FOR(j,4) { // Site 2
+							FOR(k,4) { // Site 3
+								if(GenCodes[0][count++] == -1) {
+		//							Freqs.push_back(0.0);
+									continue; }
+								double Value = 1.0;
+								// Site 1
+								if(i == 0 || i == 3) { Value *= (1-GC)/2; }// A or T
+								else { Value *= GC/2; }
+								// Site 1
+								if(j == 0 || j == 3) { Value *= (1-GC)/2; }// A or T
+								else { Value *= GC/2; }
+								// Site 1
+								if(k == 0 || k == 3) { Value *= (1-GC)/2; }// A or T
+								else { Value *= GC/2; }
+								Freqs.push_back(Value);
+							}
+						}
+					}
+					// Set the values and get what's needed
+					ModelPointer->m_vpProc[0]->EqmPar()[0]->ResetEqm(Freqs,false);
+					ModelPointer->m_vpProc[0]->GetPar("Kappa")->SetVal(Kappa);
+					ModelPointer->m_vpProc[0]->GetPar("Omega")->SetVal(Omega);
+					ModelPointer->PreparelnL();
+		//			cout << "\nCurrent eqm: " << ModelPointer->m_vpProc[0]->Eqm(0);
+		//			cout << "\nShould have: " << NormaliseVector(Freqs);
+					cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[0]->GetQMat(0), 0, RadMat, 0);		// Conservative
+					rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[0]->GetQMat(0), 0, RadMat, 1);		// Radical
+		//			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tKr/Kc: " << rVal/cVal;
+					cout << "\n" << GC << "\t" << Kappa << "\t" << Omega << "\t"  << rVal << "\t" << cVal << "\t" << rVal/cVal;
+		//			cout << "\nGC = " << GC << " Obs(c): " << cVal << " ; Obs(r): " << rVal << "; Ratio: " << rVal/cVal;
+		//			exit(-1);
+		//			cout  << "[" << Freqs.size() << "]: "; FOR(i,Freqs.size()) { cout << " " << i << ":" << Freqs[i]; }
+					if(!TestOmega) { break; }
+				}
+				if(!TestKappa) { break; }
+			}
+			if(!TestGC) { break; }
+		}
+
+
+		cout << "\nDone"; exit(-1);
 		FullOpt(ModelPointer,DoPar,DoBra,false,-BIG_NUMBER,true,NumIt,-BIG_NUMBER,FULL_LIK_ACC,true);
 
 		cout << "\n>>>>>>>>>>>>>> FINAL DETAILS " << flush;
@@ -359,7 +438,7 @@ int main(int argc, char *argv[])	{
 		FOR(i,ModelPointer->m_vpProc.size())	{
 			cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
 			rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
-			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tKr/Kc: " << rVal/cVal;
 		}
 		i = 0;
 		ModelName[i] = ModelPointer->Name();
@@ -382,7 +461,7 @@ int main(int argc, char *argv[])	{
 		FOR(i,ModelPointer->m_vpProc.size())	{
 			cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
 			rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
-			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tKr/Kc: " << rVal/cVal;
 		}
 		i = 1;
 		ModelName[i] = ModelPointer->Name();
@@ -544,7 +623,7 @@ int main(int argc, char *argv[])	{
 		FOR(i,ModelPointer->m_vpProc.size())	{
 			cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
 			rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
-			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tKr/Kc: " << rVal/cVal;
 		}
 		i = 2;
 		ModelName[i] = ModelPointer->Name();
@@ -568,7 +647,7 @@ int main(int argc, char *argv[])	{
 		FOR(i,ModelPointer->m_vpProc.size())	{
 			cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
 			rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
-			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+			cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tKr/Kc: " << rVal/cVal;
 		}
 		i = 3;
 		ModelName[i] = ModelPointer->Name();
@@ -620,7 +699,7 @@ int main(int argc, char *argv[])	{
 	FOR(i,ModelPointer->m_vpProc.size())	{
 		cVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 0);		// Conservative
 		rVal = GetAminoAcidCountFromCodon( ModelPointer->m_vpProc[i]->GetQMat(0), 0, RadMat, 1);		// Radical
-		cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tDr/Dc: " << rVal/cVal;
+		cout << "\n\tProc["<<i<<"] expectedObservations:\tConservative: " << cVal << "\tRadical: " << rVal << "\tKr/Kc: " << rVal/cVal;
 	}
 	ModelPointer = NULL;
 
