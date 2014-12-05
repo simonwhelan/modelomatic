@@ -18,7 +18,7 @@
 #include <set>
 
 #define CHECK_LNL_OUT 1
-#define VERSION_NUMBER "1.0 (release)"
+#define VERSION_NUMBER "1.01 (release)"
 #define DEVELOPER_VERSION_MAIN 0
 
 #if DO_MEMORY_CHECK == 1
@@ -71,72 +71,6 @@ std::map <string,double**> aa_model_map;
 std::set <string> codon_model_set;
 
 int main(int argc, char *argv[])	{
-/*
-	int o;
-
-	cout << "\nTesting memory allocations";
-	cout << "\nAllocation 1: ";
-	CMYTEST *p1 = new CMYTEST[5]::CMYTEST(3);
-	cout << "\nDeletion 1:   ";
-	delete [] p1;
-
-	cout << "\nAllocation 2: ";
-	vector <CMYTEST *> vp1;
-	cout << "\nBllocation 2: ";
-	FOR(o,5) {
-		CMYTEST *po = new CMYTEST;
-		vp1.push_back(po);
-		po = NULL;
-	}
-	cout << "\nDeletion 2  : ";
-	FOR(o,5) { delete vp1[o]; }
-	vp1.clear();
-
-
-	cout << "\nAllocation 3: ";
-	vector <CMYTEST> vp;
-	cout << "\nBllocation 3: ";
-	vp.assign(5,CMYTEST(25));
-	FOR(o,vp.size()) { vp[o].number = o *3; }
-	cout << "\nCHECK: "; FOR(o,vp.size()) { cout << vp[o].number << " "; }
-	cout << "\nDeletion 3:   ";
-	vp.clear();
-
-
-	cout << "\nAllocation 3: ";
-	vector <CMYTEST> sp(5,CMYTEST(15));
-	cout << "\nCHECK: "; FOR(o,sp.size()) { cout << sp[o].number << " "; }
-	cout << "\nDeletion 3:   ";
-	sp.clear();
-
-	cout << "\nTotal objects still instanced: " << STRUCT_COUNTER;
-
-//	exit(-1);
-	cout << "\n--- SPACE CHECK ---";
-	cout << "\nAssignment 1:  ";
-	vector <CSite> Space;
-	int Char = 4;
-	CSite HOLD(&Char);
-	cout << "\nBssignment 1:  ";
-	FOR(o,5) {
-		cout << "\n\t -> " << flush; Space.push_back(HOLD); }
-
-	cout << "\nDeletion 1:    " << flush;
-	Space.clear();
-
-
-	cout << "\nAssignment 2:  ";
-	vector <CSite> Space2;
-	cout << "\nBssignment 2:  ";
-	Space2.assign(5,CSite(&Char));
-	cout << "\nDeletion 1:    " << flush;
-	Space2.clear();
-
-
-	cout << "\n\nDONE";
-	exit(-1);
-*/
-
 		int GeneticCode = 0;
 		int count = 0;
 		int RY_count, DNA_count, AA_count, COD_count;
@@ -1087,6 +1021,7 @@ SModelDetails DoModelRun(CBaseModel *M, int NoPar, Lcorrection Lcor, double Adj)
 #if CHECK_LNL_OUT == 1
 	// Error checking. This no longer throws a terminal error, but instead makes the program rerun
 	if(fabs(ModDet.OrilnL - M->lnL(true)) > 0.001)	{
+			cout << "\nNo improvement found during optimisation?!?";
 			cout << "\nModel: " << M->Name() << " obtained " << ModDet.lnL << " cf. " << M->lnL() << " cff. " << M->lnL(true) << "\n\n";
 			cout << "\nModel details: " << *M; exit(-1);
 	}

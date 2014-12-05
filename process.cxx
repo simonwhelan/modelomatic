@@ -712,7 +712,7 @@ CSite::~CSite()			{
 #if DO_MEMORY_CHECK
 	memory_check.CountCSite--;
 #endif
-
+	ResetSite();
 	if(m_bReal == true) { DEL_MEM(m_ardSpace);  }
 	else if(m_pOrSite != NULL) { m_pOrSite->m_iCopyNum--; }
 	m_ardSpace =  NULL; m_pOrSite = NULL; m_pSpacePointer = NULL; m_pScalePointer = NULL;
