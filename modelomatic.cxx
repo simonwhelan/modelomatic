@@ -18,7 +18,7 @@
 #include <set>
 
 #define CHECK_LNL_OUT 1
-#define VERSION_NUMBER "1.01 (release)"
+#define VERSION_NUMBER "1.01 (Ari's fix)"
 #define DEVELOPER_VERSION_MAIN 0
 
 #if DO_MEMORY_CHECK == 1
@@ -91,28 +91,31 @@ int main(int argc, char *argv[])	{
 
 	string InTree = "file=";
 
+
 	// Some initial verification
 	if(min(LOOSE_RMSD_SUBSET,FULL_RMSD_SUBSET) < 105 && min(LOOSE_PARS_SUBSET,FULL_PARS_SUBSET) < 105) { Error("\nTrying to choose subsets of trees to examine based both on RMSD and parsimony"); }
 
 	// Get information
-	if(!InRange(argc,2,8)) {
-		cout << "ModelOMatic <data_file> <tree> <output_file> <genetic_code> <normal/fast/trim> <models_out>\n";
+	if(!InRange(argc,2,7)) {
+		cout << "AriOMatic <data_file> <tree> <output_file> <genetic_code> <normal/fast/trim>\n";
 		cout << "\n---";
 		cout << "\n\t<data_file>:  \tInput data in sequential or interleaved format";
 		cout << "\n\t<tree_file>:  \tEither input tree file in Newick or use 'bionj' to build a distance tree";
 		cout << "\n\t<output_file> \tWhere the output from the program will go";
 		cout << "\n\t<genetic_code>\tThe genetic code used for codon models and amino acid models [default = Universal]";
+		cout << "\n\t\t[0] Universal; [1] vertebrate mt; [2] yeast; [3] mould mt; [4] invertebrate mt; [5] ciliate nuclear"
+			 << "\n\t\t[6] echinoderm mt; [7] euplotid mt; [8] alternative yeast nuclear; [9] ascidian mt; [10] blepharisma nuclear;"
+			 << "\n\t\t[11] Fake where everything codes";
 		cout << "\n\t<normal/fast/trim>        \tOption controlling how analyses will be done [default = normal]";
 		cout << "\n\t\t\t\t\tnormal = full ML estimation for each tree";
 		cout << "\n\t\t\t\t\tfast = Only do full MLE for first tree of each data type; after that just model parameters";
 		cout << "\n\t\t\t\t\ttrim = Only use ten species with greatest tree coverage to perform analysis";
 		cout << "\n\t\t\t\t\ttrim=5 = Only use 5 species with the greatest tree coverage to perform the analysis. NB: 5 can vary";
-		cout << "\n\t<models_out>  \tyes/no Option to output full model details to file model.out [default = no]";
 		cout << "\nExiting...\n";
 		exit(-1);
 	}
 	cout << "\n---------------------------------------------------------------------------------------------";
-	cout << "\n  ModelOMatic (v" << VERSION_NUMBER << ").\n\tA program for choosing substitutions models for phylogenetic inference.\n\tWritten by Simon Whelan.\n\tContributions from James Allen, Ben Blackburne and David Talavera.";
+	cout << "\n  AriOMatic (v" << VERSION_NUMBER << ").\n\tA program for getting codon model information for phylogenetic inference.\n\tWritten by Simon Whelan.\n\tContributions from James Allen, Ben Blackburne and David Talavera.";
 	cout << "\n---------------------------------------------------------------------------------------------";
 
 	///////////////////////////////////////////////////////////////////////////////////////////
@@ -274,15 +277,41 @@ int main(int argc, char *argv[])	{
 		cout << "\n          \tNew files available: data = <" << DataName << ">; tree = <" << TreeName << ">";
 		// Create
 	}
-	// 8. Check modelomatic.ini to decide what models to run
-	cout << "\nScanning for modelomatic.ini file ...";
-	GetModels();
-	cout << " done";
 	PhyDat.SetOut(outfilestring);
 
 	cout << "\nWorking with genetic code: " << GenCodeName[GeneticCode];
 	if(PhyDat.pData()->m_iNoSeq == 2) { cout << "\nWorking with 2 sequences so cannot apply gamma distributed rates-across-sites"; }
 	cout << "\n>>> Doing model analysis <<< \n" << flush;
+
+	///////////////////////////////////////////////////////////////////////////////////////////
+	// AriOMatic stuff goes here
+	CCodonM0 *M0Model = NULL;
+	CData Cod1 = *PhyDat.pData();
+	M0Model = new CCodonM0(&Cod1,&Tree,F3X4,GeneticCode);
+	ofstream ariout(outfilestring.c_str());
+
+	/////////////////////////
+	// This version is fast, but a bit inaccurate when there are long branches that will take many rounds to optimise.
+	double tempL = LazyBraOpt(M0Model ,M0Model->lnL() ,5,MATIC_BRANCH_ACC);
+	DoModelRun(M0Model,2,L_NA);
+	cout << "\nRun M0: " << M0Model->lnL(true);
+	cout << "\nModel: " << *M0Model;
+	M0Model->m_vpProc[0]->OutQ(0,ariout);
+
+	/////////////////////////
+	// This version of the code is a bit slower, but should produce better estimates if the data are difficult to work with.
+	/*
+	FullOpt(M0Model,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+	cout << "\nRun M0: " << M0Model->lnL(true);
+	cout << "\nModel: " << *M0Model;
+	M0Model->m_vpProc[0]->OutQ(0,ariout);
+	*/
+
+	///////////////////////////////////////////////////////////////////////////////////////////
+	// AriOMatic stuff ends here
+	ariout.close();
+	exit(-1);
+
 
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Development stuff goes here
