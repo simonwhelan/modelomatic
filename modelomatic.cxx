@@ -296,6 +296,8 @@ int main(int argc, char *argv[])	{
 	DoModelRun(M0Model,2,L_NA);
 	cout << "\nRun M0: " << M0Model->lnL(true);
 	cout << "\nModel: " << *M0Model;
+	ariout << "ABET: "; FOR(i,M0Model->m_vpProc[0]->m_iChar) { ariout << "  "; FOR(j,3) { ariout  << M0Model->m_vpProc[0]->m_sABET[(i*3)+j]; } }
+	ariout << "\nEQM:  "; FOR(i,M0Model->m_vpProc[0]->m_iChar) { ariout << "  " << M0Model->m_vpProc[0]->Eqm(0)[i]; }
 	M0Model->m_vpProc[0]->OutQ(0,ariout);
 
 	/////////////////////////

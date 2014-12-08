@@ -480,7 +480,7 @@ public:
 	void GetBranchPartL(CProb **P, int NTo, int NFr, int Br);	// Get the sitewise likelihoods
 	// Reset the calculation space...
 	void ResetCalcSpace();
-protected:
+// protected:
 	// Critical variables
 	int m_iChar;						// Number of characters in the process
 	int m_iHiddenChar;					// Number of hidden states in the process (only matters for THMMs)
@@ -517,7 +517,7 @@ protected:
 	int m_iRootQ;						// The Q matrix of the process at the root
 	string m_sABET;						// The string defining the processes alphabet
 	vector <int> m_viQ2Bra;				// Vector describing which Q matrices describe which branches (if empty then use m_vpQMat[0] for all branches
-	int m_iABET_length;					// The length of each character in the alphabet
+	int m_iABET_length;					// The length of each character in the alph/
 	vector <CQPar *> m_vpPar;			// The parameters in the process
 	CQPar *m_pRate;						// The rate parameter -- Usually set to one, but varies when rate varies between processes
 	bool m_bMaxRate;					// Whether the process is meant to be max rate;
