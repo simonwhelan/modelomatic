@@ -517,7 +517,8 @@ public:
 	string m_sRadicalFile;
 };
 
-double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType);
+double GetAminoAcidCountFromCodonQ(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType);
+double GetAminoAcidCountFromCodonPt(CQMat *QMat, double time, int GenCode, vector <int> RadMat, int ChangeType);
 
 // Mixture class for DrDc type models
 // Based on the original function it allows a set of mixture components and provides the tools to scale them appropriately

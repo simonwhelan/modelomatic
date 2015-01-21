@@ -689,9 +689,10 @@ CCodonDrDc::CCodonDrDc(CData *Data, CTree *Tree, ECodonEqm CE, string RadicalFil
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-// A function to calculate how often we would expect to observe particular changes
+// Function to calculate how often we would expect to observe particular changes
 // Should provide numbers comparable to Kr/Kc
-double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType) {
+// 1. Gets the expected number of substitutions that actually occur per unit time using the rate matrix
+double GetAminoAcidCountFromCodonQ(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType) {
 	int i,j,i_count, CurChar_i, CurChar_j;
 	bool RedData = false;	// Whether data is reduced from 64 codons
 	double ExpObs = 0.0;
@@ -725,6 +726,55 @@ double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, 
 	}
 //	cout << "\nOverall obs for ChangeType[" << ChangeType << "]: " << ExpObs << "\n//";
 	return ExpObs;
+}
+// 2. Gets the expected number of observable substitutions after time t, using a given P(t) matrix. Needs QMat for eqm
+double GetAminoAcidCountFromCodonPt(CQMat *QMat, double time, int GenCode, vector <int> RadMat, int ChangeType) {
+	int i,j,i_count, CurChar_i, CurChar_j;
+	bool RedData = false;	// Whether data is reduced from 64 codons
+	double ExpObs = 0.0;
+	vector <double> WorkMat;
+	vector <double> eqm;
+//	cout << "\n------------------------ Calculating overall obs for ChangeType: " << ChangeType << " ------------------- ";
+
+	// Some input checking
+	assert(InRange(ChangeType,0,2));
+	 assert(InRange(GenCode,0,NumGenCode));
+	i_count = 0.0; FOR(i,64) { if(GenCodes[GenCode][i] != -1) { i_count++; } }
+	assert(QMat->Char() == i_count || QMat->Char() == 64);
+	if(QMat->Char() != 64) { RedData = true; }
+
+	// If time is 0 (or lower for simplicity of -1 pass) pass the Q matrix to WorkMat
+	if(time <= FLT_EPSILON) { FOR(i,QMat->Char() ) { FOR(j,QMat->Char() ) { WorkMat.push_back(*QMat->Q(i,j)); } } }
+	// Otherwise make a P(t) matrix and transfer that to WorkMat
+	else {
+		double PT[64*64];
+		QMat->MakePT(time,PT);
+		FOR(i,QMat->Char() * QMat->Char()) { WorkMat.push_back(PT[i]); }
+	}
+
+	// Do the counting
+	eqm = QMat->Eqm();
+	assert(eqm.size() == QMat->Char());
+	CurChar_i = 0;
+	FOR(i,64)	{
+		CurChar_j = CurChar_i+1;
+		if(GenCodes[GenCode][i] == -1) { if(!RedData) { CurChar_i++; } continue; }
+		for(j=i+1;j<64;j++) {
+			if(GenCodes[GenCode][j] == -1) { if(!RedData) { CurChar_j++; } continue; }
+			if(GenCodes[GenCode][i] != GenCodes[GenCode][j] && RadMat[(GenCodes[GenCode][i]*20)+GenCodes[GenCode][j]] == ChangeType) {
+//				cout << "\nGetting " << State(COD,i) << "[" << GenCodes[GenCode][i] << "] -> " << State(COD,j) << "[" << GenCodes[GenCode][j] << "] == RadMat: " <<  RadMat[(GenCodes[GenCode][i]*20)+GenCodes[GenCode][j]] << " == " << ChangeType;
+				ExpObs += eqm[CurChar_i] * WorkMat[(CurChar_i*QMat->Char()) + CurChar_j];	// i -> j
+//				ExpObs += eqm[CurChar_i] * *QMat->Q(CurChar_i,CurChar_j);			// i -> j
+				ExpObs += eqm[CurChar_j] * WorkMat[(CurChar_j*QMat->Char()) + CurChar_i];	// j -> i
+//				ExpObs += eqm[CurChar_j] * *QMat->Q(CurChar_j,CurChar_i);			// j -> i
+			}
+			CurChar_j++;
+		}
+		CurChar_i++;
+	}
+//	cout << "\nOverall obs for ChangeType[" << ChangeType << "]: " << ExpObs << "\n//";
+	return ExpObs;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
