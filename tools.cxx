@@ -973,6 +973,7 @@ double CProb::Prob()	{
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue)) { cout << "\nReturning Prob(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
+	if(m_iScale > 400) { return 0.0; }
 	return m_dValue * pow(10.0,(double) -m_iScale);
 }
 double CProb::LogP()	{
@@ -1017,7 +1018,11 @@ CProb &CProb::Assign(double Val, int Sc){
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue) || my_isnan(Val)) { cout << "\nReturning Assign(double Val, int Sc): Val= " << Val << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
-	m_dValue = Val; m_iScale = Sc; if(!IsProb(Prob())) { cout << "\nBroken Prob(): " << Prob() << endl << flush; exit(-1); } assert(IsProb(Prob())); DoScale(); return *this;
+	m_dValue = Val; m_iScale = Sc; if(!IsProb(Prob())) {
+		cout << "\nBroken Prob(): " << Prob() << " assigning from: " << Val << " with scale " << Sc << endl << flush;
+		exit(-1);
+	}
+	assert(IsProb(Prob())); DoScale(); return *this;
 }
 // double functions for numerical operations
 CProb &CProb::Multiply(double Value,bool Overwrite)	{

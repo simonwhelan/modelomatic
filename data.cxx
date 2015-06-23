@@ -35,7 +35,7 @@ CData::CData(int NoSeq, int Size, EDataType Type, vector <string> *Names)	{
 	FOR(i,m_iChar) { m_vFreq.push_back((double) ( 1.0 / (double) m_iChar)); }
 }
 
-CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos) {
+CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos, bool AllowGapClean) {
 #if DO_MEMORY_CHECK
 	memory_check.CountCData++;
 #endif
@@ -77,8 +77,8 @@ CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos)
     	if(DNA_count < (int)vData.size() /2 && AA_count < (int)vData.size()) {
     		cout << "\nError when guessing data type. Of " << (int)vData.size() << " sequences: " << DNA_count << " appear as DNA and " << AA_count << " appear as AA. \nPlease inspect your data for excesses of weird or gap characters.\nThis message will be also triggerred when there are a lot of gaps (>" << double_to_string(100*(1.0-MIN_DATA_PERCENT)) << "%) or frequent non-standard characters.\n\n"; Error();}
     	if(DNA_count > AA_count && AA_count > 3) { cout << "\nWARNING: Identified DNA sequences, but " << AA_count << "/" << vData.size() << " look like amino acid sequences. Proceeding with analysis, but be cautious...\n"; }
-    	if(AA_count > DNA_count && DNA_count > 3) { cout << "\nWARNING: Identified DNA sequences, but " << DNA_count << "/" << vData.size() << " look like DNA sequences. Proceeding with analysis, but be cautious...\n"; }
-    	if(Error_count > (int)vData.size() *0.1) { cout << "\nWARNING: " << Error_count << "/" << vData.size() << " sequences could not be reliably identified.\nInspect your data for excesses of weird or gap characters."; }
+    	if(AA_count > DNA_count && DNA_count > 3) { cout << "\n\tWARNING: Identified DNA sequences, but " << DNA_count << "/" << vData.size() << " look like DNA sequences. Proceeding with analysis, but be cautious...\n"; }
+    	if(Error_count > (int)vData.size() *0.1) { cout << "\n\tWARNING: " << Error_count << "/" << vData.size() << " sequences could not be reliably identified.\n\t\tInspect your data for excesses of weird or gap characters (>" << 1.0 - MIN_DATA_PERCENT << ").\n"; }
 
     	if(DNA_count > AA_count) { Type = DNA; } else { Type = AA; }
     }
@@ -101,7 +101,7 @@ CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos)
 	if(ErrorCount > (int)vData.size() / 3) { cout << "\nError: There are " << ErrorCount << " sequences with little or no data..."; exit(-1); }
 	*/
 	if(Type == NONE) { Error("\nCouldn't guess data type. Please inspect your data for excesses of weird or gap characters.\nThis message will be also triggerred when there are a lot of gaps (>" + double_to_string(100*(1.0-MIN_DATA_PERCENT)) + "%) or frequent non-standard characters.\n\n" ); }
-    InputData(Type,vData,vName,SiteLabels,AllowFail);		// Put the sequence data into the object
+    InputData(Type,vData,vName,SiteLabels,AllowFail,AllowGapClean);		// Put the sequence data into the object
 }
 
 // Inputs data from a set of arrays (for pairwise distances)
@@ -440,7 +440,7 @@ void CData::GetGapMask(vector <vector <bool> > *Mask)	{
 // 		Update to remove all gap columns
 //////////////////////////////////////////////////////////////////
 
-void CData::InputData(EDataType Type, vector <string> cInputSeq, vector <string> cInputName, vector <int> SiteLabels, bool AllowFail)
+void CData::InputData(EDataType Type, vector <string> cInputSeq, vector <string> cInputName, vector <int> SiteLabels, bool AllowFail, bool AllowTrim)
 {
     int i,j,k,l;                // Counters
     // Stuff for processing into patterns
@@ -497,7 +497,7 @@ void CData::InputData(EDataType Type, vector <string> cInputSeq, vector <string>
 #ifndef MATCH_PAML
 		if(okay < 2) {  // Skips site if only one or zero sequences have a charactor at it
 #else
-		if(okay == 0)	{	// Skips site if there are no sequences with a character in it
+		if(okay == 0 && AllowTrim)	{	// Skips site if there are no sequences with a character in it
 #endif
 //			cout << "\nRemoving site[" << i << "]: "; FOR(j,m_iNoSeq) { cout << cInputSeq[j][i]; }
 			FOR(j,m_iNoSeq) { cInputSeq[j].erase(i*LenStates(Type),LenStates(Type)); }
@@ -698,7 +698,6 @@ void CData::RemoveSparseSeqs(bool Sparse,CTree *Tree, bool out) {
 			if(RemoveSeq(i,Tree)) { Error("\nFailed to remove sequence " + name + " in RemoveSparseSeqs(...)\n"); } i--;
 		}
 	}
-	if(out)	{ cout << " ... after removal there are " << m_iNoSeq << " sequences" << flush; }
 	// Removing sequences can leave sites with just gaps
 	if(m_iNoSeq != OriNoSeq) {
 		Flag = false;
@@ -717,7 +716,8 @@ void CData::RemoveSparseSeqs(bool Sparse,CTree *Tree, bool out) {
 			InputData(Type, Seqs, Names,Blank);
 		}
 	}
-
+	// Output if needed
+	if(out)	{ cout << " ... after removal there are " << m_iNoSeq << " sequences of length " << m_vsTrueSeq[0].size() << " (DataMatrix: " << m_iNoSeq << " x " << m_iSize << ")" << flush; }
 }
 
 // Condense gaps function to remove all sites where there are only gaps

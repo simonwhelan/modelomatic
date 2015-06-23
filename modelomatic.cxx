@@ -119,9 +119,9 @@ int main(int argc, char *argv[])	{
 	// Create the data structures
 	// 0. Input the raw data
 	cout << "\nData: <" << argv[1] << ">" << flush;
-	PhyDat.SetIn(argv[1]); PhyDat.GetData();
+	PhyDat.SetIn(argv[1]); PhyDat.GetData(false);
 	assert(PhyDat.pData()->m_DataType == DNA);
-	cout << ": " << PhyDat.pData()->m_iNoSeq << " sequences of length " << PhyDat.pData()->m_iTrueSize << " (DataMatrix: " << PhyDat.pData()->m_iNoSeq << " x " << PhyDat.pData()->m_iSize << ")" << flush;
+	cout << "Data consists of " << PhyDat.pData()->m_iNoSeq << " sequences of length " << PhyDat.pData()->m_iTrueSize << " (DataMatrix: " << PhyDat.pData()->m_iNoSeq << " x " << PhyDat.pData()->m_iSize << ")" << flush;
 	PhyDat.pData()->CleanToDNACodon();	// Make sure gaps are codon compatible early, otherwise it causes problems with Trim and other functions
 	PhyDat.pData()->RemoveSparseSeqs(true,NULL);
 	// 3. Set genetic code is done first so translation will work for bionj tree
