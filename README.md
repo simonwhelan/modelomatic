@@ -1,4 +1,24 @@
-##Models tested in ModelAssess
+#Modelomatic
+---
+_Written by Simon Whelan, with contributions from James Allen, Ben Blackburne and David Talavera_
+
+
+
+ModelOMatic is a C++ program designed for rapid phylogenetic model selection on protein coding genes. Please see the [manual](https://drive.google.com/file/d/0B2HVW-VOuzH-MjRKaVcwd0VPN1E/edit?usp=sharing) for details of the program and its settings.
+
+ModelOMatic is distributed free of charge for personal and academic use only under a [GNU GPL v3](http://www.gnu.org/licenses/gpl.html). Modelomatic is a piece of academically developed software and should be used at your own risk! 
+
+Pay attention to the output and use your own judgements when performing analysis. Modelomatic uses lots of heuristics that seem to perform well when tested across the PANDIT database, but they may not perform well on your data. 
+
+##Download information
+* Precompiled binaries are available [here](https://drive.google.com/folderview?id=0B2HVW-VOuzH-U0NsV0hWMkxEQTQ&usp=sharing)
+* The user manual is available [here](https://drive.google.com/file/d/0B2HVW-VOuzH-MjRKaVcwd0VPN1E/edit?usp=sharing)
+* Example files are available [here](https://drive.google.com/folderview?id=0B2HVW-VOuzH-SlVaRzM1bkl0cDA&usp=sharing)
+
+##Version history
+Modelomatic will be periodically updated and changes that may affect the outcome of your analyses will be announced here. Minor fixes that address bugs that are not expected to change results are not included here.  
+
+##Models tested in Modelomatic
 * RY
 * DNA
     - JC
@@ -29,10 +49,10 @@
 
 ##How to specify models with a configuration file
 
-Modelassess will look for configuration files $HOME/.modelassess.ini and
-$PWD/modelassess.ini.  Configurations in the second file will be laid over the
-first (i.e. models turned off in $HOME/.modelassess.ini can be switched back on
-in $PWD/modelassess.ini). The format is standard INI, and models are specified
+Modelomatic will look for configuration files $HOME/.modelomatic.ini and
+$PWD/modelomatic.ini.  Configurations in the second file will be laid over the
+first (i.e. models turned off in $HOME/.modelomatic.ini can be switched back on
+in $PWD/modelomatic.ini). The format is standard INI, and models are specified
 with 0/1, as below:
 
 ~~~~~~
