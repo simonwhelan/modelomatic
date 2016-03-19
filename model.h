@@ -26,7 +26,7 @@ enum ECalcType { cML,cMP,cRMSD };					// Defines the type of calculations to be 
 class CBaseModel	{
 public:
 	CBaseModel(CData *D,CTree *T,string Name = "Unnamed model");
-	~CBaseModel();
+	virtual ~CBaseModel();
 	// Variables
 	vector <CBaseProcess *> m_vpProc;		// The list of proceses
 	vector <double>	m_vdProbProc;			// The probability of the individual processes

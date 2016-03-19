@@ -363,6 +363,7 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,boo
         			case 2: Parent = j; break;
         			default: cout << "\nError assigning branch lengths...\n\n"; if(AllowFail) { return; } Error();
         	}	}
+        	if(m_Node[NextPointer] != NULL) { delete m_Node[NextPointer]; }
         	m_Node[NextPointer] = new CNode(pLeft,pRight,Parent,pLeft,pRight,Parent,IntVal); // Initialise the final node
         	if(m_Node[pLeft]->m_viLink.size() > 2)	{ m_Node[pLeft]->m_viLink[2] = NextPointer; }
         	if(m_Node[pRight]->m_viLink.size() > 2)	{ m_Node[pRight]->m_viLink[2] = NextPointer; }
@@ -374,6 +375,7 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,boo
         }
 	}	else	{	// Otherwise for two species
 		if(SubSeq == m_iNoSeq) {
+			if(m_Node[0] != NULL) { delete m_Node[0]; }
 			m_Node[0] = new CNode(1,0); m_Node[1] = new CNode(0,0);
 			//cout << "\nTempTree: " << TempTree << " cf. " << TempBranch << flush;
 			i=1; while(isdigit(TempTree[i])) { i++; }	// Do first side
@@ -384,6 +386,7 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,boo
 		else {
 			TempBranch[0] = TempBranch[1] = TempBranch[2] = 0.0;
 			find_closest(&TempTree,&pLeft,&pRight,&Parent,NextPointer, TempBranch, TempLabel,&IntVal);
+			if(m_Node[pLeft] != NULL) { delete m_Node[pLeft]; }
 			m_Node[pLeft] = new CNode(pRight,0); m_Node[pRight] = new CNode(pLeft,0);
 			SetB(0,TempBranch[0] + TempBranch[1],true,true);
 			ReplaceBraLink(0,0,pRight); ReplaceBraLink(0,1,pLeft);
@@ -503,7 +506,7 @@ CTree::~CTree() {
 #if DO_MEMORY_CHECK
 	memory_check.CountCTree--;
 #endif
-	if(m_bReady == true) { CleanTree(); }
+	CleanTree();
 }
 
 // Allocate the memory
@@ -528,8 +531,9 @@ void CTree::GetMemory(int NoSeq)	{
 		m_ariBraLinks[i][0] = m_ariBraLinks[i][1] = -1;
 	}
 	// Set up nodes
-    m_Node = new CNode*[m_iNoNode]; assert(m_Node != NULL);
-    for(i=0;i<m_iNoNode;i++) { m_Node[i] = NULL; m_Node[i] = new CNode; assert(m_Node[i] != NULL); }
+    m_iMemNode = m_iNoNode;
+    m_Node = new CNode*[m_iMemNode]; assert(m_Node != NULL);
+    for(i=0;i<m_iMemNode;i++) { m_Node[i] = NULL; m_Node[i] = new CNode; assert(m_Node[i] != NULL); }
 	Par = NULL;
 }
 
@@ -537,7 +541,7 @@ void CTree::GetMemory(int NoSeq)	{
 void CTree::CleanTree() {
 	int i;
     if(m_Node != NULL)	{
-		for(i=0;i<m_iNoNode;i++) { if(m_Node[i] != NULL) { delete m_Node[i]; }}
+		for(i=0;i<m_iMemNode;i++) { if(m_Node[i] != NULL) { delete m_Node[i]; }}
 		delete [] m_Node;
 		m_Node = NULL;
 	}
@@ -1316,9 +1320,11 @@ void CTree::Unroot()	{
 		if(i==m_iRootNode) { continue; }
 		ppNodeStore[j++] = m_Node[i];
 	}
-	delete m_Node[m_iRootNode];
-	delete [] m_Node; m_Node = new CNode*[m_iNoNode - 1];
-	FOR(i,m_iNoNode-1) { m_Node[i] = ppNodeStore[i]; } delete [] ppNodeStore;
+	for(i=0;i<m_iMemNode;i++) { if(m_Node[i] != NULL) { delete m_Node[i]; }}
+	delete [] m_Node;
+	m_iMemNode = m_iNoNode - 1;
+	m_Node = new CNode*[m_iMemNode];
+	FOR(i,m_iMemNode) { m_Node[i] = ppNodeStore[i]; } delete [] ppNodeStore;
 	// Finish up the other stuff
 	m_iRootNode = -1; m_bRooted = false; m_iNoNode--; m_iNoBra--;
 	BuildBraLinks(true); // Get the list of branches links
@@ -1817,6 +1823,7 @@ void CTree::ReplaceTreeCP(CTree *NT,vector <int> LeafMap,vector <int> NCover, bo
 			}
 			// Create the new node
 			assert(InRange( (int) (nf - NT->m_iNoSeq) ,(int) 0,(int) NodeIntVals.size()));
+			if(m_Node[nt] != NULL) { delete m_Node[nt]; }
 			m_Node[nt] = new CNode(NewL,NewB,NodeIntVals[nf - NT->m_iNoSeq]);
 			// Apply the branch lengths
 			FOR(i,(int)m_Node[nt]->m_viBranch.size()) {

@@ -122,7 +122,7 @@ CGammaPar::CGammaPar(string Name, int Char, CPar * Rate, double Value, bool Opti
 
 CGammaPar::~CGammaPar()	{
 	int i;
-	FOR(i,m_iNoCat) { m_arpRates[i] = NULL; } m_arpRates.~vector();
+	FOR(i,m_iNoCat) { m_arpRates[i] = NULL; } m_arpRates.clear();
 	m_pProb = NULL;
 	m_pProcRate = NULL;
 }
@@ -583,7 +583,8 @@ CCodonEqm::CCodonEqm(ECodonEqm CE, int GenCode, std::vector<CQPar*> *ProcPar, CD
 		Frqs = NormaliseVector(D->m_vFreq);
 		FOR(i,(int)Frqs.size()) {
 			if(GenCodes[GenCode][i] == -1 && D->m_iChar == 64) { if(Frqs[i] > DBL_EPSILON) { Error("\nSequences have stop codon " + State(COD,i) + " in for that genetic code...\n"); } continue; }
-			Name = "Freq(" + D->m_sABET.substr(i*3,3) +"])";
+			Name = "Freq(" + D->m_sABET.substr(i*3,3) +")\0";
+			assert(InRange(Frqs[i],0.0,1.0));
 			Par = new CQPar(Name,m_iChar,Frqs[i],true,MIN_PROB,1.0,MULTIPLY);
 			m_vpEqmPar.push_back(Par);
 			m_pProcPar->push_back(Par);
@@ -700,9 +701,11 @@ CSite::CSite(const CSite &Site)	{
 #if DO_MEMORY_CHECK
 	memory_check.CountCSite++;
 #endif
+	int i;
 	m_Char = Site.m_Char;
 	assert(Site.m_bReal == true && *m_Char != -1);
 	GET_MEM(m_ardSpace,double,*m_Char);
+	FOR(i,*m_Char) { m_ardSpace[i] = 0.0; }
 	m_bReal = true; m_iOriSite = -1; m_iScale = 0;
 	m_iCopyNum=1; m_pOrSite = NULL;
 	m_pSpacePointer = m_ardSpace;

@@ -275,7 +275,7 @@ public:
 	// Constructor function
 	C2StateCovProc(CData *D, CTree *T, string Name, vector <double> Probs, ETHMM_EQM_TYPE eqm_type = obs);
 	// Destructor function
-	~C2StateCovProc();
+	~C2StateCovProc()  { /* BLANK */ };
 };
 
 /* ************************************************************************************

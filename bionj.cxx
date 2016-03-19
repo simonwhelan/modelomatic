@@ -173,7 +173,11 @@ string DoBioNJ(vector <double> PWdists, vector <string> Names, bool DoNumbers)	{
 		trees[i].head=NULL;			/* output-file               */
 		trees[i].tail=NULL;
 	}
+	// Clear memory (added by SW)
 	free(trees);
+	free(a); free(b); free(Name_fich1); free(Name_fich2);
+	free(chain1); free(chain2);
+	FOR(i,n+1) { delete [] delta[i]; } delete [] delta;
 	return return_tree;
 }
 

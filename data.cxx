@@ -1513,12 +1513,11 @@ double CData::GetAdjustmentScore(CData *AA_Data, CData *COD_Data, vector <double
 	assert(AA_Data->m_iTrueSize == COD_Data->m_iTrueSize && AA_Data->m_iNoSeq == COD_Data->m_iNoSeq);
 	// If required do the hard debug
 #if GetAdjustmentScore_DEBUG == 1
-	int count;
 	double Checker = 0.0;
 	FOR(i,20) {	// Loop through the amino acids
 		Checker = 0.0;
 		FOR(j,64)	{ // Loop through the codons
-			if(GenCodes[GenCode][j] == i) { assert(count < CodFreq.size()); Checker += CodFreq[j]; }
+			if(GenCodes[GenCode][j] == i) { assert(j < CodFreq.size()); Checker += CodFreq[j]; }
 		}
 		if(fabs(Checker - AAFreq[i]) > 1.0E-5) { Error("Frequencies in GetAdjustmentScore(...) do not match...\n\n"); }
 	}

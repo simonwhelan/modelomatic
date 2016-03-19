@@ -340,12 +340,12 @@ CPar::CPar(string Name,double Value, bool Optimise, double LowBound, double UpBo
 	m_bOpt = Optimise; m_bLockedScale = false; m_bOutDetail = false;
 	m_bSpecial = false; bool m_bAllowScale = true; m_bDoHardDer = false;
 	m_dGrad = 0.0; m_bIsBranch = false;
-	// Do the bounds
-	SetBounds(LowBound,UpBound);
-	StoreOptBounds(LowBound,UpBound);	// Default bounds are the optimisation bounds
 	// Set default scaling routines
 	pDoUpdate = NULL;
 	m_Operator = Type;
+	// Do the bounds (these can SetVal() so need to be at the end)
+	SetBounds(LowBound,UpBound);
+	StoreOptBounds(LowBound,UpBound);	// Default bounds are the optimisation bounds
 }
 
 // Destructor
@@ -353,8 +353,8 @@ CPar::~CPar() {
 #if DO_MEMORY_CHECK
 	memory_check.CountCPar--;
 #endif
-
 	int i;
+	pDoUpdate = NULL;
 	FOR(i,(int)m_arpPar.size()) { m_arpPar[i] = NULL; }
 }
 
@@ -553,7 +553,7 @@ bool CPar::UpdatePar(bool ForceChange, bool RedoScale) {
 	}
 	// Check there is a scaling routine; if not then its a standard parameter
 	// These are scaled to 1.0, so that: m_dValue = m_dScaler * m_dScaledValue
-	if(pDoUpdate == NULL)	{
+	if(pDoUpdate==NULL)	{
 		assert(m_arpPar.empty());
 		// Correct the scaling as appropriate
 		if(m_dOldReal != m_dRealValue || ForceChange == true) {		// If the value has changed

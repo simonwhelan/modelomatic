@@ -444,7 +444,7 @@ exit(-1);
 		//ofstream out(TreeName.c_str());
 	}
 	RY_count = GetRYModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
-        cout<<"\rRY Done ";
+        cout<<"\rRY Done " << flush;
         end = clock();
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
@@ -578,7 +578,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
     }
         cout<<"."<<flush;
 	Model = NULL;
-//	cout << "\nTree JCdG: \t" << Tree->TreeLength() << "\t" << JC->lnL(true) << " cf. " << Models->at(count++).OrilnL;
+//	cout << "\nTree JCdG: \t" << Tree->TreeLength() << "\t" << JC->lnL(true) << " cf. " << Models->at(count++).OrilnL << flush;
 	delete JC;
 	DoItFast = Fast;
 	// 2. FEL
@@ -587,7 +587,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	Models->push_back(DoModelRun(Model,3,L_NA));
 	if(ModelOut) { os << *FEL << endl << flush; }	// Output model details
 //	delete FEL; FEL = new CFEL(Data,Tree); Model = FEL;
-//	cout << "\nTree FEL:  \t" << Tree->TreeLength() << "\t" << FEL->lnL(true) << " cf. " << Models->at(count++).OrilnL;
+//	cout << "\nTree FEL:  \t" << Tree->TreeLength() << "\t" << FEL->lnL(true) << " cf. " << Models->at(count++).OrilnL << flush;
 	if(Model->NoSeq() > 2) {
 		Model->MakeGammaModel(0,4,Alpha);
 		if(DoItFast) { *Model->Tree() = GammaTree; }

@@ -124,7 +124,7 @@ class CQMat {
 public:
 	CQMat(EDataType Type,string Name = "Unnamed Q");
 	CQMat(int Char, EDataType Type = OTHER,string Name = "Unnamed Q");
-	~CQMat();
+	virtual ~CQMat();
 	// Access functions
 	double *Q(int i=0,int j=0)	{ return &m_ardQMat[(i*m_iChar)+j]; };		// Access to the Q matrix
 	int Char()					{ return m_iChar; };						// Access to the number of characters
@@ -213,7 +213,7 @@ class CBaseEqm	{
 public:
 	// Core functions
 	CBaseEqm(int Char, vector <CQPar *> *ProcPar);			// The constructor function
-	~CBaseEqm();											// The destructor function
+	virtual ~CBaseEqm();									// The destructor function
 	// Interaction functions
 	void ApplyEqm2QMat(double *Q, int MatID);				// Applies the equilibrium distribution to these matrices (based on m_viQMatID)
 	bool IsID(int ID);										// Whether the equilibrium distribution applies to a particular matrix
@@ -317,7 +317,7 @@ class CSite {
 public:
 	CSite(int *Char);						// Basic constructor
 	CSite(const CSite &Site);						// Copy constructor
-	~CSite();								// Basic destructor
+	virtual ~CSite();								// Basic destructor
 	// Interaction functions
 	inline void Overwrite(CSite &Site,int SiteNum);	// Function that makes a site a copy of another
 	inline void CopyVals(CSite *Site, bool ForceReal = false);	// Copies values in Site->m_pSpacePointer and Site->m_pScalePointer to this
@@ -363,7 +363,7 @@ public:
 	// Constructor
 	CBaseProcess(CData *Data, CTree *Tree,string Name = "Unnamed process", bool DoTreeSearch = true);
 	// Destructor
-	~CBaseProcess();
+	virtual ~CBaseProcess();
 
 	////////////////////////////////////////////////////////////////////////////////////////
 	// Main interaction functions for calculations and so on
@@ -679,7 +679,7 @@ const string sRadicalFileName = "Radical.mat"; 	// Default file name used by Dr/
 class CDNAProcess : public CBaseProcess	{
 public:
 	CDNAProcess(CData *Data, CTree *Tree, DNAProc Model, string name);		// Constructor to produce a defaulted model
-	~CDNAProcess();
+	~CDNAProcess()  { /* BLANK */ };
 	// Specific routines for building different types of model
 	vector <CQPar *> MakeDNAREV(EDataType Type);		// Make a full reversible model
 };
@@ -688,7 +688,7 @@ class CAAProcess : public CBaseProcess {
 public:
 	CAAProcess(CData *Data, CTree *Tree, AAProc Model, bool AddF = true);								// Constructor to produce a defaulted model
 	CAAProcess(CData *D, CTree *T, string Name, bool AddF, double *S_ij, double *pi_j);			// Constructor to produce a general empirical model
-	~CAAProcess();
+	~CAAProcess() { /* BLANK */ };
 	// General empirical model creation routine
 	void CreateEMPmodel(double *S_ij,double *Freq,bool DoF);
 	// Model specific routines
@@ -706,7 +706,7 @@ public:
 	// Constructor function
 	CCodonProcess(CData *Data, CTree *Tree, CodonProc Model,ECodonEqm CE,int GenCode = 0, string RadicalFile=sRadicalFileName);
 	// Destructor function
-	~CCodonProcess();
+	~CCodonProcess()  { /* BLANK */ };
 	// Parameter specific bits and pieces
 	CQPar * AddOmega(int GenCode);
 	CQPar * AddDrDcOmega(int GenCode, vector <int> RadFile, int Val2Add);

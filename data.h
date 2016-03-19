@@ -29,7 +29,7 @@ public:
     // Takes a NEXUS file and it's tags into the object (Work Still in Progress...)
     void InputNexus(string File);
     // Destructor
-	~CData();						// Clears memory
+	virtual ~CData();
 	void Clean();					// Does the memory clearing
     // Attributes
 	bool Valid() {return m_bValid;}// Whether it is valid data

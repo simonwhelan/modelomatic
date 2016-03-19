@@ -393,7 +393,7 @@ public:
 	CProb(double InitVal = 0.0);						// Constructor from double
 	CProb(CProb &Prob);									// Constructor from CProb object
 	CProb(double Val, int Scal);						// Constructor from Value and Scaling factor
-	~CProb();											// Explicit blank constructor
+	virtual ~CProb();											// Explicit blank constructor
 	// Basic operators
 	friend ostream &operator<<(ostream &os,CProb &Prob);// Output operator
 	CProb &operator=(CProb &Prob);						// Copy operator
@@ -464,7 +464,7 @@ public:
 	// Constructor routines
 	CPar(string Name, double Value, bool Optimise=true, double Upbound = 0.0, double Lowbound=MAX_PAR_VALUE,ParOp Oper=MULTIPLY);	// Core parameter construction routine
 	// Destructor routine
-	~CPar();
+	virtual ~CPar();
 	////////////////////////////////////////////////////
 	// Interaction functions
 	// 1. Value and scale related
@@ -502,7 +502,7 @@ public:
 	bool Special()				{ return m_bSpecial; }
 	bool SetSpecial(bool Sp)	{ m_bSpecial = Sp; return Sp; }		// Sets the special values
 	void PreOptCheck();												// Function to be run before parameters are to be optimised
-	void SetUpdate(void (*func) (vector <CPar*>*P,bool V2C,bool First,bool Other)) { pDoUpdate = func; };
+	void SetUpdate(void (*func) (vector <CPar*>*P,bool V2C,bool First,bool Other)) { pDoUpdate = func;  };
 	bool SetAllowScale(bool Sc)	{ m_bAllowScale = Sc; return m_bAllowScale; }
 	virtual void GlobalApply()	{ };								// Applies the parameter globally to all processes in a model (empty except for CTiePar);
 	// 7. Access to the derivatives (does gradient checking and bounding dynamically)
@@ -542,7 +542,7 @@ private:
 	///////// Other variables and functions //////////
 	double m_dOldReal;			// Old RealValue of the parameter   } Used to check whether needs updating
 	double m_dOldScale;			// Old ScaledValue of the parameter }
-	// Update function(s)
+	// Update function(s) for the parameter (e.g. fixes probabilities and so on)
 	void (*pDoUpdate) (vector <CPar*> *Parameters, bool Value2Scale, bool First, bool Other);
 	friend void ProbabilityScale(vector <CPar*> *Parameters, bool Value2Scale,bool first,bool ReorderProbs);
 };
