@@ -35,10 +35,10 @@ struct SModelDetails {
 SModelDetails DoModelRun(CBaseModel *M, int NoPar, Lcorrection, double Adj = 0.0);
 #define MATIC_BRANCH_ACC 0.01	// Accuracy to which branch lengths are estimated in DoItFast
 
-int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
-int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
-int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
-int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+int GetRYModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+int GetNTModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+int GetAAModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
+int GetCODModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 int GetFullCodonModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 bool GetModels(string file = "modelomatic.ini");
 

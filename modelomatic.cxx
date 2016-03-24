@@ -75,7 +75,7 @@ int main(int argc, char *argv[])	{
 		int count = 0;
 		int RY_count, DNA_count, AA_count, COD_count;
 		vector <SModelDetails> Models;
-
+		bool BoundOut = false;
 		// Stuff from Leaphy
 		ALLOW_PREDICTLNL = false;
 		int i,j,NumModelReruns = 1;
@@ -118,10 +118,10 @@ int main(int argc, char *argv[])	{
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Create the data structures
 	// 0. Input the raw data
-	cout << "\nData: <" << argv[1] << ">" << flush;
+	cout << "\nDatafile: <" << argv[1] << ">" << flush;
 	PhyDat.SetIn(argv[1]); PhyDat.GetData(false);
 	assert(PhyDat.pData()->m_DataType == DNA);
-	cout << "Data consists of " << PhyDat.pData()->m_iNoSeq << " sequences of length " << PhyDat.pData()->m_iTrueSize << " (DataMatrix: " << PhyDat.pData()->m_iNoSeq << " x " << PhyDat.pData()->m_iSize << ")" << flush;
+	cout << "\nData consists of " << PhyDat.pData()->m_iNoSeq << " sequences of length " << PhyDat.pData()->m_iTrueSize << " (DataMatrix: " << PhyDat.pData()->m_iNoSeq << " x " << PhyDat.pData()->m_iSize << ")" << flush;
 	PhyDat.pData()->CleanToDNACodon();	// Make sure gaps are codon compatible early, otherwise it causes problems with Trim and other functions
 	PhyDat.pData()->RemoveSparseSeqs(true,NULL);
 	// 3. Set genetic code is done first so translation will work for bionj tree
@@ -443,29 +443,40 @@ exit(-1);
 		out = new ofstream(TreeName.c_str());
 		//ofstream out(TreeName.c_str());
 	}
-	RY_count = GetRYModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
+	BoundOut = false;
+	RY_count = GetRYModels(&BoundOut, PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
         cout<<"\rRY Done " << flush;
         end = clock();
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
-	DNA_count = GetNTModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
+    if(BoundOut) { cout << "WARNING: RY models on boundaries of parameter-space. This can affect the accuracy of model selection\n"; }
+    BoundOut = false;
+	DNA_count = GetNTModels(&BoundOut,PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
+	CTree NT_tree = Tree;
         cout<<"\rNT Done ";
         end = clock();
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
     if(RY_count != DNA_count) { Error("DNA[" + toString(DNA_count) + "] and RY[" + toString(RY_count) + "] character counts do not match... Fatal internal error\n"); }
-	AA_count = GetAAModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
+    if(BoundOut) { cout << "WARNING: DNA models on boundaries of parameter-space. This can affect the accuracy of model selection\n"; }
+    BoundOut = false;
+	AA_count = GetAAModels(&BoundOut,PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
         cout<<"\rAA Done ";
         end = clock();
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
     if(AA_count * 3 != DNA_count) { Error("DNA[" + toString(DNA_count) + "] and AA[" + toString(AA_count) + "] character counts do not match... Fatal internal error\n"); }
-	COD_count = GetCODModels(PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
+    if(BoundOut) { cout << "WARNING: AA models on boundaries of parameter-space. This can affect the accuracy of model selection\n"; }
+    BoundOut = false;
+    Tree = NT_tree;
+	COD_count = GetCODModels(&BoundOut,PhyDat.pData(),&Tree,&Models,GeneticCode, *out);
         cout<<"\rCodon Done ";
         end = clock();
         cout << " (" << (double)(end-start)/CLOCKS_PER_SEC << "s)\n"<<flush;
         start=clock();
     if(COD_count * 3 != DNA_count) { Error("DNA[" + toString(DNA_count) + "] and Codon[" + toString(COD_count) + "] character counts do not match... Fatal internal error\n"); }
+    if(BoundOut) { cout << "WARNING: Codon models on boundaries of parameter-space. This can affect the accuracy of model selection\n"; }
+    // Output models
     if(ModelOut) { assert(out != NULL); out->close(); cout << "\nOutputting models to <" << (string)outfilestring << ".model.out>"; delete out; }
     cout << "\nOutputting results to <" << outfilestring << ">";
     ofstream output(outfilestring.c_str());
@@ -515,9 +526,9 @@ exit(-1);
 ///////////////////////////////////////////////////
 // ToDo:
 // 1. Can probably be smarter in the order models are estimated and the way parameters are shared between them
-int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &os)	{
+int GetRYModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &os)	{
 	SModelDetails RY_Model; RY_Model.DataType = RY;
-	int df = -1, Ret;
+	int df = -1, Ret,i;
 	Lcorrection Correction = L_EQU;
 	// Make data
 	CData RY_Data = *Data; RY_Data.DNA2RY();
@@ -537,6 +548,7 @@ int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	RY_Model.AIC = GetAIC(RY_Model.lnL,RY_Model.NoPar);
 	RY_Model.Correction = Correction;
 	Models->push_back(RY_Model);
+	if(!RY.m_vpPar[0]->CheckBound()) { *BoundOut = true; }
     cout<<"."<<flush;
     if(ModelOut) { os << RY << endl << flush; }	// Output model details
 	// 2. RY+dG
@@ -550,16 +562,17 @@ int GetRYModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	RY_Model.AIC = GetAIC(RY_Model.lnL,RY_Model.NoPar);
 	RY_Model.Correction = Correction;
 	Models->push_back(RY_Model);
+	FOR(i,2) { if(!RY.m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
 	cout<<"."<<flush;
 	if(ModelOut) { os << RY << endl << flush; }	// Output model details
 	return Ret;
 }
 
-int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &os)	{
+int GetNTModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &os)	{
 	// Initialise
 	CBaseModel *Model;
 	double Alpha;
-	int count = 2,Ret = Data->CountMSAChars();
+	int count = 2,Ret = Data->CountMSAChars(), i;
 	bool Fast = DoItFast;
 	CTree PlainTree, GammaTree;
 	// 1. JC
@@ -567,6 +580,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	if(DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
 	Models->push_back(DoModelRun(Model,0,L_NA));
 	if(Fast) { PlainTree = *Model->Tree(); }
+	FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
 	if(ModelOut) { os << *JC << endl << flush; }	// Output model details
     if(Model->NoSeq() > 2) {
     	Model->MakeGammaModel(0,4);
@@ -576,7 +590,8 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
     	if(Fast) { GammaTree = *Model->Tree(); }
     	if(ModelOut) { os << *JC << endl << flush; }	// Output model details
     }
-        cout<<"."<<flush;
+    	cout<<"."<<flush;
+    	FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
 	Model = NULL;
 //	cout << "\nTree JCdG: \t" << Tree->TreeLength() << "\t" << JC->lnL(true) << " cf. " << Models->at(count++).OrilnL << flush;
 	delete JC;
@@ -585,6 +600,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	CFEL *FEL; FEL = new CFEL(Data,Tree); Model = FEL; Model->DisallowTreeSearch();
 	if(DoItFast) { *Model->Tree() = PlainTree; }
 	Models->push_back(DoModelRun(Model,3,L_NA));
+	FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL);  if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
 	if(ModelOut) { os << *FEL << endl << flush; }	// Output model details
 //	delete FEL; FEL = new CFEL(Data,Tree); Model = FEL;
 //	cout << "\nTree FEL:  \t" << Tree->TreeLength() << "\t" << FEL->lnL(true) << " cf. " << Models->at(count++).OrilnL << flush;
@@ -595,6 +611,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 		if(ModelOut) { os << *FEL << endl << flush; }	// Output model details
 	}
         cout<<"."<<flush;
+        FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
 	Model = NULL;
 //	cout << "\nTree FELdG:\t" << Tree->TreeLength() << "\t" << FEL->lnL(true) << " cf. " << Models->at(count++).OrilnL;
 	delete FEL;
@@ -610,12 +627,14 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 		if(ModelOut) { os << *K2P << endl << flush; }	// Output model details
 	}
         cout<<"."<<flush;
+        FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
 	Model = NULL;
 	delete K2P;
 	// 4. HKY
 	CHKY *HKY; HKY = new CHKY(Data,Tree); Model = HKY; Model->DisallowTreeSearch();
 	if(DoItFast) { *Model->Tree() = PlainTree; }
 	Models->push_back(DoModelRun(Model,4,L_NA));
+	FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
 	if(ModelOut) { os << *HKY<< endl << flush; }	// Output model details
 	if(Model->NoSeq() > 2) {
 		Model->MakeGammaModel(0,4,Alpha);
@@ -623,6 +642,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 		Models->push_back(DoModelRun(Model,5,L_NA));
 		if(ModelOut) { os << *HKY << endl << flush; }	// Output model details
 	}
+	FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
         cout<<"."<<flush;
 	Model = NULL;
 	delete HKY;
@@ -630,6 +650,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	CREV *REV; REV = new CREV(Data,Tree); Model = REV; Model->DisallowTreeSearch();
 	if(DoItFast) { *Model->Tree() = PlainTree; }
 	Models->push_back(DoModelRun(Model,8,L_NA));
+	FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
 	if(ModelOut) { os << *REV<< endl << flush; }	// Output model details
 	if(Model->NoSeq() > 2) {
 		Model->MakeGammaModel(0,4,Alpha);
@@ -637,6 +658,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 		Models->push_back(DoModelRun(Model,9,L_NA));
 		if(ModelOut) { os << *REV<< endl << flush; }	// Output model details
 	}
+		FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
         cout<<"."<<flush;
 	Model = NULL;
 	delete REV;
@@ -644,7 +666,7 @@ int GetNTModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 }
 
 // Need something that chooses an appropriate set of models based on the genetic code
-int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &os)	{
+int GetAAModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &os)	{
 	// Initialise
 	double Alpha = 1.0;
 	vector <double> ModelF(20,0.05);
@@ -653,7 +675,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 	CEMP *EMP;
 	bool First = true, Fast = DoItFast;
 	CTree PlainTree, GammaTree;
-	int Ret = AmA.CountMSAChars();
+	int Ret = AmA.CountMSAChars(), i;
      // The correction information
 	int df = -1;
 	Lcorrection Correction = L_EQU;
@@ -668,6 +690,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 if(DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
                 Models->push_back(DoModelRun(Model,0+df,Correction,AA2Cod_Adj));
                 if(First) { PlainTree = *Model->Tree(); }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 if(ModelOut) { os << *EQU << endl << flush; }	// Output model details
                 if(Model->NoSeq() > 2) {
                 	Model->MakeGammaModel(0,4);
@@ -677,6 +700,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 	Alpha = Model->m_vpPar[0]->Val();
                 	if(ModelOut) { os << *EQU << endl << flush; }	// Output model details
                 }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 cout<<"."<<flush;
                 Model = NULL;
                 delete EQU;
@@ -684,6 +708,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 EQU = new CEQU(&AmA,Tree,true); Model = EQU; Model->DisallowTreeSearch();
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; }
                 Models->push_back(DoModelRun(Model,19+df,Correction,AA2Cod_Adj));
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 if(ModelOut) { os << *EQU << endl << flush; }	// Output model details
                 if(Model->NoSeq() > 2) {
                 	Model->MakeGammaModel(0,4,Alpha);
@@ -691,6 +716,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 	Models->push_back(DoModelRun(Model,20+df,Correction,AA2Cod_Adj));
                 	if(ModelOut) { os << *EQU << endl << flush; }	// Output model details
                 }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 cout<<"."<<flush;
                 Model = NULL;
                 delete EQU;
@@ -706,6 +732,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; } else if(DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
                 Models->push_back(DoModelRun(Model,0+df,Correction,AA2Cod_Adj));
                 if(First) { PlainTree = *Model->Tree(); }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 if(ModelOut) { os << *EMP << endl << flush; }	// Output model details
                 if(Model->NoSeq() > 2) {
                 	Model->MakeGammaModel(0,4,Alpha);
@@ -714,6 +741,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 	if(First) { GammaTree = *Model->Tree(); First = false; DoItFast = Fast; }
                 	if(ModelOut) { os << *EMP << endl << flush; }	// Output model details
                 }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 cout<<"."<<flush;
                 Model = NULL;
                 delete EMP;
@@ -722,6 +750,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 if(ModelOut) { os << *EMP << endl << flush; }	// Output model details
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; }
                 Models->push_back(DoModelRun(Model,19+df,Correction,AA2Cod_Adj));
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 if(ModelOut) { os << *EMP << endl << flush; }	// Output model details
                 if(Model->NoSeq() > 2) {
                 	Model->MakeGammaModel(0,4,Alpha);
@@ -729,6 +758,7 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
                 	Models->push_back(DoModelRun(Model,20+df,Correction,AA2Cod_Adj));
                 	if(ModelOut) { os << *EMP << endl << flush; }	// Output model details
                 }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 cout<<"."<<flush;
                 Model = NULL;
                 delete EMP;
@@ -737,25 +767,50 @@ int GetAAModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models, int Ge
 }
 
 // Note, running with codon data regularly into Codon models doesn't work quite right...
-int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int GeneticCode, ostream &os) {
+int GetCODModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models,int GeneticCode, ostream &os) {
 	// Initialise
+	CTree COD_Tree = *Tree;
 	CData CoD = *Data;
 	CBaseModel *Model;
 	CCodonM0 *M0;
 	int i,NoF64 = 0,Ret = -1;
 	bool First = true, Fast = DoItFast;
 	CTree PlainTree, GammaTree;
+	// There are weird interactions between branches and omega here, so need a fast way to get reasonable omega estimate and branch estimate
+	const int NoOme = 5;
+	int Max_iOme = -1; double Max_dOme = -BIG_NUMBER, temp;
+	double Ome[NoOme] = {MIN_OMEGA, 0.1, 0.2, 0.4, 0.75};	// A bunch of test omegas
+    CoD = *Data;
+    FOR(i,COD_Tree.NoBra()) { if(COD_Tree.B(i) < 0.01) { COD_Tree.SetB(i,0.01); } }	// Don't allow really short branches
+    M0 = new CCodonM0(&CoD,&COD_Tree,F1X4,GeneticCode); Model = M0; Model->DisallowTreeSearch();
+    assert(M0->m_vpPar[0]->Name().find("Omega") != string::npos);
+    FOR(i,NoOme) {	// Get rough starting value
+    	M0->m_vpPar[0]->SetVal(Ome[i]);
+    	temp = M0->lnL(true);
+    	if(temp > Max_dOme) { Max_dOme = true; Max_iOme = i; }
+    }
+    assert(Max_iOme != -1); M0->m_vpPar[0]->SetVal(Ome[Max_iOme]);
+    LazyBraOpt(Model,Model->lnL(),3,MATIC_BRANCH_ACC); // Update branches for this rough value
+    FOR(i,NoOme) {	// Guess starting value again
+    	M0->m_vpPar[0]->SetVal(Ome[i]);
+    	temp = M0->lnL(true);
+    	if(temp > Max_dOme) { Max_dOme = true; Max_iOme = i; }
+    }
+    LazyBraOpt(Model,Model->lnL(),3,MATIC_BRANCH_ACC); // Update branches ready for all codon models
+    Model = NULL; delete M0;	// clear memory
+
 	// Do the calculations
 	FOR(i,64) { if(GenCodes[GeneticCode][i] >= 0) { NoF64++; } }
         if (codon_model_set.count("F0")){
                 // 1. F0
                 CoD = *Data;
-                M0 = new CCodonM0(&CoD,Tree,cEQU,GeneticCode); Model = M0; Model->DisallowTreeSearch();
+                M0 = new CCodonM0(&CoD,&COD_Tree,cEQU,GeneticCode); Model = M0; Model->DisallowTreeSearch();
                 Ret = CoD.CountMSAChars();
                 // if(First) { DoItFast = false; }
                 if(First && DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
                 Models->push_back(DoModelRun(Model,2,L_NA));
                 if(First) { PlainTree = *Model->Tree(); }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 if(ModelOut) { os << *Model<< endl << flush; }	// Output model details
                 if(Model->NoSeq() > 2) {
                 	Model->MakeGammaModel(0,4);
@@ -764,6 +819,9 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
                 	if(First) { GammaTree = *Model->Tree(); DoItFast = Fast; First = false; }
                 	if(ModelOut) { os << *Model<< endl << flush; }	// Output model details
                 }
+                FOR(i,(int)Model->m_vpPar.size()) {
+//                	cout << "\nChecking ["<<i<<"]: " << Model->m_vpPar[i]->Name() << " = " << Model->m_vpPar[i]->Val() << " == " << Model->m_vpPar[i]->CheckBound();
+                	assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 cout<<"."<<flush;
                 Model = NULL;
                 delete M0;
@@ -771,13 +829,14 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
         if (codon_model_set.count("F1X4")){
                         // 1. F1X4
                         CoD = *Data;
-                        M0 = new CCodonM0(&CoD,Tree,F1X4,GeneticCode); Model = M0; Model->DisallowTreeSearch();
+                        M0 = new CCodonM0(&CoD,&COD_Tree,F1X4,GeneticCode); Model = M0; Model->DisallowTreeSearch();
                         if(Ret == -1) { Ret = CoD.CountMSAChars(); }
 //                        if(First) { DoItFast = false; }
                         if(!First && DoItFast) { *Model->Tree() = PlainTree; }
                         if(First && DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
                         Models->push_back(DoModelRun(Model,6,L_NA));
                         if(First) { PlainTree = *Model->Tree(); }
+                        FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                         if(ModelOut) { os << *Model<< endl << flush; }	// Output model details
                         if(Model->NoSeq() > 2) {
                         	Model->MakeGammaModel(0,4);
@@ -787,6 +846,7 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
                         	if(First) { GammaTree = *Model->Tree(); DoItFast = Fast; First = false; }
                         	if(ModelOut) { os << *Model<< endl << flush; }	// Output model details
                         }
+                        FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                         cout<<"."<<flush;
                         Model = NULL;
                         delete M0;
@@ -794,13 +854,14 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
         if (codon_model_set.count("F3X4")){
                 // 1. F3X4
                 CoD = *Data;
-                M0 = new CCodonM0(&CoD,Tree,F3X4,GeneticCode); Model = M0; Model->DisallowTreeSearch();
+                M0 = new CCodonM0(&CoD,&COD_Tree,F3X4,GeneticCode); Model = M0; Model->DisallowTreeSearch();
                 if(Ret == -1) { Ret = CoD.CountMSAChars(); }
 //                if(First) { DoItFast = false; }
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; }
                 if(First && DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
                 Models->push_back(DoModelRun(Model,11,L_NA));
                 if(First) { PlainTree = *Model->Tree(); }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 if(ModelOut) { os << *Model<< endl << flush; }	// Output model details
                 if(Model->NoSeq() > 2) {
                 	Model->MakeGammaModel(0,4);
@@ -810,6 +871,7 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
                 	if(First) { GammaTree = *Model->Tree(); DoItFast = Fast; First = false; }
                 	if(ModelOut) { os << *Model<< endl << flush; }	// Output model details
                 }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 cout<<"."<<flush;
                 Model = NULL;
                 delete M0;
@@ -817,13 +879,14 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
         if (codon_model_set.count("F64")){
                 // 1. F64
                 CoD = *Data;
-                M0 = new CCodonM0(&CoD,Tree,F64,GeneticCode); Model = M0; Model->DisallowTreeSearch();
+                M0 = new CCodonM0(&CoD,&COD_Tree,F64,GeneticCode); Model = M0; Model->DisallowTreeSearch();
                 if(Ret == -1) { Ret = CoD.CountMSAChars(); }
 //                if(First) { DoItFast = false; }
                 if(!First && DoItFast) { *Model->Tree() = PlainTree; }
                 if(First && DoItFast) { LazyBraOpt(Model,Model->lnL(),5,MATIC_BRANCH_ACC); }
                 Models->push_back(DoModelRun(Model,2 + NoF64,L_NA));
                 if(First) { PlainTree = *Model->Tree(); }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 if(ModelOut) { os << *Model<< endl << flush; }	// Output model details
                 if(Model->NoSeq() > 2) {
                 	Model->MakeGammaModel(0,4);
@@ -833,6 +896,7 @@ int GetCODModels(CData *Data, CTree *Tree, vector <SModelDetails> *Models,int Ge
                 	if(First) { GammaTree = *Model->Tree(); DoItFast = Fast; First = false; }
                 	if(ModelOut) { os << *Model<< endl << flush; }	// Output model details
                 }
+                FOR(i,(int)Model->m_vpPar.size()) { assert(Model->m_vpPar[i] != NULL); if(!Model->m_vpPar[i]->CheckBound()) { *BoundOut = true; } }
                 cout<<"."<<flush;
                 Model = NULL;
                 delete M0;
