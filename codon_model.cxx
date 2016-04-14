@@ -476,8 +476,12 @@ void CSiteCodon::BranchOpt(int First,int NTo, int NFr, double *BestlnL,double to
 // The DoBralnL routine for CSiteCodon models
 // ---
 // Excessive overload, but I don't want DoBralnL to become public
-double CSiteCodon::DoBralnL(int B, int NF,int NT)	{
+double CSiteCodon::DoBralnL(int B, int NF,int NT, bool JustClean)	{
 
+	// If required just clean up the static allocation
+	if(JustClean)	{
+		cout << "\nJustClean not implemented for CSiteCodon";
+	}
 	int site,i;
 	double RetlogL = 0.0, logL = 0.0; // Having position specific and return log separate for debugging
 	CProb **P = NULL;

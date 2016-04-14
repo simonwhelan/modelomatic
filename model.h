@@ -26,7 +26,7 @@ enum ECalcType { cML,cMP,cRMSD };					// Defines the type of calculations to be 
 class CBaseModel	{
 public:
 	CBaseModel(CData *D,CTree *T,string Name = "Unnamed model");
-	~CBaseModel();
+	virtual ~CBaseModel();
 	// Variables
 	vector <CBaseProcess *> m_vpProc;		// The list of proceses
 	vector <CPar *> m_vpPar;				// The parameters in the processes (not to be deleted. That is done by the processes themselves
@@ -50,6 +50,8 @@ public:
 	void RedoScale(bool Force = false);			// Rescale all the parameters in the model
 	void RandomiseParameters(bool ExtBranch, bool IntBranch, bool Parameters, bool Eqm);	// Randomise the optimised parameter values
 	virtual bool IsViable();							// Checks whether all the processes are okay. Not really fully implemented...
+	void AllowTreeSearch() { int i; FOR(i,m_vpProc.size()) { m_vpProc[i]->AllowTreeSearch(); } }
+	void DisallowTreeSearch() { int i; FOR(i,m_vpProc.size()) { m_vpProc[i]->DisallowTreeSearch(); } }
 	////////////////////////////////////////////////////////////
 	// Some calculation based functions
 	void CreateProcessSpace(bool force = false);	// Function that creates space for all the sub functions
@@ -192,7 +194,7 @@ protected:
 	virtual void BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol);	// Recursive function
 	virtual void DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate = true);
 			// Do the actual optimisation. (NB: virtualised so that other model/branch specific parameters can be optimsised too)
-	virtual double DoBralnL(int B, int NL,int NR);						// Do calculations for a branch
+	virtual double DoBralnL(int B, int NL,int NR, bool JustClean = false);						// Do calculations for a branch. JustClean will clear up the static allocation
 	// Functions relating to partial likelihood output
 	void RecPartLOut(int First,int NTo, int NFr, ostream &out, int Branch);
 	void DoPartLOut(int NTo, int NFr, int Br, ostream &out,int Branch);
@@ -376,7 +378,7 @@ public:
 	~CTHMMBDNA() { /* empty */ };
 	// Implementation
 #if ALLOW_BDNA_PEN == 1
-	double DoBralnL(int B, int NL,int NR);						// Do calculations for a branch
+	double DoBralnL(int B, int NL,int NR, bool JustClean = false);						// Do calculations for a branch
 	double lnL(bool ForceReal = false);	// perform a likelihood calculation
 #endif
 };
@@ -417,7 +419,7 @@ public:
 	double m_OriAlpha, m_ProbInv, m_SigAlpha, m_SigInv;
 	CBaseModel* PreOptModel();					// Get initial parameter values
 	void ApplyPreOptModel(CBaseModel *PreOpt);	// Apply the preoptimised model values to the current model
-	double DoBralnL(int B, int NL,int NR);						// Do calculations for a branch
+	double DoBralnL(int B, int NL,int NR, bool JustClean = false);						// Do calculations for a branch
 #if ALLOW_BAA_PEN == 1
 	double lnL(bool ForceReal = false);	// perform a likelihood calculation
 #endif
@@ -588,7 +590,7 @@ public:
 	void BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol);	// Recursive function
 	void DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra,double *BestlnL,double tol,bool AllowUpdate = true);
 				// Override to call DoBraOpt. Just calls NormaliseParameters and then lets the function do its thing
-	double DoBralnL(int B, int NL,int NR);						// Do calculations for a branch
+	double DoBralnL(int B, int NL,int NR, bool JustClean = false);						// Do calculations for a branch
 
 private:
 	// Variables
@@ -614,7 +616,7 @@ public:
 	~CBaseCoevo();
 	// Likelihood functions for working with single and double process
 	double lnL(bool ForceReal = false);	// perform a likelihood calculation
-	double DoBralnL(int B, int NL,int NR);	// Do calculations for a single branch
+	double DoBralnL(int B, int NL,int NR, bool JustClean = false);	// Do calculations for a single branch
 
 protected:
 	// Variables

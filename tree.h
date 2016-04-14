@@ -34,7 +34,7 @@ public:
 	// Copy constructor
 	CNode(const CNode &Node);
     // Destructor function
-    ~CNode();
+    virtual ~CNode();
 	// Member functions specific for bifurcating trees where linkc is defined as a parent
 	void SetNode(int linka, int linkb, int linkc, int brancha, int branchb, int branchc, int IntVal);
 	void SetNode(int la, int lb, int ba, int bb, int IntVal);
@@ -64,7 +64,7 @@ public:
 	// Copy Constructor
 	CTree(const CTree &Tree);
     // Destructor function
-    ~CTree();
+    virtual ~CTree();
 	// Memory functions
 	void CleanTree();
     void GetMemory(int NoSeq);
@@ -214,6 +214,7 @@ private:
 	int m_iRootNode;			// The root node (-1 if not rooted)
 	bool m_bRooted;				// Whether the tree is rooted
     int m_iNoNode;				// The # of nodes in tree
+    int m_iMemNode;				// Number of nodes stored in memory
     int m_iNoBra;				// The # of branches in tree
 	int m_iNoOptBra;			// The # of branches optimised in the current tree
     int m_iNoSeq;				// The # of sequences in tree

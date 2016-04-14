@@ -84,7 +84,7 @@ void CPhyloDat::GetOutputFile() {
 }
 bool CPhyloDat::IsTree()	{ if(m_pTree == NULL) { return false; } else { return true; } }
 // Get the data
-void CPhyloDat::GetData() {
+void CPhyloDat::GetData(bool AllowClean) {
 	int i;
 	bool SingleData = true;
 	string store;
@@ -96,19 +96,19 @@ void CPhyloDat::GetData() {
 	FOR(i,(int)store.size()) { store[i] = toupper(store[i]); }
 	if(store.find("MULTIGENE") == string::npos) {
 //		cout << "\nGetting single data";
-		GetSingleData();
+		GetSingleData(AllowClean);
 	} else {
 //		cout << "\nGetting multidata";
-		GetMultiData();
+		GetMultiData(AllowClean);
 	}
 }
 // Get data for a single data set
-void CPhyloDat::GetSingleData()	{
+void CPhyloDat::GetSingleData(bool AllowClean)	{
 	// If required get the input file
 	if(In().empty() || !FileExist(In())) { SetIn(GetInFileName()); }
 	while(m_pData == NULL)	{
 //		cout << "\nGetting data" << flush;
-		m_pData = new CData(In(),NONE,true);
+		m_pData = new CData(In(),NONE,true,0,AllowClean);
 //		cout << " ... done" << flush;
 		if(!m_pData->Valid()) {
 			cout << "\nFile does not appear to contain sequence data...";
@@ -119,7 +119,7 @@ void CPhyloDat::GetSingleData()	{
 	m_PseudoDataType = m_pData->m_DataType;
 }
 // Get data for a multiple data set
-void CPhyloDat::GetMultiData() {
+void CPhyloDat::GetMultiData(bool AllowClean) {
 	int i, GeneCount = 0;
 	vector <string > Toks;
 	CData *Input;

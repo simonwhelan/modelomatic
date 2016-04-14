@@ -7,6 +7,7 @@ CC      = gcc
 #CXX      = icpc
 #CC       = icc
 CFLAGS  = -DISUNIX -O3 -w
+#CFLAGS = -DISUNIX -g -w
 LDFLAGS = 
 SRCS=modelomatic.cxx bionj.cxx       data.cxx        impsamp.cxx     interface.cxx   model.cxx       new_process.cxx optimise.cxx    parsimony.cxx   process.cxx     tools.cxx       tree.cxx        treelist.cxx ini/cpp/INIReader.cxx codon_model.cxx
 OBJS=$(SRCS:%.cxx=%.o) 

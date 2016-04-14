@@ -17,17 +17,19 @@ class CData	{
 public:
     // Constructor functions
 	// Inputs data from a specific file starting at point Pos
-	CData(string file, EDataType SpecType=NONE, bool AllowFail = false, streampos FilePos = 0);
+	CData(string file, EDataType SpecType=NONE, bool AllowFail = false, streampos FilePos = 0, bool AllowGapClean = true);
 	// Inputs data from a set of arrays (for pairwise distances)
 	CData(int NoSeq,int Size, vector <string> InSeq, vector <string> InName,EDataType Type = NONE);
 	// Blank data array
 	CData(int NoSeq, int Size, EDataType Type, vector <string> *Names = NULL);
+	// Copy constructor
+	CData(const CData &CopD);
 	// Takes strings into object
-    void InputData(EDataType Type, vector <string> cInputSeq, vector <string> cInputName, vector <int> SiteLabels, bool AllowFail = false);
+    void InputData(EDataType Type, vector <string> cInputSeq, vector <string> cInputName, vector <int> SiteLabels, bool AllowFail = false, bool AllowTrim = true);
     // Takes a NEXUS file and it's tags into the object (Work Still in Progress...)
     void InputNexus(string File);
     // Destructor
-	~CData();						// Clears memory
+	virtual ~CData();
 	void Clean();					// Does the memory clearing
     // Attributes
 	bool Valid() {return m_bValid;}// Whether it is valid data

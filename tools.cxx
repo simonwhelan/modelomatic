@@ -1,6 +1,10 @@
 //////////////// Implementation of some useful tools //////////////////
 #include "tools.h"
 
+#if DO_MEMORY_CHECK
+CMemChecker memory_check;
+#endif
+
 ///////////////////////////////////////////////////////////////////////
 // Some tools
 bool ALLOW_PREDICTLNL = true;	// Whether to allow predicted lnLs in optimisation
@@ -323,6 +327,9 @@ ostream & operator<<(ostream &os, ParOp Par) {
 
 // Constructor
 CPar::CPar(string Name,double Value, bool Optimise, double LowBound, double UpBound,ParOp Type) {
+#if DO_MEMORY_CHECK
+	memory_check.CountCPar++;
+#endif
 #if PAR_DEBUG == 1
 	if(my_isnan(Value)) { Error("\nTrying to assign parameter " + Name + " with nan...\n\n"); }
 #endif
@@ -333,17 +340,21 @@ CPar::CPar(string Name,double Value, bool Optimise, double LowBound, double UpBo
 	m_bOpt = Optimise; m_bLockedScale = false; m_bOutDetail = false;
 	m_bSpecial = false; bool m_bAllowScale = true; m_bDoHardDer = false;
 	m_dGrad = 0.0; m_bIsBranch = false;
-	// Do the bounds
-	SetBounds(LowBound,UpBound);
-	StoreOptBounds(LowBound,UpBound);	// Default bounds are the optimisation bounds
 	// Set default scaling routines
 	pDoUpdate = NULL;
 	m_Operator = Type;
+	// Do the bounds (these can SetVal() so need to be at the end)
+	SetBounds(LowBound,UpBound);
+	StoreOptBounds(LowBound,UpBound);	// Default bounds are the optimisation bounds
 }
 
 // Destructor
 CPar::~CPar() {
+#if DO_MEMORY_CHECK
+	memory_check.CountCPar--;
+#endif
 	int i;
+	pDoUpdate = NULL;
 	FOR(i,(int)m_arpPar.size()) { m_arpPar[i] = NULL; }
 }
 
@@ -542,7 +553,7 @@ bool CPar::UpdatePar(bool ForceChange, bool RedoScale) {
 	}
 	// Check there is a scaling routine; if not then its a standard parameter
 	// These are scaled to 1.0, so that: m_dValue = m_dScaler * m_dScaledValue
-	if(pDoUpdate == NULL)	{
+	if(pDoUpdate==NULL)	{
 		assert(m_arpPar.empty());
 		// Correct the scaling as appropriate
 		if(m_dOldReal != m_dRealValue || ForceChange == true) {		// If the value has changed
@@ -913,9 +924,28 @@ cout.precision(12);
 bool FlipBool(bool V)	{ if(V == true) { return false; } return true; }
 bool FlipBin(int i)		{ assert(i==0||i==1); if(i==0) { return 1; } return 0; }
 // Constructor
-CProb::CProb(double InitVal)	{ m_dValue = 0.0; assert(IsProb(InitVal)); Assign(InitVal); }
-CProb::CProb(CProb &Prob)		{ m_dValue = 0.0; Assign(Prob); }
-CProb::CProb(double Val, int Sc){ m_dValue = 0.0; Assign(Val,Sc); }
+CProb::CProb(double InitVal)	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCProb++;
+#endif
+	m_dValue = 0.0; assert(IsProb(InitVal)); Assign(InitVal); }
+CProb::CProb(CProb &Prob)		{
+#if DO_MEMORY_CHECK
+	memory_check.CountCProb++;
+#endif
+	m_dValue = 0.0; Assign(Prob); }
+CProb::CProb(double Val, int Sc){
+#if DO_MEMORY_CHECK
+	memory_check.CountCProb++;
+#endif
+	m_dValue = 0.0; Assign(Val,Sc); }
+
+CProb::~CProb()	{
+#if DO_MEMORY_CHECK
+	memory_check.CountCProb--;
+#endif
+
+}
 
 ///////////////////// Private functions //////////////////////////////////////////////////////
 
@@ -943,6 +973,7 @@ double CProb::Prob()	{
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue)) { cout << "\nReturning Prob(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
+	if(m_iScale > 400) { return 0.0; }
 	return m_dValue * pow(10.0,(double) -m_iScale);
 }
 double CProb::LogP()	{
@@ -987,7 +1018,11 @@ CProb &CProb::Assign(double Val, int Sc){
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue) || my_isnan(Val)) { cout << "\nReturning Assign(double Val, int Sc): Val= " << Val << "; m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
-	m_dValue = Val; m_iScale = Sc; if(!IsProb(Prob())) { cout << "\nBroken Prob(): " << Prob() << endl << flush; exit(-1); } assert(IsProb(Prob())); DoScale(); return *this;
+	m_dValue = Val; m_iScale = Sc; if(!IsProb(Prob())) {
+		cout << "\nBroken Prob(): " << Prob() << " assigning from: " << Val << " with scale " << Sc << endl << flush;
+		exit(-1);
+	}
+	assert(IsProb(Prob())); DoScale(); return *this;
 }
 // double functions for numerical operations
 CProb &CProb::Multiply(double Value,bool Overwrite)	{

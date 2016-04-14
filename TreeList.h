@@ -29,8 +29,8 @@ public:
 	int Size();							// Length of sequences
 	int TrueSize();						// Length of true sequences
 	int NoSeq();						// Number of sequences
-	void GetData();						// General get data function that decides whether to get single data or phylogenomic data
-	void GetSingleData();				// Gets sequence data for a single gene (or concatenation)
+	void GetData(bool AllowClean = true);		// General get data function that decides whether to get single data or phylogenomic data
+	void GetSingleData(bool AllowClean = true);				// Gets sequence data for a single gene (or concatenation)
 
 	CData *pData() { return m_pData; }	// Returns a pointer to the data
 
@@ -42,7 +42,7 @@ public:
 	void DoPartL(CData *Dat, string model_file, string out_file);	// Highest level function that calculates and output the partial likelihoods per branch
 
 	// Multiple data set management
-	void GetMultiData();				// Gets sequence data for multiple genes
+	void GetMultiData(bool AllowClean = true);				// Gets sequence data for multiple genes
 	void CleanMultiData();				// Cleans the multiple data set
 	int NoDataSets();					// Returns the number of data sets
 	void SetMultiSet(int i);			// Sets the data for data analysis to
