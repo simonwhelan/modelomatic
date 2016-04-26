@@ -60,7 +60,6 @@ void CBaseModel::CleanMemory()	{
 	// Do public
 	FOR(i,m_vpProc.size()) { if(m_vpProc[i] != NULL) { delete m_vpProc[i]; } }
 	m_vpProc.clear();
-	m_vdProbProc.clear();
 	m_pData = NULL; m_pTree = NULL; m_pSubTree = NULL;
 	DEL_MEM(m_arL); m_sName = "Unassigned";
 	// Do private
@@ -587,11 +586,13 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 }
 
 
-double CBaseModel::GetNumDerivative(double *x, double Old_lnL)	{
+double CBaseModel::GetNumDerivative(double *x, double Old_lnL, CPar *pPar)      {
 	double grad = 0.0, OldPar = *x, UseDX = max(DX,*x * DX), new_lnL, new_par;
-	bool UpBound = false, LowBound = false;
+	bool UpBound = false, LowBound = false, IsProb = false;
 	Old_lnL = -fabs(Old_lnL);		// Correct the likelihood (may not be necessary...).
 	if(OldPar < 0) { UseDX *= -1; }
+        // If pPar != NULL check whether it's a probability or not^M
+        if(pPar != NULL)        { if(pPar->IsProb()) { IsProb = true; } }
 	// Get the derivative
 #if DERIVATIVE_DEBUG == 1
 	if(fabs(Old_lnL -lnL()) > 1.0E-5)	{ cout << "\nNumerical derivative starting; ori_p: " << OldPar << " == lnL: " << Old_lnL << " != actual lnL: " << lnL() << " diff: " << fabs(Old_lnL - lnL()); Error("Hmm");}
@@ -659,9 +660,6 @@ double CBaseModel::GetNumDerivative(double *x, double Old_lnL)	{
 // Function that does any extra initialisations required before calculations
 void CBaseModel::FinalInitialisation()		{
 	CreateOptPar();			// Create the optimised parameters
-	// Get the probability vector sorted
-	if(m_vdProbProc.empty()) { m_vdProbProc.assign((int)m_vpProc.size(),1.0 / (double) m_vpProc.size());  }
-	assert(m_vdProbProc.size() == m_vpProc.size());
 	// Create the partial likelihood
 	GET_MEM(m_arL,CProb,m_pData->m_iSize);
 }

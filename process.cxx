@@ -1801,7 +1801,7 @@ void CBaseProcess::PrepareBraDer()	{
 }
 
 // Public function to get branch derivatives
-bool CBaseProcess::GetBraDer()	{
+bool CBaseProcess::GetBraDer(CProb *ModelL)     {
 	int i, BrError = 1;
 	// Initialise
 	m_arModelL = ModelL;
@@ -1867,7 +1867,7 @@ void CBaseProcess::LeafNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First
 
 	// Make sure leaf node is in NTo
 	if(NTo > NFr) { i = NFr; NFr = NTo; NTo = i; }
-	assert(pTree->NodeType(NFr) == branch);
+	assert(pTree->NodeType(NFr) == branch); assert(m_arModelL != NULL);
 	// Get Seq: the node number that the information goes to
 	if(!m_viLeafMap.empty() && m_pSubTree != NULL) {
 		assert((int)m_viLeafMap.size() > NTo);
@@ -1938,7 +1938,7 @@ void CBaseProcess::BranNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First
 	static double Vec[MAX_CHAR];
 	vector <double> eqm = RootEqm();
 	assert(InRange(NFr,pTree->NoSeq(),pTree->NoNode()) || First == -1);
-	assert(pTree->NodeType(NTo) == branch);
+	assert(pTree->NodeType(NTo) == branch); assert(m_arModelL != NULL);
 	// Direction makes no difference to calculation so whether first or later nodes doesn't matter
 	// Do derivative calculation and updating procedure
 	// For Update: if(first == true) {		then Fd(NFr) = vP(t) & Bk(NFr) *= vP(t)

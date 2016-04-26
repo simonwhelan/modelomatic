@@ -387,7 +387,7 @@ public:
 
 	// Functions for getting branch derivatives
 	virtual void PrepareBraDer();						// Prepare the process for get branch derivatives function
-	bool GetBraDer();				// Gets the branch derivatives. Returns false if there's a problem
+	bool GetBraDer(CProb *ModelL);                          // Gets the branch derivatives. ModelL = array of partial likelihoods for whole model
 
 
 	// Parameter access functions
@@ -457,7 +457,7 @@ public:
 	void CleanSubTree();									// Clears subtree from likelihood computation
 	bool OldGetBraDer(CTree *Tree, bool Init = true);			// Calculate branch derivatives (returns whether it was successful)
 	// Function that delivers the likelihood of a site
-	CProb &ModelL(int Site) { return m_ardL[Site]; }
+	CProb &ModelL(int Site) { return m_arModelL[Site]; }
 	CProb &L(int Site)	{ assert(IsProb(Prob())); return m_ardL[Site].Multiply(Prob(),false); }; 			// The final likelihoods
 	bool LOkay() { if(MATCH_PAML == 1) { return true; } return FlipBool(m_bFailedL); };			// Returns whether the likelihood has computed
 	bool IsGamma() { return m_bIsGamma;	}					// returns whether the process is gamma distributed
@@ -570,6 +570,7 @@ protected:
 	vector <CSite> m_vBackSp;			// Space used for backwards calculations (for branch derivatives)
 
 	CProb *m_ardL;						// The final likelihoods
+	CProb *m_arModelL;                                      // Pointer to the final model likelihoods (set in PrepareBraDer and calculated in CBaseModel::Sitewise
 	// Space access helpers
 	inline int InitNodePos(int Node)	{ if(!m_bAllowTreeSearch) { assert(Tree()->NoSeq() == m_pData->m_iNoSeq); Node -= m_pData->m_iNoSeq; assert(Node >= 0); } return (Node * m_iSize); }
 	inline int PartLNode()				{ return m_pTree->NoNode(); }
