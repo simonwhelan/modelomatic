@@ -2915,7 +2915,7 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 	// Do the model equilibrium distribution
 	AddCodonEqm(GenCode,m_pData->m_iChar,CE,false);
 	// Define the model parameters
-	cout << "\nAdding codon process" << flush;
+#	cout << "\nAdding codon process" << flush;
 
 	if(Model == pM0DrDc) {
 		cout << "\nMaking random Radical matrix -> <Random.mat>";
