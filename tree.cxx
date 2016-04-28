@@ -1332,10 +1332,11 @@ void CTree::Unroot()	{
 
 ///////////////////////////////////////////////////////////////////
 // Functions associated with splits on a tree
-void CTree::BuildSplits()	{
+vector <SSplit> CTree::BuildSplits()	{
 	int i;
 	m_vSplits.clear();
 	FOR(i,NoBra()) { m_vSplits.push_back(GetSplit(i)); }
+	return m_vSplits;
 }
 
 SSplit CTree::GetSplit(int Bra) {
@@ -1485,6 +1486,8 @@ ostream& operator<<(ostream& os, CTree &Tree)		{
 	return os;
 }
 
+// HACKED TO DISPLAY BOOTSTRAPS
+// ALL OCCUR BEFORE OutBranch
 ostream& CTree::OutNode(int FromNode, int ToNode, ostream &os)	{
 	int i, count;
 #if TREE_DEBUG
@@ -1493,6 +1496,7 @@ ostream& CTree::OutNode(int FromNode, int ToNode, ostream &os)	{
 	if(OK[ToNode] == true) { cout << "\nTree error: "; OutDetail(cout); exit(-1); }
 	OK[ToNode] = true;
 #endif
+
 	// If an internal node
 	if(m_Node[ToNode]->m_NodeType == branch)	{
 		// First visit to node gives an open parenthesis
@@ -1507,9 +1511,28 @@ ostream& CTree::OutNode(int FromNode, int ToNode, ostream &os)	{
 		}
 		// The return visit gives the closing parenthesis and, if required, the branch length
 		if(FromNode != -1) { os << ")"; }	// Ensures trifurcation at root
-		if(FromNode != -1) { OutBranch(ToNode,FromNode,os); }
+		if(FromNode != -1) {
+
+			// HACK
+			int Branch = FindBra(FromNode,ToNode);
+/*			cout << "\nFr: "<< FromNode << "; To: " << ToNode;
+			cout << "\nHave branch ["<<Branch<<"]"; if(!m_vdBootStrap.empty()) { cout << " == " << m_vdBootStrap[Branch]; }
+			SSplit Split = GetSplit(Branch);
+			cout << "\n\t" << Split.Left << " | " << Split.Right;*/
+			if(!m_vdBootStrap.empty()) { os << "#" << m_vdBootStrap[Branch]; }
+			OutBranch(ToNode,FromNode,os);
+		}
 	}	else if(m_Node[ToNode]->m_NodeType == leaf)	{	// If an external node
 		if(ToNode < m_iNoSeq && m_vsName.size() == m_iNoSeq) { if(m_bOutName) { os << m_vsName[ToNode]; } else { os << ToNode+1; } } else { os << ToNode + 1; }
+
+		// HACK
+		int Branch = FindBra(FromNode,ToNode);
+/*		cout << "\nFr: "<< FromNode << "; To: " << ToNode;
+		cout << "\nHave branch ["<<Branch<<"]"; if(!m_vdBootStrap.empty()) { cout << " == " << m_vdBootStrap[Branch]; }
+		SSplit Split = GetSplit(Branch);
+		cout << "\n\t" << Split.Left << " | " << Split.Right; */
+		if(!m_vdBootStrap.empty()) { os << "#" << m_vdBootStrap[Branch]; }
+
 		OutBranch(ToNode,NodeLink(ToNode,0),os);
 		if(FromNode == -1) {
 			if(NodeLink(ToNode,0) < m_iNoSeq && m_vsName.size() == m_iNoSeq) { if(m_bOutName) { os << "," << m_vsName[NodeLink(ToNode,0)]; } else { os << "," << NodeLink(ToNode,0); } }
@@ -1529,7 +1552,18 @@ ostream& CTree::OutNode(int FromNode, int ToNode, ostream &os)	{
 		}
 		// The return visit gives the closing parenthesis and, if required, the branch length
 		if(FromNode != -1) { os << ")"; }	// Ensures trifurcation at root
-		if(FromNode != -1) { OutBranch(ToNode,FromNode,os); }
+		if(FromNode != -1) {
+
+			// HACK
+			int Branch = FindBra(FromNode,ToNode);
+/*			cout << "\nFr: "<< FromNode << "; To: " << ToNode;
+			cout << "\nHave branch ["<<Branch<<"]"; if(!m_vdBootStrap.empty()) { cout << " == " << m_vdBootStrap[Branch]; }
+			SSplit Split = GetSplit(Branch);
+			cout << "\n\t" << Split.Left << " | " << Split.Right; */
+			if(!m_vdBootStrap.empty()) { os << "#" << m_vdBootStrap[Branch]; }
+
+			OutBranch(ToNode,FromNode,os);
+		}
 	}
 	return os;
 }
