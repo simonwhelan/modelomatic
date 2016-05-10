@@ -29,7 +29,6 @@ public:
 	virtual ~CBaseModel();
 	// Variables
 	vector <CBaseProcess *> m_vpProc;		// The list of proceses
-	vector <double>	m_vdProbProc;			// The probability of the individual processes
 	vector <CPar *> m_vpPar;				// The parameters in the processes (not to be deleted. That is done by the processes themselves
 	vector <CPar *> m_vpAllOptPar;			// All the optimised parameters including branches
 	CProb *m_arL;							// The vector of sitewise likleihoods for the model (used for calculating GetLogLikelihood
@@ -59,7 +58,7 @@ public:
 	void FinalInitialisation();			// Function that does any extra initialisations required before calculations
 	void PrepareFastCalc();				// Prepare for fast computation
 	void CleanFastCalc(bool Force = false);				// Clean the fast calc stuff
-	void PreparelnL(bool ForceRemake = false);			// Prepares the Q matrices in the model and sets the rate
+	virtual void PreparelnL(bool ForceRemake = false);			// Prepares the Q matrices in the model and sets the rate
 	virtual double lnL(bool ForceReal = false);	// perform a likelihood calculation (if over-ridden, be careful other likelihood functions are too e.g. DoBralnL(...) )
 	double CalculateL(CBaseProcess *Process = NULL, bool DoFulllnL = true);			// Calculate the overall log-likelihood from a single process
 	vector <double> SitewiseL(CBaseProcess *Process = NULL, bool DoFulllnL = true);	// Calculate the per site log-likelihood from a single process
@@ -72,6 +71,7 @@ public:
 	// Clever function for fast optimisation ofbranch lengths
 	virtual double FastBranchOpt(double CurlnL, double Tol = 1.0E-7, bool *Conv = NULL, int NoIter = 5, bool CheckPars = true);	// Controller function
 	void SingleBranchOpt(int Br, double *BestlnL, double tol);				// Do a branch optimise for a single branch, calculates partial likelihoods so inefficient when traversing a tree
+	void SetFastBranchOpt(bool NewVal) { m_bAllowFastBranchOpt = NewVal; }
 	// Space update functions for model (used in stepwise addition routines
 	void Leaf_update(int NTo, int NFr, int Br, CTree *T, int First, bool DoFullUpdate = false);
 	void Bran_update(int NTo, int NFr, int Br, CTree *T, int First, bool DoNTo = true, bool DoNFr = true, bool DoFullUpdate = false);
@@ -152,7 +152,7 @@ public:
 	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
 	int CountOptPar(bool ExtBranch = true, bool InBranch = true, bool Parameters = true, bool Eqm = false);
 	virtual vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);		// Calculate the processes derivatives
-	double GetNumDerivative(double *Par, double lnL);
+	double GetNumDerivative(double *Par, double lnL, CPar *pPar = NULL);
 	virtual CBaseModel *PreOptModel()	{ return NULL; }								// Returns the 'preoptimisation' model for complex models (e.g. THMMs)
 	virtual void ApplyPreOptModel(CBaseModel *PreOpt)		{  }						// Applies the pre-opt model to the data
 	bool ReplaceParValue(CPar *Par);				// Searches for *Par in current model and replaces it (if it exists)
@@ -220,6 +220,7 @@ private:
 	ECalcType m_CalcType;							// The type of calculation to be performed
 	bool m_bOptReady;								// Whether the model is ready for optimisation
 	bool m_bLockModel;								// Whether parameter values will ever be optimised
+	bool m_bAllowFastBranchOpt;						// Whether or not to allow FastBranchOpt calls
 
 	// Variables relating to centre point mapping
 	vector <int> m_viCPNodesCovered;				// Internal nodes created by the centre point
@@ -517,9 +518,43 @@ class CCodonDrDc : public CBaseModel {
 public:
 	CCodonDrDc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
 	vector <int> m_viRadMat;
+	string m_sRadicalFile;
 };
 
-double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType);
+double GetAminoAcidCountFromCodonQ(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType);
+double GetAminoAcidCountFromCodonPt(CQMat *QMat, double time, int GenCode, vector <int> RadMat, int ChangeType);
+
+// Mixture class for DrDc type models
+// Based on the original function it allows a set of mixture components and provides the tools to scale them appropriately
+// Either \Kappa or \omega can vary between the components
+// Class contains the components that allow correct scaling and mixing for the likelihood computation
+class CCodonDrDcMixer : public CCodonDrDc {
+public:
+	// Constructor
+	CCodonDrDcMixer(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	// Destructor
+	~CCodonDrDcMixer();
+	// Implementation
+	void PreparelnL(bool ForceRemake = false);		// Prepares the correctly scaled Qs for computation
+};
+
+// Mixture classes for DrDc models. Names should be self explanatory
+class CCodon2Dr1Dc : public CCodonDrDcMixer {
+public:
+	CCodon2Dr1Dc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	~CCodon2Dr1Dc();	// Destructor function to clear parameter mappings
+};
+class CCodon1Dr2Dc : public CCodonDrDcMixer {
+public:
+	CCodon1Dr2Dc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	~CCodon1Dr2Dc();	// Destructor function to clear parameter mappings
+};
+class CCodon2Dr2Dc : public CCodonDrDcMixer {
+public:
+	CCodon2Dr2Dc(CData *Data, CTree *Tree, ECodonEqm CE = F3X4, string File = sRadicalFileName, int GenCode = 0);
+	~CCodon2Dr2Dc();	// Destructor function to clear parameter mappings
+};
+
 
 class CEMPCodonREST : public CBaseModel {
 public:

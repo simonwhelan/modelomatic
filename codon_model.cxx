@@ -676,6 +676,7 @@ CCodonDrDc::CCodonDrDc(CData *Data, CTree *Tree, ECodonEqm CE, string RadicalFil
 	m_vpProc.push_back(AddCodonProcess(Data,Tree,pM0DrDc,CE,GenCode,RadicalFile));
 
 	// Store the RadicalFile matrix
+	m_sRadicalFile = RadicalFile;
 	m_viRadMat.assign(20*20,-1);
 	FINOPEN(Radin, RadicalFile.c_str());
 		FOR(i,20)	{
@@ -692,9 +693,10 @@ CCodonDrDc::CCodonDrDc(CData *Data, CTree *Tree, ECodonEqm CE, string RadicalFil
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-// A function to calculate how often we would expect to observe particular changes
+// Function to calculate how often we would expect to observe particular changes
 // Should provide numbers comparable to Kr/Kc
-double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType) {
+// 1. Gets the expected number of substitutions that actually occur per unit time using the rate matrix
+double GetAminoAcidCountFromCodonQ(CQMat *Mat, int GenCode, vector <int> RadMat, int ChangeType) {
 	int i,j,i_count, CurChar_i, CurChar_j;
 	bool RedData = false;	// Whether data is reduced from 64 codons
 	double ExpObs = 0.0;
@@ -729,6 +731,227 @@ double GetAminoAcidCountFromCodon(CQMat *Mat, int GenCode, vector <int> RadMat, 
 //	cout << "\nOverall obs for ChangeType[" << ChangeType << "]: " << ExpObs << "\n//";
 	return ExpObs;
 }
+// 2. Gets the expected number of observable substitutions after time t, using a given P(t) matrix. Needs QMat for eqm
+double GetAminoAcidCountFromCodonPt(CQMat *QMat, double time, int GenCode, vector <int> RadMat, int ChangeType) {
+	int i,j,i_count, CurChar_i, CurChar_j;
+	bool RedData = false;	// Whether data is reduced from 64 codons
+	double ExpObs = 0.0;
+	vector <double> WorkMat;
+	vector <double> eqm;
+//	cout << "\n------------------------ Calculating overall obs for ChangeType: " << ChangeType << " ------------------- ";
+
+	// Some input checking
+	assert(InRange(ChangeType,0,2));
+	 assert(InRange(GenCode,0,NumGenCode));
+	i_count = 0.0; FOR(i,64) { if(GenCodes[GenCode][i] != -1) { i_count++; } }
+	assert(QMat->Char() == i_count || QMat->Char() == 64);
+	if(QMat->Char() != 64) { RedData = true; }
+
+	// If time is 0 (or lower for simplicity of -1 pass) pass the Q matrix to WorkMat
+	if(time <= FLT_EPSILON) { FOR(i,QMat->Char() ) { FOR(j,QMat->Char() ) { WorkMat.push_back(*QMat->Q(i,j)); } } }
+	// Otherwise make a P(t) matrix and transfer that to WorkMat
+	else {
+		double PT[64*64];
+		QMat->MakePT(time,PT);
+		FOR(i,QMat->Char() * QMat->Char()) { WorkMat.push_back(PT[i]); }
+	}
+
+	// Do the counting
+	eqm = QMat->Eqm();
+	assert(eqm.size() == QMat->Char());
+	CurChar_i = 0;
+	FOR(i,64)	{
+		CurChar_j = CurChar_i+1;
+		if(GenCodes[GenCode][i] == -1) { if(!RedData) { CurChar_i++; } continue; }
+		for(j=i+1;j<64;j++) {
+			if(GenCodes[GenCode][j] == -1) { if(!RedData) { CurChar_j++; } continue; }
+			if(GenCodes[GenCode][i] != GenCodes[GenCode][j] && RadMat[(GenCodes[GenCode][i]*20)+GenCodes[GenCode][j]] == ChangeType) {
+//				cout << "\nGetting " << State(COD,i) << "[" << GenCodes[GenCode][i] << "] -> " << State(COD,j) << "[" << GenCodes[GenCode][j] << "] == RadMat: " <<  RadMat[(GenCodes[GenCode][i]*20)+GenCodes[GenCode][j]] << " == " << ChangeType;
+				ExpObs += eqm[CurChar_i] * WorkMat[(CurChar_i*QMat->Char()) + CurChar_j];	// i -> j
+//				ExpObs += eqm[CurChar_i] * *QMat->Q(CurChar_i,CurChar_j);			// i -> j
+				ExpObs += eqm[CurChar_j] * WorkMat[(CurChar_j*QMat->Char()) + CurChar_i];	// j -> i
+//				ExpObs += eqm[CurChar_j] * *QMat->Q(CurChar_j,CurChar_i);			// j -> i
+			}
+			CurChar_j++;
+		}
+		CurChar_i++;
+	}
+//	cout << "\nOverall obs for ChangeType[" << ChangeType << "]: " << ExpObs << "\n//";
+	return ExpObs;
+
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// General mixture model class for DrDc models
+CCodonDrDcMixer::CCodonDrDcMixer(CData *Data, CTree *Tree, ECodonEqm CE, string File, int GenCode) : CCodonDrDc(Data,Tree,CE,File,GenCode)	{
+
+
+
+
+}
+
+CCodonDrDcMixer::~CCodonDrDcMixer()	{
+
+}
+
+// Function that prepares the codon based processes to be scaled correctly so the synonymous rate of substitution is the same throughout
+void CCodonDrDcMixer::PreparelnL(bool ForceRemake)	{
+//	cout << "\nNew CCodonDrDcMixer::PreparelnL";
+	int i, j;
+	double TotalRate = 0.0;
+	vector <double> Probs, Rates;
+	// Go through and apply all global parameters
+	FOR(i,(int)m_vpPar.size()) { m_vpPar[i]->GlobalApply(); }
+	// Prepare for likelihood computations
+	FOR(i,(int)m_vpProc.size()) { m_vpProc[i]->PrepareLikelihood(true,ForceRemake,false); }		// Prepare the process Q matrices, but don't scale them yet
+	// Get process probabilities
+	FOR(i,(int) m_vpProc.size()) {
+//		cout << "\nMatrix["<<i<<"]\n"; m_vpProc[i]->OutQ(0); cout << "\nEqm: " << m_vpProc[i]->Eqm(0);
+		if(m_vpProc[i]->MaxRate()) { Probs.push_back(0.0); } else { Probs.push_back(m_vpProc[i]->Prob()); } }
+	Probs = NormaliseVector(Probs);
+	// Get the current rate of the individual processes (they currently scaled correctly relative to one another, just not the right mean rate)
+	FOR(i,(int)m_vpProc.size()) { if(m_vpProc[i]->MaxRate()) { continue; }  Rates.push_back(m_vpProc[i]->CalcRate()); TotalRate += Rates[i] * Probs[i]; }
+	// Do the rate assignment
+//	cout << "\nModel: " << Name();
+	FOR(i,(int)m_vpProc.size()) {
+		m_vpProc[i]->Rate(Rates[i]/TotalRate);
+//		cout << "\nProcess["<<i<<"] has rate: " << m_vpProc[i]->Rate() << " == " << Rates[i] / TotalRate;
+		m_vpProc[i]->ScaleQ();
+//		cout << "\nProcess["<<i<<"] syn rate: " << m_vpProc[i]->SynRate(true) << " and non-syn rate: " << m_vpProc[i]->NonsynRate(true);
+	}
+
+	// Output for checking
+/*
+	FOR(i,(int)m_vpProc.size()) {
+		cout << "\n-------- Process " << i << " with prob " << Probs[i] << " = " << m_vpProc[i]->Prob() << "[AND] rate = " << Rates[i] << " == " << m_vpProc[i]->CalcRate() << " -------";
+		FOR(j,m_vpProc[i]->NoPar()) { cout << "\nPar[" << j << "] " << *m_vpProc[i]->pPar(j); }
+		cout << "\nQMat:";
+		m_vpProc[i]->OutQ();
+		cout << "\nEqm\n" << m_vpProc[i]->RootEqm();
+	}
+*/
+//	cout << "\nAnd CCodonDrDcMixer::PreparelnL is done..."; // exit(-1);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// Specific mixture models for DrDc models
+CCodon2Dr1Dc::CCodon2Dr1Dc(CData *Data, CTree *Tree, ECodonEqm CE, string File, int GenCode) : CCodonDrDcMixer(Data,Tree,CE,File,GenCode) {
+	int i;
+	// Initialisation stuff
+	m_sName = m_sName + ".Mix(2Dr1Dc)";
+
+	// Processes
+	m_vpProc.push_back(AddCodonProcess(Data,Tree,pM0DrDc,CE,GenCode,m_sRadicalFile));
+
+	// Create matching between processes (conditioned on same data so eqm matches already)
+	// Assumes following naming convention
+	//  Kappa -> "Kappa"
+	//  OmegaDr -> "Omega_Radical"
+	//  OmegaDc -> "Omega_Conservative"
+	// Remove parameters
+	m_vpProc[1]->RemovePar("Omega_Conservative");
+	m_vpProc[1]->RemovePar("Kappa");
+	// Add them back
+	m_vpProc[1]->AddQPar(m_vpProc[0]->GetPar("Kappa"));
+	m_vpProc[1]->AddQPar(m_vpProc[0]->GetPar("Omega_Conservative"));
+
+
+//	m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(0.1);
+//	m_vpProc[0]->GetPar("Omega_Radical")->SetVal(0.2);
+//	m_vpProc[1]->GetPar("Omega_Radical")->SetVal(0.5);
+
+	PrepareProcessProbs(true);		// Prepare the process probabilities and true == optimise them
+	FinalInitialisation();
+
+}
+
+CCodon2Dr1Dc::~CCodon2Dr1Dc() { /* INTENTIONALLY BLANK */ }
+
+CCodon1Dr2Dc::CCodon1Dr2Dc(CData *Data, CTree *Tree, ECodonEqm CE, string File, int GenCode) : CCodonDrDcMixer(Data,Tree,CE,File,GenCode) {
+	int i;
+	// Initialisation stuff
+	m_sName = m_sName + ".Mix(1Dr2Dc)";
+
+	// Processes
+	m_vpProc.push_back(AddCodonProcess(Data,Tree,pM0DrDc,CE,GenCode,m_sRadicalFile));
+
+	// Create matching between processes (conditioned on same data so eqm matches already)
+	// Assumes following naming convention
+	//  Kappa -> "Kappa"
+	//  OmegaDr -> "Omega_Radical"
+	//  OmegaDc -> "Omega_Conservative"
+	// Remove parameters
+	m_vpProc[1]->RemovePar("Omega_Radical");
+	m_vpProc[1]->RemovePar("Kappa");
+	// Add them back
+	m_vpProc[1]->AddQPar(m_vpProc[0]->GetPar("Kappa"));
+	m_vpProc[1]->AddQPar(m_vpProc[0]->GetPar("Omega_Radical"));
+
+
+	// Make sure the parameters are seperate so optimisation is easy
+/*	m_vpProc[0]->ProbPar()->SetVal(1.0/3.0); m_vpProc[1]->ProbPar()->SetVal(2.0/3.0);
+	m_vpProc[0]->GetPar("Omega_Radical")->SetVal(0.2);
+	m_vpProc[0]->GetPar("Omega_Conservative")->SetVal(0.4);
+	m_vpProc[1]->GetPar("Omega_Conservative")->SetVal(0.8);
+	m_vpProc[0]->GetPar("Kappa")->SetVal(2.5);
+*/
+	PrepareProcessProbs(true);		// Prepare the process probabilities and true == optimise them
+	FinalInitialisation();
+
+}
+
+CCodon1Dr2Dc::~CCodon1Dr2Dc() { /* INTENTIONALLY BLANK */ }
+
+CCodon2Dr2Dc::CCodon2Dr2Dc(CData *Data, CTree *Tree, ECodonEqm CE, string File, int GenCode) : CCodonDrDcMixer(Data,Tree,CE,File,GenCode) {
+	int i;
+	// Initialisation stuff
+	m_sName = m_sName + ".Mix(2Dr2Dc)";
+
+	// Processes
+	// 0: Dr[0], Dc[0]
+	// 1: Dr[0], Dc[1]
+	// 2: Dr[1], Dc[0]
+	// 3: Dr[1], Dc[1]
+	m_vpProc.push_back(AddCodonProcess(Data,Tree,pM0DrDc,CE,GenCode,m_sRadicalFile));
+	m_vpProc.push_back(AddCodonProcess(Data,Tree,pM0DrDc,CE,GenCode,m_sRadicalFile));
+	m_vpProc.push_back(AddCodonProcess(Data,Tree,pM0DrDc,CE,GenCode,m_sRadicalFile));
+
+	// Create matching between processes (conditioned on same data so eqm matches already)
+	// Assumes following naming convention
+	//  Kappa -> "Kappa"
+	//  OmegaDr -> "Omega_Radical"
+	//  OmegaDc -> "Omega_Conservative"
+	// Remove parameters
+	m_vpProc[1]->RemovePar("Omega_Radical");
+	m_vpProc[3]->RemovePar("Omega_Radical");
+
+	m_vpProc[2]->RemovePar("Omega_Conservative");
+	m_vpProc[3]->RemovePar("Omega_Conservative");
+
+	m_vpProc[1]->RemovePar("Kappa");
+	m_vpProc[2]->RemovePar("Kappa");
+	m_vpProc[3]->RemovePar("Kappa");
+	// Add them back
+	m_vpProc[1]->AddQPar(m_vpProc[0]->GetPar("Omega_Radical"));
+	m_vpProc[3]->AddQPar(m_vpProc[2]->GetPar("Omega_Radical"));
+
+	m_vpProc[2]->AddQPar(m_vpProc[0]->GetPar("Omega_Conservative"));
+	m_vpProc[3]->AddQPar(m_vpProc[1]->GetPar("Omega_Conservative"));
+
+	m_vpProc[1]->AddQPar(m_vpProc[0]->GetPar("Kappa"));
+	m_vpProc[2]->AddQPar(m_vpProc[0]->GetPar("Kappa"));
+	m_vpProc[3]->AddQPar(m_vpProc[0]->GetPar("Kappa"));
+
+
+	PrepareProcessProbs(true);		// Prepare the process probabilities and true == optimise them
+	FinalInitialisation();
+
+}
+
+CCodon2Dr2Dc::~CCodon2Dr2Dc() { /* INTENTIONALLY BLANK */ }
+
+
+
 
 
 

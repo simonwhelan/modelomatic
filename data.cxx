@@ -81,7 +81,7 @@ CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos,
     	if(Error_count > (int)vData.size() *0.1) { cout << "\n\tWARNING: " << Error_count << "/" << vData.size() << " sequences could not be reliably identified.\n\t\tInspect your data for excesses of weird or gap characters (>" << 1.0 - MIN_DATA_PERCENT << ").\n"; }
 
     	if(DNA_count > AA_count) { Type = DNA; } else { Type = AA; }
-    }
+    } else { Type = SpecType; }
 
     /* OLD CODE FOR GUESSING DATA TYPE
     int ErrorCount = 0;
@@ -197,6 +197,8 @@ bool ReadData(string File, vector <string > &Names, vector <string > &Seqs, bool
 	if (!Names.empty()) { Error("\nTrying to fill already assigned Names vector\n\n"); }
 	if (!Seqs.empty()) { Error("\nTrying to fill already assigned Seqs vector\n\n"); }
     // All file types start with #sequences #length
+
+//	cout << "\nREADING DATA <<<<<<<<<<<<<<<<<<<< " << File << " >>>>>>>>>>>>>>>>>>>>>>";
 
 	getline(input,store);
 	if(input.eof()) { cout << "\nUnexpected end of file at beginning of file..."; if(AllowFail) { return false; } else { Error(); } }

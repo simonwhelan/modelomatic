@@ -1332,10 +1332,11 @@ void CTree::Unroot()	{
 
 ///////////////////////////////////////////////////////////////////
 // Functions associated with splits on a tree
-void CTree::BuildSplits()	{
+vector <SSplit> CTree::BuildSplits()	{
 	int i;
 	m_vSplits.clear();
 	FOR(i,NoBra()) { m_vSplits.push_back(GetSplit(i)); }
+	return m_vSplits;
 }
 
 SSplit CTree::GetSplit(int Bra) {
@@ -1485,6 +1486,8 @@ ostream& operator<<(ostream& os, CTree &Tree)		{
 	return os;
 }
 
+// HACKED TO DISPLAY BOOTSTRAPS
+// ALL OCCUR BEFORE OutBranch
 ostream& CTree::OutNode(int FromNode, int ToNode, ostream &os)	{
 	int i, count;
 #if TREE_DEBUG
@@ -1493,6 +1496,7 @@ ostream& CTree::OutNode(int FromNode, int ToNode, ostream &os)	{
 	if(OK[ToNode] == true) { cout << "\nTree error: "; OutDetail(cout); exit(-1); }
 	OK[ToNode] = true;
 #endif
+
 	// If an internal node
 	if(m_Node[ToNode]->m_NodeType == branch)	{
 		// First visit to node gives an open parenthesis
@@ -1507,9 +1511,28 @@ ostream& CTree::OutNode(int FromNode, int ToNode, ostream &os)	{
 		}
 		// The return visit gives the closing parenthesis and, if required, the branch length
 		if(FromNode != -1) { os << ")"; }	// Ensures trifurcation at root
-		if(FromNode != -1) { OutBranch(ToNode,FromNode,os); }
+		if(FromNode != -1) {
+
+			// HACK
+			int Branch = FindBra(FromNode,ToNode);
+/*			cout << "\nFr: "<< FromNode << "; To: " << ToNode;
+			cout << "\nHave branch ["<<Branch<<"]"; if(!m_vdBootStrap.empty()) { cout << " == " << m_vdBootStrap[Branch]; }
+			SSplit Split = GetSplit(Branch);
+			cout << "\n\t" << Split.Left << " | " << Split.Right;*/
+			if(!m_vdBootStrap.empty()) { os << "#" << m_vdBootStrap[Branch]; }
+			OutBranch(ToNode,FromNode,os);
+		}
 	}	else if(m_Node[ToNode]->m_NodeType == leaf)	{	// If an external node
 		if(ToNode < m_iNoSeq && m_vsName.size() == m_iNoSeq) { if(m_bOutName) { os << m_vsName[ToNode]; } else { os << ToNode+1; } } else { os << ToNode + 1; }
+
+		// HACK
+		int Branch = FindBra(FromNode,ToNode);
+/*		cout << "\nFr: "<< FromNode << "; To: " << ToNode;
+		cout << "\nHave branch ["<<Branch<<"]"; if(!m_vdBootStrap.empty()) { cout << " == " << m_vdBootStrap[Branch]; }
+		SSplit Split = GetSplit(Branch);
+		cout << "\n\t" << Split.Left << " | " << Split.Right; */
+		if(!m_vdBootStrap.empty()) { os << "#" << m_vdBootStrap[Branch]; }
+
 		OutBranch(ToNode,NodeLink(ToNode,0),os);
 		if(FromNode == -1) {
 			if(NodeLink(ToNode,0) < m_iNoSeq && m_vsName.size() == m_iNoSeq) { if(m_bOutName) { os << "," << m_vsName[NodeLink(ToNode,0)]; } else { os << "," << NodeLink(ToNode,0); } }
@@ -1529,7 +1552,18 @@ ostream& CTree::OutNode(int FromNode, int ToNode, ostream &os)	{
 		}
 		// The return visit gives the closing parenthesis and, if required, the branch length
 		if(FromNode != -1) { os << ")"; }	// Ensures trifurcation at root
-		if(FromNode != -1) { OutBranch(ToNode,FromNode,os); }
+		if(FromNode != -1) {
+
+			// HACK
+			int Branch = FindBra(FromNode,ToNode);
+/*			cout << "\nFr: "<< FromNode << "; To: " << ToNode;
+			cout << "\nHave branch ["<<Branch<<"]"; if(!m_vdBootStrap.empty()) { cout << " == " << m_vdBootStrap[Branch]; }
+			SSplit Split = GetSplit(Branch);
+			cout << "\n\t" << Split.Left << " | " << Split.Right; */
+			if(!m_vdBootStrap.empty()) { os << "#" << m_vdBootStrap[Branch]; }
+
+			OutBranch(ToNode,FromNode,os);
+		}
 	}
 	return os;
 }
@@ -2275,4 +2309,35 @@ void GreedySeq2Tree(int Br, int Seq2Add, CTree *CurTree, vector <double> *PWDist
 	CurTree->ReplaceBraLink(k,0,i); CurTree->SetB(j,Dnew);																// }
 
 	CurTree->AddSeq(Seq2Add,Br,prop);
+}
+
+/////////////////// DING FUNCTIONS ///////////////////////////////
+void CTree::PaintSubtree(vector <int> LeafList,int Label)	{	// Overwrite labels for a subtree defined by a bunch of labels;
+	int i,j,count;
+	vector <SSplit> Splits = BuildSplits();
+//	cout << "\n<><><><><> INTO PAINT SUBTREE <><><><><><><<><><><><";
+	// Check entry conditions
+	assert(BranchLabels());		// Check branch labels actually exist
+	assert(m_viBranchLabels.size() == Splits.size());
+	count = 0;
+	FOR(i,(int)m_viBranchLabels.size()) {
+		if(m_viBranchLabels[i] == Label) { Error("\nTrying to assign a branch label("+int_to_string(Label)+") that already exists\n"); }
+		if(Splits[i].Left == LeafList || Splits[i].Right == LeafList) { count ++; }
+	}
+	if(count != 1) { cout << "\nError: LeafList does not define a unique subtree in PaintSubtree\n"; exit(-1); }
+	// Go through the branches contained in the subtree. These are defined as having a split set that is contained within the LeafList (this includes the branch to the subtree)
+	FOR(i,(int)Splits.size()){
+		count = 0;
+		if(includes(LeafList.begin(), LeafList.end(), Splits[i].Left.begin(), Splits[i].Left.end()) && Splits[i].Left.size() <= LeafList.size()) {
+//			cout << "\n-------------------------["<<i<<"]-------------------\nMatched Leaf:  " << LeafList << "\nMatched Split: " << Splits[i].Left;
+			m_viBranchLabels[i] = Label;
+			continue;
+		}
+		if(includes(LeafList.begin(), LeafList.end(), Splits[i].Right.begin(), Splits[i].Right.end()) && Splits[i].Right.size() <= LeafList.size()) {
+//			cout << "\n-------------------------["<<i<<"]-------------------\nMatched Leaf:  " << LeafList << "\nMatched Split: " << Splits[i].Right;
+			m_viBranchLabels[i] = Label;
+			continue;
+		}
+	}
+
 }

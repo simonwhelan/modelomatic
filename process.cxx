@@ -672,6 +672,24 @@ vector <double> CCodonEqm::Eqm()	{
 	}
 	return retEqm;
 }
+
+void CCodonEqm::ResetEqm(vector <double> New, bool RandomBit)	{
+	int i,j = -1;
+	if((int)New.size() != m_iChar) { Error("Error: CSimpleEqm::ResetEqm -- vector <double> New has wrong number of states...\n"); }
+	New = NormaliseVector(New);
+//	cout << "\nResetEqm: ";
+	FOR(i,m_iChar) {
+		if(m_vpEqmPar[i]->Special()) { assert(j == -1); j = i; continue; }
+		if(!RandomBit) { m_vpEqmPar[i]->SetVal(New[i],false,true,false);  }
+		else { m_vpEqmPar[i]->SetVal(New[i] + (0.1 * Random()),false,true,false); }
+//		cout << "\n\t["<<i<<"]: " << New[i]; // << " --> " << m_vpEqmPar[i]->Val();
+
+	}
+	assert(j != -1);
+	m_vpEqmPar[j]->SetVal(New[j],true,true,true);
+}
+
+
 /////////////////// Function to add a codon Equilibrium //////////////////////////
 void CBaseProcess::AddCodonEqm(int GenCode,int Char, ECodonEqm CE, bool Opt)	{
 	CCodonEqm *Eqm;
@@ -827,6 +845,7 @@ void CBaseProcess::ApplyNewTree(CTree *T) {
 	if(T->NoSeq() > m_iSpaceNoSeq) { Error("\nTrying to apply new tree with not enough space\n\n"); }
 }
 
+
 //////////////////////// Output functions /////////////////////////
 ostream &CBaseProcess::Output(ostream &os)	{
 	int i;
@@ -929,6 +948,16 @@ void CBaseProcess::OutEqm(int ENum,ostream &os)	{
 	}
 }
 
+//////////////////////////////////////////////////////////
+// Calculate the rate of a full specified Q matrix as sum of pi[i]*Q[i][i]
+// QMat specifies which matrix to compute (default = 0);
+double CBaseProcess::CalcRate(int QMat)	{
+	// Error check
+	assert(InRange(QMat,0,(int)m_vpQMat.size()));
+	// Get the substitution rate
+	return m_vpQMat[QMat]->OverallSubRate();
+}
+
 //////////////////////// Parameter functions //////////////////////
 // Set rate
 double CBaseProcess::Rate(double NewRate, bool MakeRateOpt)	{
@@ -948,17 +977,35 @@ CQPar *CBaseProcess::AddRatePar2Opt()	{
 }
 
 // Remove parameter function
-void CBaseProcess::RemovePar(string Name)	{
-	int i = 0;
+void CBaseProcess::RemovePar(string Name, bool AllowFail)	{
+	int i = 0,count = 0;
 	vector <CQPar *>::iterator iPar;
 	IFOR(iPar,m_vpPar)	{
 		if(m_vpPar[i]->Name().find(Name) != string::npos) {
-			m_vpPar.erase(iPar);
+			m_vpPar.erase(iPar); count ++;
 			if(iPar == m_vpPar.end()) { break; }
 		}
 		else { i++; }
 	}
+	if(!AllowFail && count != 1) { cout << "\nError in CBaseProcess::RemovePar(" << Name << ") which removed " << i << " parameters...\n"; exit(-1); }
 }
+
+// Gets a parameter of a specific name
+CQPar *CBaseProcess::GetPar(string Name, bool AllowFail) {
+	int i = 0, count = 0;
+	vector <CQPar *>::iterator iPar;
+	CQPar *RetPar = NULL;
+	IFOR(iPar,m_vpPar)	{
+		if(m_vpPar[i]->Name().find(Name) != string::npos) {
+			RetPar = m_vpPar[i]; count ++;
+			if(iPar == m_vpPar.end()) { break; }
+		}
+		i++; // Only move counter on if not erased
+	}
+	if((!AllowFail && count != 1) || RetPar == NULL) { cout << "\nError in CBaseProcess::GetPar(" << Name << ") which found " << i << " parameters...\n"; exit(-1); }
+	return RetPar;
+}
+
 
 //////////////////////// Process copying functions ////////////////
 //
@@ -1061,8 +1108,9 @@ void CBaseProcess::ZeroSpace()	{
 
 // Cleaning routines
 void CBaseProcess::CleanSpace()	{
-	DEL_MEM(m_ardPT);	// Checked
+	DEL_MEM(m_ardPT);
 	CleanCalcSpace();
+
 	// Clear important pointers
 	m_pTree = NULL; m_pData = NULL;
 	// Reset flags
@@ -1161,8 +1209,6 @@ void CBaseProcess::TransScale(int NT, int NF,bool First, bool Partial,bool Force
 	}	}	}	}
 #endif
 }
-
-//#define ALLOW_SCALE 0
 void CBaseProcess::DoScale(int Node, bool ForceRealScale)	{
 #if ALLOW_SCALE == 1
 	int i,j, NodePos = InitNodePos(Node);
@@ -1366,7 +1412,7 @@ vector <double> CBaseProcess::RootEqm()	{
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Prepare the Q matrices for the calculations
-bool CBaseProcess::PrepareLikelihood(bool DoQ, bool ForceRemake)	{
+bool CBaseProcess::PrepareLikelihood(bool DoQ, bool ForceRemake, bool DoScale)	{
 	int i;
 	vector <bool>  LockedProcs;
 //	cout << "\nPrepareLikelihood for process " << flush;
@@ -1374,7 +1420,7 @@ bool CBaseProcess::PrepareLikelihood(bool DoQ, bool ForceRemake)	{
 	// Allow remakes if required
 	if(ForceRemake) { FOR(i,(int)m_vpQMat.size()) { LockedProcs.push_back(m_vpQMat[i]->IsLocked()); m_vpQMat[i]->Unlock(); } }
 	// Prepare Q matrices
-	if(DoQ&& m_bDoStandardDecompose) { if(PrepareQMats() == false) { return false; } }
+	if(DoQ&& m_bDoStandardDecompose) { if(PrepareQMats(DoScale) == false) { return false; } }
 	// Get the equilibrium of the root
 
 	m_vdEqm = RootEqm();
@@ -1421,6 +1467,8 @@ bool CBaseProcess::Likelihood(bool ForceReal)	{
 	// If the probability of the process is small then stop here
 	if(Prob() < SMALL_PROB) { return true; }
 	// Adjust the rate for the process (if required)
+//	cout << "\nModel: " << m_sName << " has " << m_vpQMat.size() << " Q matrices";
+//	cout << "\nEqm: " << m_vdEqm;
 	FOR(i,(int)m_vpQMat.size()) { m_vpQMat[i]->ScaleQ(m_pRate->Val()); }
 //	cout << "\nScaled Q rate" << flush;
 //	cout << "\nOverall eqm: " << m_vdEqm;
@@ -1459,7 +1507,6 @@ CProb &CBaseProcess::Lsum(int site)	{
 	CProb temp;
 	dVal.Assign(0.0);
 	m_vdEqm = RootEqm();
-
 #if DEVELOPER_BUILD == 1
 	if(site == 0) {
 		cout << "\n---------------- Site["<<site<<"] --------------------\nVec: ";
@@ -1467,9 +1514,7 @@ CProb &CBaseProcess::Lsum(int site)	{
 		cout << "\nEqm: " << m_vdEqm << endl;
 	}
 #endif
-//	double QUACK = 0.0;
 	FOR(i,m_iChar)	{
-
 		if(my_isnan(*(p_a))) {
 			int j;
 			cout << "\nIn LSum(site=" << site<< "): ";
@@ -1479,22 +1524,8 @@ CProb &CBaseProcess::Lsum(int site)	{
 			cout << "\n<PartL(site=" << site << "): "; FOR(j,m_iChar) { cout << PartL(site)[j] << ":"; }   cout << ">"; }
 		if(my_isnan(m_vdEqm[i])) { cout << " <eqm>"; }
 
-		/*
-		if(site == 215) {
-			cout .precision(12);
-			cout << "\nChar[" << i << "] In FulllnL::LSum: assigning: " << *p_a * m_vdEqm[i] << " with scale " << *LScale(site);
-			QUACK += *p_a * m_vdEqm[i];
-			cout << " MOO: " << QUACK;
-		}*/
-
-
 		temp.Assign(*(p_a++) * m_vdEqm[i],*LScale(site));
-
-//		if(site == 215) { cout << " \n\tGives CProb: " << temp << " = " << temp.LogP(); }
-
 		dVal.Add(temp,true);
-
-//		if(site == 215) { cout << "\n\t-> running total: " << dVal << " = " << dVal.LogP() << " cf. QUACK: " << QUACK << " = " << log(QUACK); cout << "\n\t\tdiff: " << log(QUACK) - dVal.LogP();  }
 	}
 #if DEVELOPER_BUILD == 1
 	if(site == 0) {
@@ -1502,6 +1533,7 @@ CProb &CBaseProcess::Lsum(int site)	{
 	}
 #endif
 	p_a = NULL;
+
 	return dVal;
 }
 
@@ -1771,7 +1803,7 @@ void CBaseProcess::PrepareBraDer()	{
 }
 
 // Public function to get branch derivatives
-bool CBaseProcess::GetBraDer(CProb *ModelL)	{
+bool CBaseProcess::GetBraDer(CProb *ModelL)     {
 	int i, BrError = 1;
 	// Initialise
 	m_arModelL = ModelL;
@@ -1972,8 +2004,6 @@ void CBaseProcess::LeafNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 	int i,site,Seq, SiteScale = 0;	// Counters
 	double Vec[MAX_CHAR], Value, *p_a = NULL, *p_b = NULL;
 	CProb NewL;
-//	cout << "\nLeafNode_Update: Branch = " << Br << " (" <<NTo <<"," << NFr << "): " << Tree()->B(Br); Make_PT(Br, true);
-//	cout << "\nP(T=" << Tree()->B(Br) << ")\n"; OutPT(cout,Br);
 	vector <double> eqm = m_vpQMat[QMat4Bra(Br)]->Eqm();
 	// Make sure leaf node is in NTo
 	if(NTo > NFr) { i = NFr; NFr = NTo; NTo = i; }
@@ -2020,7 +2050,10 @@ void CBaseProcess::LeafNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 			case -1:	// If origin branch update Fd to complete partial likelihood
 				// Get new Fd Space and back space
 				p_a = ForceRealFd(NFr,site); p_b = ForceRealBk(NFr,site);
-				FOR(i,m_iChar)	{ *(p_a++) = *(p_b) * Vec[i]; *(p_b++) = Vec[i]; }
+				FOR(i,m_iChar)	{
+					*(p_a++) = *(p_b) * Vec[i];
+					*(p_b++) = Vec[i];
+				}
 				*ForceRealFdSc(NFr,site) = SiteScale + *ForceRealBkSc(NFr,site);
 				*ForceRealBkSc(NFr,site) = SiteScale;
 				break;
@@ -2049,7 +2082,6 @@ void CBaseProcess::LeafNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 				*ForceRealBkSc(NFr,site) = 0;
 				break;
 			case 0:		// If the first link in an internal node update Fd in NFr to full partial likelihood
-				// Update code - Correct from 4sp tree
 				p_a = ForceRealFd(NFr,site); p_b = ForceRealBk(NFr,site);
 				FOR(i,m_iChar)	{ *(p_a++) = *(p_b++); }
 				*ForceRealFdSc(NFr,site) = *ForceRealBkSc(NFr,site);
@@ -2087,7 +2119,7 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 	double Vec[MAX_CHAR], Vec2[MAX_CHAR];
 	assert(InRange(NFr,pTree->NoSeq(),pTree->NoNode()) || First == -1);
 	assert(pTree->NodeType(NTo) == branch);
-//	cout << "\nDoing BranNode_Update... Branch " << Br << " (" <<NTo <<"," << NFr << "): " << Tree()->B(Br);
+//	cout << "\nDoing BranNode_Update...";
 	// Direction makes no difference to calculation so whether first or later nodes doesn't matter
 	// Do derivative calculation and updating procedure
 	// For Update: if(first == true) {		then Fd(NFr) = vP(t) & Bk(NFr) *= vP(t)
@@ -2275,10 +2307,10 @@ double CBaseProcess::PartialGrad(int site,double Total,int SiteScale)	{
 	if(fabs(Total) < FLT_EPSILON) { return 0; }
 	if(abs(SiteScale) < 15)	{	// If scaling okay, then do normal calculations
 		if(SiteScale == 0)	{
-			if(Double_Zero(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site])) { m_bFailedL = true; return -BIG_NUMBER; }
+			if(fabs(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]) < DBL_EPSILON) { m_bFailedL = true; return -BIG_NUMBER; }
 			return (Total / ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]);
 		} else {
-			if(Double_Zero(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site])) {
+			if(fabs(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]) < DBL_EPSILON) {
 //				cout.precision(16);	cout << "\nFailed site["<<site<<"]: numerator: " << Total << ", denominator: " << ModelL(site).ScalVal() << " * " << m_pData->m_ariPatOcc[site];
 				m_bFailedL = true; return -BIG_NUMBER; }
 			return (Total / ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site] * pow((double)10,-SiteScale) );
@@ -2340,6 +2372,8 @@ void CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)	{
 //				FOR(i,m_iChar)	{ cout << "\t" << ForceRealFd(NT,site)[i]; }
 				VMat(ForceRealFd(NT,site),PT(B),V,m_iChar); SiteScale += *ForceRealFdSc(NT,site);
 			}
+//			int j; 	cout << "\n\tRight:\t"; if(NFreal) { FOR(i,m_iChar) { if(i == m_pData->m_ariSeq[NF][site] || m_pData->m_ariSeq[NF][site] == m_iChar) { cout << "\t1"; } else { cout << "\t0"; } } } else { FOR(i,m_iChar)	{ cout << "\t" << ForceRealFd(NF,site)[i]; } } cout << "\n\tLeft * P(t):"; FOR(j,m_iChar) { cout << "\t" << V[j]; }
+
 			// Get calculation of total = sum(Vec[i] = Vec[i] * BranchNode[i] * Eqm[i]);
 			if(NFreal)	{
 				Total = Sum_Vec(m_pData->m_ariSeq[NF][site],V,eqm);
@@ -2873,7 +2907,7 @@ CAAProcess::CAAProcess(CData *D, CTree *T, string Name, bool AddF, double *S_ij,
 }
 
 /* ******************************* Basic codon processes ************************************** */
-CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode, string RadicalFile) : CBaseProcess(D,T)	{
+CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, int GenCode, string RadicalFile) : CBaseProcess(D,T,"CodonProcess")	{
 	int i, j, k, count;
 	CQPar *Par = NULL;
 	string sFrom, sTo,Name;
@@ -2911,6 +2945,7 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 
 	switch(Model)	{
 	case pM0:
+		m_sName = "CodonM0";
 		Add_CodRedQMat("M0",D->m_iChar);
 		AddMultiChangeZeros(GenCode);
 		AddOmega(GenCode);
@@ -2918,6 +2953,7 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 		break;
 	case pCodonEMPRest:
 		cout << "\nMaking RESTRAINED empirical codon model";
+		m_sName = "CodonEMPRest";
 		Add_CodRedQMat("CodonEMP",D->m_iChar);
 		count = 0;
 		FOR(i,m_iChar) {
@@ -2939,6 +2975,7 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 		break;
 	case pCodonEMPUnrest:
 		cout << "\nMaking UNRESTRAINED empirical codon model" << flush;
+		m_sName = "CodonEMPUnrest";
 		Add_CodRedQMat("CodonEMP",D->m_iChar);
 		count = 0;
 		FOR(i,m_iChar) {
@@ -2974,6 +3011,7 @@ CCodonProcess::CCodonProcess(CData *D, CTree *T, CodonProc Model, ECodonEqm CE, 
 		assert(count == 1830);
 	case pM0DrDc:
 		cout << "\nMaking new Dr/Dc matrix with input from <"<<RadicalFile<<">!";
+		m_sName = "M0_DrDc";
 		// Read in Radical Mat
 
 
@@ -3129,22 +3167,24 @@ void CCodonProcess::AddMultiChangeZeros(int GenCode)	{
 }
 */
 ////////////////// Functions to calculate various rates ///////////////////////////////////////////////////////////
-double CCodonProcess::ObsNonsynRate() {
-	int i,j,pos_i, pos_j;
+double CCodonProcess::NonsynRate(bool Observed) {
+	int i,j,pos_i, pos_j, Correction =0;
 	double Rate = 0.0;
-	vector <double> eq = RootEqm(); // ZZXX: m_vpEqm[0]->Eqm();
+	vector <double> eq;
 	// Do some error checking
 	if((int)m_vpQMat.size() > 1) { cout << "\nHaven't worked out how to do rates for multiple matrices in a single process"; }
 	assert(InRange(m_iGenCode,0,12));
 	// Get the rate
 	CCodonProcess::PrepareQMats();
+	if(!Observed) { eq.assign(m_iChar,1.0); } else { eq = RootEqm(); }
 	pos_i = 0; FOR(i,64) {
-		for(j=i+1,pos_j = i+1;j<64;j++) {
+		if(GenCodes[m_iGenCode][i] == -1) { Correction++; continue; }
+		for(j=i+1,pos_j = i+1-Correction;j<64;j++) {
 			if(GenCodes[m_iGenCode][i] == -1) { if(m_iChar != 64) { pos_i--; } break; }
 			if(GenCodes[m_iGenCode][j] == -1) { if(m_iChar == 64) { pos_j++; } continue; }
 			if(GenCodes[m_iGenCode][i] != GenCodes[m_iGenCode][j]) {
-				Rate += eq[i] * *m_vpQMat[0]->Q(pos_i,pos_j);
-				Rate += eq[j] * *m_vpQMat[0]->Q(pos_j,pos_i);
+				Rate += eq[pos_i] * *m_vpQMat[0]->Q(pos_i,pos_j);
+				Rate += eq[pos_j] * *m_vpQMat[0]->Q(pos_j,pos_i);
 			}
 			pos_j++;
 		}
@@ -3153,43 +3193,47 @@ double CCodonProcess::ObsNonsynRate() {
 	return Rate;
 }
 
-double CCodonProcess::ObsSynRate() {
-	int i,j,pos_i, pos_j;
+double CCodonProcess::SynRate(bool Observed) {
+	int i,j,pos_i, pos_j, Correction = 0;
 	double Rate = 0.0;
-	vector <double> eq = RootEqm(); // ZZXX: m_vpEqm[0]->Eqm();
+	vector <double> eq;
 	// Do some error checking
 	if((int)m_vpQMat.size() > 1) { cout << "\nHaven't worked out how to do rates for multiple matrices in a single process"; }
 	assert(InRange(m_iGenCode,0,12));
 	// Get the rate
 	CCodonProcess::PrepareQMats();
+	if(!Observed) { eq.assign(m_iChar,1.0); } else { eq = RootEqm(); }
+
 	pos_i = 0; FOR(i,64) {
-		for(j=i+1,pos_j = i+1;j<64;j++) {
-//			cout << "\nComparing ["<<i<<":" << pos_i <<"][" << j << ":" << pos_j <<"] == " << m_vpQMat[0]->Q(pos_i,pos_j) << ": " << GenCodes[m_iGenCode][i] << " cf. " << GenCodes[m_iGenCode][j];
-			if(GenCodes[m_iGenCode][i] == -1) { if(m_iChar != 64) { pos_i--; } break; }
+		if(GenCodes[m_iGenCode][i] == -1) { Correction++; continue; }
+		for(j=i+1,pos_j = i+1-Correction;j<64;j++) {
 			if(GenCodes[m_iGenCode][j] == -1) { if(m_iChar == 64) { pos_j++; } continue; }
+//			cout << "\nComparing ["<<i<<":" << pos_i <<"][" << j << ":" << pos_j <<"] eqm = " << eq[pos_i] << " == " << *m_vpQMat[0]->Q(pos_i,pos_j) << ": " << GenCodes[m_iGenCode][i] << " cf. " << GenCodes[m_iGenCode][j];
 			if(GenCodes[m_iGenCode][i] == GenCodes[m_iGenCode][j]) {
-//				cout << " ... adding";
-				Rate += eq[i] * *m_vpQMat[0]->Q(pos_i,pos_j);
-				Rate += eq[j] * *m_vpQMat[0]->Q(pos_j,pos_i);
+//				cout << " ... adding " << eq[i] * *m_vpQMat[0]->Q(pos_i,pos_j) << " and " << eq[j] * *m_vpQMat[0]->Q(pos_j,pos_i);
+				Rate += eq[pos_i] * *m_vpQMat[0]->Q(pos_i,pos_j);
+				Rate += eq[pos_j] * *m_vpQMat[0]->Q(pos_j,pos_i);
 			}
 			pos_j++;
 		}
 		pos_i++;
 	}
+//	cout << "\nReturning rate: " << Rate;
+//	exit(-1);
 	return Rate;
 }
 
 ostream &CCodonProcess::Output(ostream &os)	{
 	int i;
-	os<< "\n----- CodonProcess: " << m_sName << " : ID = " << m_iProcID << "; Rate = " << m_pRate->Val() << " -----";
+	os<< "\n----- CodonProcess: " << m_sName << " : ID = " << m_iProcID << "; Rate = " << m_pRate->Val() << "; Prob = " << Prob() << " -----";
 	if(m_bPseudoProcess == true) { os << "\nPseudoprocess"; }
 	else {
 		os << "\n" << m_vpPar.size() << " Parameters";
 		FOR(i,(int)m_vpPar.size()) { os << "\n\t" << *m_vpPar[i]; }
-		os << "\nObservedRateNonsynonymous:\t" << ObsNonsynRate();
-		os << "\nObservedRateSynonymous:\t" << ObsSynRate();
-		os << "\n" << m_vpQMat.size() << " Q matrices";
-		FOR(i,(int)m_vpQMat.size()) { os << "\n\t" << *m_vpQMat[i]; os << "\nEqm: " << m_vpQMat[i]->Eqm();  }
+		os << "\nObservedRateNonsynonymous:\t" << NonsynRate(true);
+		os << "\nObservedRateSynonymous:\t" << SynRate(true);
+//		os << "\n" << m_vpQMat.size() << " Q matrices";
+//		FOR(i,(int)m_vpQMat.size()) { os << "\n\t" << *m_vpQMat[i]; os << "\nEqm: " << m_vpQMat[i]->Eqm();  }
 /*		FOR(i,(int)m_vpQMat.size()) {
 			os << "\n\t" << *m_vpQMat[i];
 		}

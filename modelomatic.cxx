@@ -32,6 +32,19 @@ vector <double> GetPWVar(CBaseModel *Model, vector <double> *CurrentPW);
 double GetDistVar(CBaseModel *M, CData *D,int Seq1, int Seq2, double CurrentDist);
 extern bool ALLOW_PREDICTLNL;
 
+/////////////// DING FUNCTIONS //////////////////
+vector <int> ReadNameFile(string NameFile, CData *D);	// Read a set of names and return a vector of indexes specifying those names
+template <class TVecCon> vector <TVecCon> VecCon(vector <TVecCon> A, vector <TVecCon> B) {
+	vector <TVecCon> Ret;
+	Ret.reserve(A.size() + B.size());
+	Ret.insert(Ret.end(),A.begin(),A.end());
+	Ret.insert(Ret.end(),B.begin(),B.end());
+	return Ret;
+}
+// Finds the branch in the tree that specifies the novel branch of that hypothesis
+int FindSpecialSplit(CTree *T,vector <int> S1,vector <int> S2,vector <int> S3,vector <int> S4,vector <int> S5,vector <int> S6);
+// Adds branch labels onto the tree such that 0 is the novel branch, and (1,4) are the subclades provides by (S1,S4);
+void PaintTree(CTree *T, int KeyBra, vector <int> S1, vector <int> S2, vector <int> S3, vector <int> S4);
 /////////////////////////////////////////////////////////////////////////////////
 // Main tree estimation routine
 SBestModel DoTreeEstimation(CBaseModel *M, CData *D, CTree *T);
@@ -48,16 +61,6 @@ void DoInstructions();
 bool RunHadError = false;
 
 bool WarningMulD;
-
-
-int STRUCT_COUNTER = 0;
-class CMYTEST {
-public:
-	int number;
-	CMYTEST(int a) { cout << "+"; number = a; STRUCT_COUNTER++; }
-	CMYTEST(const CMYTEST &test) { cout << "="; number = test.number; STRUCT_COUNTER++; }
-	~CMYTEST() { cout << "-"; number = -1; STRUCT_COUNTER--; }
-};
 
 // File specific global variables
 int DebugOutput = 0;
@@ -78,7 +81,7 @@ int main(int argc, char *argv[])	{
 		bool BoundOut = false;
 		// Stuff from Leaphy
 		ALLOW_PREDICTLNL = false;
-		int i,j,NumModelReruns = 1;
+		int i,j,k,l,NumModelReruns = 1;
 		long RandomSeed = 0;
 		string temp_string, Name, outfilestring;
 		vector <string> Toks;
@@ -93,6 +96,23 @@ int main(int argc, char *argv[])	{
 
 	// Some initial verification
 	if(min(LOOSE_RMSD_SUBSET,FULL_RMSD_SUBSET) < 105 && min(LOOSE_PARS_SUBSET,FULL_PARS_SUBSET) < 105) { Error("\nTrying to choose subsets of trees to examine based both on RMSD and parsimony"); }
+
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Stuff for Ding's work on tree support
+	// -----------------
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Final Files expected
+	// Tree files: mito55_Simon_H1.tre, mito55_Simon_H2.tre, mito55_Simon_H3.tre, mito55_Simon_H0.tre
+	// Data file: mito55_exRog.phy
+	// Eukaryote name file: mito55_Euk.names
+	// Rickettsia name file: mito55_Rik.names
+	// Others name file: mito55_Oth.names
+	// Proteobacteria name file: mito55_Pro.names
+
+	// Work in progress files expected
+	// Tree files: mito55_exRog_H1.tre mito55_exRog_H2.tre mito55_exRog_H3.tre
+	ding();	// Head function in ding.cxx
+	cout << "\nCompleted Ding work\n"; exit(-1);
 
 	// Get information
 	if(!InRange(argc,2,8)) {
@@ -278,6 +298,18 @@ int main(int argc, char *argv[])	{
 	cout << "\nScanning for modelomatic.ini file ...";
 	GetModels();
 	cout << " done";
+	// 9. Create the other data sets
+	CData NT_Data = *PhyDat.pData();
+	CData AA_Data = *PhyDat.pData();
+	CData AA_Temp = *PhyDat.pData();  AA_Temp.Translate(GeneticCode);	// Error check the translation for stop codons and so on
+	CData COD_Data = *PhyDat.pData(); //COD_Data.MakeCodonData();
+	CData RY_Data = *PhyDat.pData(); //RY_Data.DNA2RY();
+
+//	cout << "\nRY:  \t" << RY_Data.CountMSAChars();
+//	cout << "\nDNA: \t" << PhyDat.pData()->CountMSAChars();
+//	cout << "\nAA:  \t" << AA_Temp.CountMSAChars();
+//	cout << "\nCoD:  \t" << COD_Data.CountMSAChars();
+	// Set output
 	PhyDat.SetOut(outfilestring);
 
 	cout << "\nWorking with genetic code: " << GenCodeName[GeneticCode];
@@ -1153,4 +1185,3 @@ bool GetModels(string file) {
 
 	return true;
 }
-

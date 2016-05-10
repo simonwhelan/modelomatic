@@ -99,6 +99,11 @@ public:
 	vector <string> Names() { return m_vsName; }		// Returns the vector of names
 	void SetNames(vector <string > NewNames, bool Overwrite = false);	// Set the names in the tree (e.g. for output)
 	bool BranchLabels() { if(m_viBranchLabels.empty()) { return false; } return true; }
+	// -------------------- NEW DING LABELS ----------------
+	void SetLabels(int Label) { assert(m_viBranchLabels.empty()); m_viBranchLabels.assign(NoBra(),Label); }
+	void PaintSubtree(vector <int> LeafList,int Label);	// Overwrite labels for a subtree defined by a bunch of labels;
+	int BranchLabel(int Branch) { assert(InRange(Branch,0,(int)m_viBranchLabels.size())); return m_viBranchLabels[Branch]; }
+	// -------------------- END NEW DING LABELS ------------
 	vector <int> Labels() { return m_viBranchLabels; }
 	int NoLabels() { return m_iNoBraLabels; }
 	// Branch
@@ -172,7 +177,7 @@ public:
 	bool GoodNode(int Node);	// Is an active node in the tree
 
 	// Tree split-based functions
-	void BuildSplits();									// Build the set of splits associated with a tree. Current implementation always forces the rebuild
+	vector <SSplit> BuildSplits();									// Build the set of splits associated with a tree. Current implementation always forces the rebuild
 	SSplit GetSplit(int Bra);						// Return the split set for branch Bra
 	int BranchSets(int BranchNum, vector <int> *Left, vector <int> *Right);	// Find the sets of leaf sequences that the branch splits
 	int FindBra(int Node_i, int Node_j);	// Find branch linking Nodes i and j, returns -1 if none
@@ -208,6 +213,11 @@ public:
 	///////////////////////////////////////////////////////
 	// Rearrangement functions
 	void GetSPRList(vector <CTree *> *TreeList, int MinDist = 1, int MaxDist = BIG_NUMBER);
+
+
+	// HACKED IN TO DISPLAY BOOTSTRAPS
+	vector <double> m_vdBootStrap;			// The store of bootstrap values indexed by branch number
+
 private:
     // Private member variable
     ///////////////////////

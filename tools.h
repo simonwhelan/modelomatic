@@ -457,6 +457,10 @@ private:
 
 enum ParOp { REPLACE, MULTIPLY, DIVIDE, ADD, SUBTRACT };
 ostream & operator<<(ostream &os, ParOp Par);
+class CPar; // Predeclare class for functions
+
+// Function used by CPar for probabilities
+void ProbabilityScale(vector <CPar*> *Parameters, bool Value2Scale,bool first = false,bool ReorderProbs = false);
 
 // Currently scaling is only required for probabilities
 class CPar {
@@ -489,7 +493,7 @@ public:
 	// 2. The update function -- Probably the most important parameter function
 	bool UpdatePar(bool force = false, bool RedoScale = false);		// Function to decide whether to update parameters
 	bool NeedUpdatePar() { if(pDoUpdate == NULL) { return false; } return true; }
-
+	bool IsProb() { if(pDoUpdate == &ProbabilityScale) { return true; } else { return false; } }
 	// 3. Other general parameter related
 	string Name(string Name = "\0") { if(Name != "\0") { m_sName = Name; } return m_sName; }
 	// 4. Locks
@@ -546,8 +550,6 @@ private:
 	void (*pDoUpdate) (vector <CPar*> *Parameters, bool Value2Scale, bool First, bool Other);
 	friend void ProbabilityScale(vector <CPar*> *Parameters, bool Value2Scale,bool first,bool ReorderProbs);
 };
-
-void ProbabilityScale(vector <CPar*> *Parameters, bool Value2Scale,bool first = false,bool ReorderProbs = false);
 
 ostream &operator<<(ostream &os, CPar &Par);
 
