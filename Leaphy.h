@@ -68,7 +68,7 @@ EModel string_to_model(string s);				// Transforms a string to a model number
 // Whether to do tabuing
 #define DO_TABU 1
 #define DEFAULT_TABU_RADIUS 3	// Tabu radius of each tree when resampling from tree-space
-#define ENCOURAGE_SNAP_AWAY 0	// Push away trees during SNAP -- When multiple improvements, choose the one that maximises MinRFDist to tabu trees
+#define ENCOURAGE_SNAP_AWAY 0	// Push away trees during SNAP -- When multiple improvements, choose the one that maximises MinRFDist to tabu treesassert(false)
 #define COMP_SNAP_AWAY_2_OPT_OBS 0 // Nunber of attempts toward end (if ENCOURAGE_SNAP_AWAY = =1) that force the SNAP away
 // General tree varying routine variables
 enum LazyType { fullopt, lazy, randomtree };		// The type of optimisation done when performing actions
@@ -79,7 +79,7 @@ enum LazyType { fullopt, lazy, randomtree };		// The type of optimisation done w
 // Probability approximations for sitewise likelihoods
 #define ALLOW_SCALE 1			// Whether likelihoods are scaled
 #define P_SCALE_VAL (0.1)	// Value at which scaling takes place
-#define ALLOW_FAST_CALC 1		// Whether fast likelihood computations are allowed
+#define ALLOW_FAST_CALC 0		// Whether fast likelihood computations are allowed
 
 ////////////// Sequence trimming and rearranging processes ///////////////
 #define DO_SNAP 0				// Whether to perform only SNAP

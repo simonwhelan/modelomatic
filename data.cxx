@@ -35,7 +35,7 @@ CData::CData(int NoSeq, int Size, EDataType Type, vector <string> *Names)	{
 	FOR(i,m_iChar) { m_vFreq.push_back((double) ( 1.0 / (double) m_iChar)); }
 }
 
-CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos, bool AllowGapClean) {
+CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos, bool AllowGapClean, bool AllowCondense) {
 #if DO_MEMORY_CHECK
 	memory_check.CountCData++;
 #endif
@@ -101,7 +101,7 @@ CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos,
 	if(ErrorCount > (int)vData.size() / 3) { cout << "\nError: There are " << ErrorCount << " sequences with little or no data..."; exit(-1); }
 	*/
 	if(Type == NONE) { Error("\nCouldn't guess data type. Please inspect your data for excesses of weird or gap characters.\nThis message will be also triggerred when there are a lot of gaps (>" + double_to_string(100*(1.0-MIN_DATA_PERCENT)) + "%) or frequent non-standard characters.\n\n" ); }
-    InputData(Type,vData,vName,SiteLabels,AllowFail,AllowGapClean);		// Put the sequence data into the object
+    InputData(Type,vData,vName,SiteLabels,AllowFail,AllowGapClean, AllowCondense);		// Put the sequence data into the object
 }
 
 // Inputs data from a set of arrays (for pairwise distances)
@@ -442,7 +442,7 @@ void CData::GetGapMask(vector <vector <bool> > *Mask)	{
 // 		Update to remove all gap columns
 //////////////////////////////////////////////////////////////////
 
-void CData::InputData(EDataType Type, vector <string> cInputSeq, vector <string> cInputName, vector <int> SiteLabels, bool AllowFail, bool AllowTrim)
+void CData::InputData(EDataType Type, vector <string> cInputSeq, vector <string> cInputName, vector <int> SiteLabels, bool AllowFail, bool AllowTrim, bool AllowCondense)
 {
     int i,j,k,l;                // Counters
     // Stuff for processing into patterns
@@ -520,8 +520,9 @@ void CData::InputData(EDataType Type, vector <string> cInputSeq, vector <string>
 		// Store the pattern mapping information
 		m_ariPatMap[i] = j;
         // Add an occurence of this pattern
-        if(okay==1)     { ariPatOcc[j]++; continue; }
+        if(okay==1 && AllowCondense)     { ariPatOcc[j]++; continue; }
 		else	{	// If its not been seen before add it to the list
+			j = var_site;	// Needed for condensation of data
             ariPatOcc[j]=1;
 			FOR(j,m_iNoSeq) { ariPat[j][var_site] = iTempPat[j]; }
             var_site++;

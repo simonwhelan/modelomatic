@@ -17,7 +17,7 @@ extern CMemChecker memory_check;
 #define MODEL_DEBUG	0				// Turns on some checkers that might throw up where errors are occurring
 #define LIKELIHOOD_FUNC_DEBUG 0		// Whether to debug the likelihood function
 #define FASTBRANCHOPT_DEBUG 0		// Whether to debug the FastBranchOpt function
-#define ALLOW_BRANCH_OPTIMISE 1		// Specifies whether fast branch optimisation is allowed... (Should always be 1!)
+#define ALLOW_BRANCH_OPTIMISE 1		// Specifies whether fast branch optimisation is allowed... (Should always be 1!) (Also set in process.cxx)
 
 ////////////////////////////////////////////////////////////////////////////
 // CBaseModel implementation
@@ -518,6 +518,7 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 			// 3. Now get the branch derivatives
 			FOR(i,(int)m_vpProc.size())	{
 				if(m_vbDoBranchDer[i] == true) {
+//					cout << "\nInto GetBraDer, likelihood: " << lnL(true) << flush;
 					if(!m_vpProc[i]->GetBraDer(m_arL)) { ForceNumBra = true; break; }
 					FOR(j,m_vpProc[i]->Tree()->NoBra())	{ temp[j] += m_vpAllOptPar[j]->grad(); }
 			}	}
@@ -799,6 +800,17 @@ double CBaseModel::lnL(bool ForceReal)	{
 //	if(m_bMainModel) { cout << "\n\tReturning likelihood: " << logL << endl;  }
 //	cout << "\n\tReturning likelihood: " << logL << endl;  exit(-1);
 	return logL;
+}
+
+void CBaseModel::OutputSitelnL(string File) {
+	int site,i,j;
+	ofstream out(File.c_str());
+	out << "Site\tPattern\tlnL";
+	FOR(site,m_pData->m_iSize)	{
+		out << "\n" << site << "\t"; FOR(i,m_pData->m_iNoSeq) { out << m_pData->m_vsTrueSeq[i][site]; } out << "\t" << m_arL[m_pData->m_ariPatMap[site]].LogP();
+	}
+	out.close();
+
 }
 
 
@@ -1242,9 +1254,9 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 	double newlnL, BestlnL = 0.0, working_tol;
 	assert(CurlnL < 0);
 	if(!m_bAllowFastBranchOpt) { return CurlnL; }
-#if FASTBRANCHOPT_DEBUG == 1
+//#if FASTBRANCHOPT_DEBUG == 1
 	cout << "\n\n<<<<<<<<<<<<<<<<<<<<<<<<<<< NEW ROUND OF FAST BRANCH OPT >>>>>>>>>>>>>>>>>>>>" << flush;
-#endif
+//#endif
 	// This is a fairly meaningless piece of code for trapping errors for multiple trees
 	if(m_vbDoBranchDer.empty()) { Error("CBaseModel::FastBranchOpt(...) error. The vector m_vbDoBranchDer is empty. Try called GetOptPar(...) first\n\n"); }
 	FOR(i,(int)m_vpProc.size())	{ ;
@@ -1290,13 +1302,12 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 	BestlnL = lnL(true);							// 1. Do the first calculation
 	FOR(i,NoIter)	{
 		newlnL = BestlnL;	// new_lnL hold current optimal likelihood
-#if FASTBRANCHOPT_DEBUG == 1
+//#if FASTBRANCHOPT_DEBUG == 1
 //#if DEVELOPER_BUILD == 1
-		cout << "\n\n--- Round " << i<< ". " << newlnL << " (tol: "<< working_tol << ") ---";;
-		cout << "\nOriginal branches:  "; int j; FOR(j,Tree()->NoBra()) { cout << Tree()->B(j) << " "; }
-		cout << "\nTree\n" << *Tree();
-		cout << flush;
-#endif
+//		cout << "\n\n--- Round " << i<< ". " << newlnL << " (tol: "<< working_tol << ") ---";;
+//		cout << "\nOriginal branches:  "; int j; FOR(j,Tree()->NoBra()) { cout << Tree()->B(j) << " "; }
+		Tree()->OutBra(); cout << "\n["<<i<<"]" << *Tree() << " == " << newlnL << flush;
+//#endif
 		BranchOpt(-1,Tree()->StartCalc(),-1, &BestlnL,working_tol);	// 2. Run the fast optimisation routine
 //		double plop = BestlnL; cout << "\nDone branch: BestlnL: " << BestlnL;
 		BestlnL = lnL(true);			// Calculation must be done here using true space, otherwise the next round of the optimisation fails.
@@ -1311,7 +1322,9 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		if(fabs(BestlnL - newlnL) < tol) { break; }				// 3. Control exit
 	}
 	if(Conv != NULL) { if(i==NoIter) { *Conv = false; } else { *Conv = true; } }
-//	cout << "\nReturning: " << BestlnL << " cf. " << lnL() << " fabs: " << fabs(BestlnL - lnL()); // exit(-1);
+	if(ALLOW_BRANCH_OPTIMISE == 0) {
+		cout << "\nReturning: " << BestlnL << " cf. " << lnL() << " fabs: " << fabs(BestlnL - lnL()); exit(-1);
+	}
 	assert(BestlnL < 0);
 	return BestlnL;
 }
@@ -1319,7 +1332,6 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 // Optimise the set of branches
 void CBaseModel::BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol)	{
 	int i,j,OriFirst = First;
-
 //	cout << "\nInto CBaseModel::BranchOpt(" << First << ", " << NTo << "," << NFr << ", " << *BestlnL << ")";
 
 	if(NFr == -1)	{
@@ -1415,7 +1427,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	CPar *Par  = Tree()->pBra(Br);
 	ori_x = x2 = *p_x;	ori_lnL = *BestlnL;
 //	ori_lnL = *BestlnL = DoBralnL(Br,NFr,NTo);
-//#if FASTBRANCHOPT_DEBUG == 1
+#if FASTBRANCHOPT_DEBUG == 1
 	if(fabs(*BestlnL - DoBralnL(Br,NFr,NTo)) > 1.0E-6) {
 
 		cout << "\n ===================== ERROR IN BRANCH " << Br << " (" << Tree()->BraLink(Br,0) << "," << Tree()->BraLink(Br,1) << ") ================";
@@ -1426,9 +1438,10 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 		exit(-1);
 	}
 	//	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
-//#endif
+#endif
 
-//	cout << "\nOptimising Br(" << Br << ") = " << Tree()->B(Br) << " = *Best: " << *BestlnL << " == " << DoBralnL(Br,NFr,NTo);
+//	cout << "\nOptimising Br(" << Br << ") = " << Tree()->B(Br) << " = *Best: " << *BestlnL << " == " << DoBralnL(Br,NFr,NTo) << flush;
+//	exit(-1);
 
 	// ------------------------------------- Catch entry into bounds ------------------------------------
 	if(!Par->CheckLowBound()) {	// Check lower bound
@@ -1647,6 +1660,7 @@ double CBaseModel::DoBralnL(int B, int NF,int NT, bool JustClean)	{
 #if DEVELOPER_BUILD == 1
 	cout << "\n>>>>>>>>>>>>>>>>>>>> Entering CBaseModel::DoBralnL("<<B<<","<<NF<<","<<NT<<")";
 #endif
+
 	// If required just clean up the static allocation
 	if(JustClean)	{
 		if(P != NULL) {
@@ -1696,7 +1710,7 @@ double CBaseModel::DoBralnL(int B, int NF,int NT, bool JustClean)	{
 	if(pLikelihood != NULL) {
 		logL -= pLikelihood(NULL); // Called as blank. Other arguments intended to allow functionality
 	}
-//	cout << "\n>>>>>>>>>>>>>>>>>>>> DoBralnL(Branch="<<B<<") returning: "<< logL;
+//	cout << "\n>>>>>>>>>>>>>>>>>>>> DoBralnL(Branch="<<B<<") returning: "<< logL; // exit(-1);
 	m_iFastBralnL++;
 	return logL;
 }

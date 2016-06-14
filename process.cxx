@@ -15,6 +15,7 @@ extern CMemChecker memory_check;
 #define ANALYTIC_DERIVATIVE_DEBUG 0	// Checker for the analytical derivative functions
 #define ADD_SITE_MAX 3			// Maximum site for doing analytic derivative debug
 #define HARDCHECK_CALCS 0			// Hard check calculations for errors (not complete)
+#define ALLOW_BRANCH_OPTIMISE 1     // Output for debugging PerBranch optimisation (also set in model.cxx)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Data compression routines
@@ -129,6 +130,7 @@ CGammaPar::~CGammaPar()	{
 
 void CGammaPar::AddRateToGamma(CBaseProcess *Proc)	{
 	// Check entry conditions
+//	cout << "\nm_arpRates.size = " << m_arpRates.size() << " m_iNoCat = " << m_iNoCat << flush;
 	assert(m_arpRates.size() == m_iNoCat);
 	// If this is the first process store the probability
 	if(m_iNoCat == 0) { m_pProb = Proc->ProbPar(); }
@@ -203,8 +205,8 @@ void CQMat::MakeSpace(int Char,EDataType Type,string Name)	{
 	GET_MEM(m_ardRoot,double,m_iChar);
 	GET_MEM(m_ardEqm,double,m_iChar);
 	GET_MEM(m_ardRootEqm,double,m_iChar);
-	m_bAlwaysI = false;
-	Unlock();	// All everything to be changeable
+	m_bAlwaysI = false;	Unlock();	// All everything to be changeable
+	m_bAllowModelUpdate = true;
 }
 void CQMat::CleanSpace()	{
 	DEL_MEM(m_ardQMat); DEL_MEM(m_ardU); DEL_MEM(m_ardV); DEL_MEM(m_ardRoot); DEL_MEM(m_ardEqm); DEL_MEM(m_ardRootEqm); m_bAlwaysI = false;
@@ -1507,11 +1509,14 @@ CProb &CBaseProcess::Lsum(int site)	{
 	CProb temp;
 	dVal.Assign(0.0);
 	m_vdEqm = RootEqm();
+//	cout << "\nHave eqm: " << m_vdEqm;
 #if DEVELOPER_BUILD == 1
 	if(site == 0) {
-		cout << "\n---------------- Site["<<site<<"] --------------------\nVec: ";
-		FOR(i,m_iChar) { cout << PartL(site)[i] << " "; }
+		bool DoBreak = false;
+		cout << "\n---------------- Site["<<site<<"] scale = " << *LScale(site) <<" --------------------\nVec: ";
+		FOR(i,m_iChar) { cout << PartL(site)[i] << " "; if(PartL(site)[i] > 1.0 * pow(10,*LScale(site)) ) { DoBreak=true; } }
 		cout << "\nEqm: " << m_vdEqm << endl;
+		if(DoBreak) { assert(false); }
 	}
 #endif
 	FOR(i,m_iChar)	{
@@ -1523,7 +1528,6 @@ CProb &CBaseProcess::Lsum(int site)	{
 			FOR(j,Tree()->NoBra()) { cout << "\nBranch["<<j<<"]:"; OutPT(cout,j); }
 			cout << "\n<PartL(site=" << site << "): "; FOR(j,m_iChar) { cout << PartL(site)[j] << ":"; }   cout << ">"; }
 		if(my_isnan(m_vdEqm[i])) { cout << " <eqm>"; }
-
 		temp.Assign(*(p_a++) * m_vdEqm[i],*LScale(site));
 		dVal.Add(temp,true);
 	}
@@ -1533,7 +1537,7 @@ CProb &CBaseProcess::Lsum(int site)	{
 	}
 #endif
 	p_a = NULL;
-
+//	cout << "\n\t" << dVal.m_dValue << " x10^-"  << dVal.m_iScale << " == " << dVal.LogP();
 	return dVal;
 }
 
@@ -1810,6 +1814,10 @@ bool CBaseProcess::GetBraDer(CProb *ModelL)     {
 #if ANALYTIC_DERIVATIVE_DEBUG == 1
 	cout << "\n\n--- GetBraDer: " << m_sName << " Rate: " << Rate() << " ---";
 #endif
+
+	//	cout << "\nSitewise likelihoods: "; FOR(i,m_pData->m_iSize) { cout << "\nSite["<<i<<"]: lnL: " << m_arModelL[i].LogP() << flush; } exit(-1);
+
+
 	// Get the derivatives
 	FOR(i,Tree()->NoBra()) { Tree()->pBra(i)->grad(0.0); }	// Set them all to zero to start
 	if(Tree()->NoBra() == 1) {	// For 2 species trees don't bother trying to be clever
@@ -1827,6 +1835,8 @@ bool CBaseProcess::GetBraDer(CProb *ModelL)     {
 	// Tidy up
 	m_arModelL = NULL;
 	// Return if okay
+//	cout << "\nBranch derivatives: "; FOR(i,Tree()->NoBra()) { cout << Tree()->pBra(i)->grad() << "\t"; } exit(-1);
+
 	return FlipBool(m_bFailedL);
 }
 
@@ -1855,6 +1865,8 @@ void CBaseProcess::Branch_dT(int NTo, int NFr, int Branch, CTree *pTree, int Fir
 }
 
 void CBaseProcess::LeafNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First, int *BrError)	{
+
+
 #if ANALYTIC_DERIVATIVE_DEBUG == 1
 	cout << "\nLeafNode_dT: NTo: " << NTo << "; NFr: " << NFr << "; Br: " << Br;
 	cout << "\nEqm: " << m_vpQMat[QMat4Bra(Br)]->Eqm();
@@ -1914,6 +1926,7 @@ void CBaseProcess::LeafNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First
 			SiteScale += *ForceRealFdSc(NFr,site);
 			////////////////////////////////////////////////////////////////////////////////
 			// No do the derivative calculation
+//			if(site < BIG_NUMBER) { cout << "\nSite["<<site<<"]: Value: " << Value << " += " << Total << " ModelL: "<< m_arModelL[site].Prob() << " -> " << m_arModelL[site].LogP() << " scale: " << SiteScale << " - " << ModelL(site).Scale() << " = " << SiteScale - ModelL(site).Scale() << " == " << PartialGrad(site,Total,SiteScale - ModelL(site).Scale()); }	// PFAM DEBUG
 			Value += PartialGrad(site,Total,SiteScale - ModelL(site).Scale());
 #if ANALYTIC_DERIVATIVE_DEBUG == 1
 			if(site < ADD_SITE_MAX) { cout << "\nTotal = " << Value; }
@@ -1927,6 +1940,8 @@ void CBaseProcess::LeafNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First
 	cout << "\n\tBranch[" << Br <<"] = " << Tree()->B(Br) << ": Value=" << Value << " Prob()=" << Prob() << " BScale=" << Tree()->BScale(Br) << " -- ret: " << -(Value * Prob() * Tree()->BScale(Br));
 #endif
 	Tree()->pBra(Br)->grad(-(Value * Prob() * Tree()->BScale(Br)));
+
+//	exit(-1); // PFAM DEBUG
 	p_a = NULL; p_b = NULL;
 
 }
@@ -2020,6 +2035,8 @@ void CBaseProcess::LeafNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 		Seq = NTo;
 		if(Seq < m_pData->m_iNoSeq) { LeafSeq = true; } else { LeafSeq = false; }
 	}
+	if(ALLOW_BRANCH_OPTIMISE == 0) { cout << "\nDoing LeafNode_Update(NTo: "<< NTo << ", NFr: " << NFr << ", Br: "<< Br << ")"; }
+
 	// Direction makes no difference to calculation so whether first or later nodes doesn't matter
 	// Do derivative calculation and updating procedure
 	// For Update: if(first == true) {		then Fd(NFr) = vP(t) & Bk(NFr) *= vP(t)
@@ -2119,13 +2136,18 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 	double Vec[MAX_CHAR], Vec2[MAX_CHAR];
 	assert(InRange(NFr,pTree->NoSeq(),pTree->NoNode()) || First == -1);
 	assert(pTree->NodeType(NTo) == branch);
-//	cout << "\nDoing BranNode_Update...";
+	if(ALLOW_BRANCH_OPTIMISE == 0) {
+		cout << "\nDoing BranNode_Update(NTo: "<< NTo << ", NFr: " << NFr << ", Br: "<< Br << "): First: " << First << " DCU: " << DoCompleteUpdate;
+		cout << "\n\tT: " << Tree()->B(Br) << " : P(t): "; FOR(i,3) { cout << "  " << PT(Br)[i]; }
+	}
+
 	// Direction makes no difference to calculation so whether first or later nodes doesn't matter
 	// Do derivative calculation and updating procedure
 	// For Update: if(first == true) {		then Fd(NFr) = vP(t) & Bk(NFr) *= vP(t)
 	//										else Fd(NFr) *= vP(t)
 	/////////////////////////////////////////////////////////////////////////
 	if(DoNTo && DoNFr)	{
+		if(ALLOW_BRANCH_OPTIMISE == 0) { cout << " Type 1: "; }
 		FOR(site,m_iSize)	{
 			// Do the updating procedure
 			/////////////////////////////////////////////////////////////////
@@ -2198,6 +2220,7 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 	} else if(DoNTo)	{
 		///////////////////////////////////////////////////////
 		// Only update NTo
+		if(ALLOW_BRANCH_OPTIMISE == 0) { cout << " Type 2: "; }
 		FOR(site,m_iSize)	{
 			// Do the updating procedure
 			/////////////////////////////////////////////////////////////////
@@ -2245,6 +2268,7 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 		}
 		DoScale(NTo,true);
 	} else {
+		if(ALLOW_BRANCH_OPTIMISE == 0) { cout << " Type 3: "; }
 		if(DoCompleteUpdate == true) { if(First == 0) { First = -1; } else if(First == 1) { First = 0; } }
 		///////////////////////////////////////////////////////
 		// Only update NFr
@@ -2254,6 +2278,8 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 			// i) Update appropriate memory according to First
 			switch(First)	{
 			case -1:	// Do the update for the StartCalc() node -- Also requires update of BackSp in StartCalc()
+				if(site == 0 && ALLOW_BRANCH_OPTIMISE == 0) { cout << " case -1"; }
+//				if(site < 10) { cout << "\n\tData: "; FOR(i,5) { cout << "  " << ForceRealFd(NTo,site)[i]; } }
 				// Prepare Bk space for node from
 				VMat(ForceRealFd(NTo,site),PT(Br),Vec2,m_iChar);	// Get the vector of partial likelihoods NodeTo -> NodeFr
 				SiteScale2 = *ForceRealFdSc(NTo,site);
@@ -2273,6 +2299,7 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 				*ForceRealBkSc(NFr,site) = SiteScale2;
 				break;
 			case 0:		// If the first link in an internal node update Fd in NFr to full partial likelihood
+				if(site == 0 && ALLOW_BRANCH_OPTIMISE == 0) { cout << " case 0"; }
 				// Prepare Bk space for node from
 				VMat(ForceRealFd(NTo,site),PT(Br),Vec,m_iChar);	// Get the vector of partial likelihoods NodeTo -> NodeFr
 				SiteScale = *ForceRealFdSc(NTo,site);
@@ -2287,6 +2314,7 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 				*ForceRealFdSc(NFr,site) = *ForceRealBkSc(NFr,site);
 				break;
 			case 1:		// If the second link in an internal node
+				if(site == 0 && ALLOW_BRANCH_OPTIMISE == 0) { cout << " case 1"; }
 				break;
 			default:
 				Error("Unknown first...");
@@ -2299,6 +2327,7 @@ void CBaseProcess::BranNode_Update(int NTo, int NFr, int Br, CTree *pTree, int F
 double CBaseProcess::PartialGrad(int site,double Total,int SiteScale)	{
 
 	if(m_pData->IsBootstrap()) { if(m_pData->m_ariPatOcc[site] == 0) { return 0.0; } }
+	assert(m_pData->m_ariPatOcc[site] > 0);
 #if ANALYTIC_DERIVATIVE_DEBUG == 1
 	if(site < ADD_SITE_MAX) {
 		cout << "\n\t\tDoing site: " << site << " [occ=" << m_pData->m_ariPatOcc[site]<<"]: Total= " << Total << "*10^" << SiteScale << "; Partial= " << ModelL(site) << "; return value: " << (Total / ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site] * pow((double)10,-SiteScale) );
@@ -2311,7 +2340,7 @@ double CBaseProcess::PartialGrad(int site,double Total,int SiteScale)	{
 			return (Total / ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]);
 		} else {
 			if(fabs(ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site]) < DBL_EPSILON) {
-//				cout.precision(16);	cout << "\nFailed site["<<site<<"]: numerator: " << Total << ", denominator: " << ModelL(site).ScalVal() << " * " << m_pData->m_ariPatOcc[site];
+//				cout.precision(16);	cout << "\nFailed site["<<site<<"]: numerator: " << Total << ", denominator: " << ModelL(site).ScalVal() << " * PatFreq: " << m_pData->m_ariPatOcc[site];
 				m_bFailedL = true; return -BIG_NUMBER; }
 			return (Total / ModelL(site).ScalVal() * m_pData->m_ariPatOcc[site] * pow((double)10,-SiteScale) );
 	}	} else {					// Do extreme values
@@ -2362,23 +2391,28 @@ void CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)	{
 		} else { if(NT >= Tree()->NoSeq()) { NTreal = false; } if(NF >= Tree()->NoSeq()) { NFreal = false; } }
 		//////////////////////////////////////////////////////
 		// Do the calculations
+//		int siteCheck = 3;
 		FOR(site,m_pData->m_iSize)	{
+//			if(site < siteCheck) { cout << "\nProcSite["<<site<<"]:"; }
 			SiteScale = 0; Total = 0.0;
 			// Get first vector of calc
 			if(NTreal)	{
 				Data2PartL(m_pData->m_ariSeq[NT][site],PT(B),V,&eqm);
 //				FOR(i,m_iChar) { if(i == m_pData->m_ariSeq[NT][site] || m_pData->m_ariSeq[NT][site] == m_iChar) { cout << "\t1"; } else { cout << "\t0"; } }
 			} else {
-//				FOR(i,m_iChar)	{ cout << "\t" << ForceRealFd(NT,site)[i]; }
+//				if(site < siteCheck) { FOR(i,m_iChar)	{ cout << "\t" << ForceRealFd(NT,site)[i]; } }
 				VMat(ForceRealFd(NT,site),PT(B),V,m_iChar); SiteScale += *ForceRealFdSc(NT,site);
 			}
 //			int j; 	cout << "\n\tRight:\t"; if(NFreal) { FOR(i,m_iChar) { if(i == m_pData->m_ariSeq[NF][site] || m_pData->m_ariSeq[NF][site] == m_iChar) { cout << "\t1"; } else { cout << "\t0"; } } } else { FOR(i,m_iChar)	{ cout << "\t" << ForceRealFd(NF,site)[i]; } } cout << "\n\tLeft * P(t):"; FOR(j,m_iChar) { cout << "\t" << V[j]; }
 
 			// Get calculation of total = sum(Vec[i] = Vec[i] * BranchNode[i] * Eqm[i]);
+//			if(site < siteCheck) { cout << "\n"; }
 			if(NFreal)	{
+//				if(site < siteCheck) { cout << "Sum_Vec"; }
 				Total = Sum_Vec(m_pData->m_ariSeq[NF][site],V,eqm);
 			} else {	// Do partial likelihoods
 				p_a = ForceRealFd(NF,site);
+//				if(site < siteCheck) { FOR(i,m_iChar) { cout << "("<<V[i] << "*" << *ForceRealFd(NF,site+i) << ")\t"; } }
 				FOR(i,m_iChar)	{ Total += V[i] * *(p_a++) * eqm[i]; }
 				SiteScale += *ForceRealFdSc(NF,site);
 			}
@@ -2387,6 +2421,8 @@ void CBaseProcess::GetBranchPartL(CProb **arpP, int NT, int NF, int B)	{
 			// Assign the likelihood
 			Pr.Assign(Total,SiteScale);
 			arpP[site]->Add(Pr,true);
+
+//			if(site < siteCheck) { cout << "\n\tlogL: " << Pr.LogP(); }
 	}	} else {
 	/////////////////////////////////////////////////
 	// Do zero rate processes

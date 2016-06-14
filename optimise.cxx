@@ -1667,13 +1667,14 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
     }
 	// Iterate
 	FOR(its,NumberIter)	{
-//		cout << "\n\t--- Iter: " << its << ": " << fp; //  << " cf. " << Model->lnL(true) << " (" << fabs(fp+Model->lnL(true)) << ")" << flush ;
+		cout << "\n\t--- Iter: " << its << ": " << fp; //  << " cf. " << Model->lnL(true) << " (" << fabs(fp+Model->lnL(true)) << ")" << flush ;
+		cout << "\nOutput to <Checkpoint.txt>"; ofstream outcheck("Checkpoint.txt"); outcheck << *Model << flush; outcheck.close();
 		if(DoBasicOutput) {
 //			cout << "\n\t["<<its<<"] " <<fold << " -> " << fp << flush; //  << " cf. " << Model->lnL() << flush;
 			if(its == 0) { cout << "\n\t\t" << its << ": " << flush; }
 			else if (its % 60 == 0) { cout << ": " << fp << "\n\t\t"<<its<<": "; }
 			//if(fold < fp - FULL_LIK_ACC) {
-			if(fp - fold > FULL_LIK_ACC * 100) {
+			if(fp - fold > FULL_LIK_ACC * 1000) {
 				cout.precision(12);
 				cout << "\ndiff ("<<fold << "-" << fp << "): " << fabs(fold-fp) << ";";
 				Error(" ... Error... likelihood decreased in value???");
@@ -1687,7 +1688,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		if(its < THOROUGH_LINE_SEARCH)  { Do_GS = true; }
 		if(fabs(fold - fp) > 0.25) { step_max = SMALL_STEP_MAX; }
 		fold = fp;
-/*
+
 		// --------------------------------- Perform the line search ----------------------------------
 		// Debug information
 		cout << "\n<<<<<< ITER " << its << ": " << fp << " >>>>>>>>";
@@ -1697,7 +1698,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 		cout << "\n\tPreals:"; FOR(i,n) { cout<< "\t" << Model->m_vpAllOptPar[i]->Val(); }
 		cout << "\n\tP:     "; FOR(i,n) { cout << "\t" << *x[i]; }
 		cout << "\n\tG:     "; FOR(i,n) { cout << "\t" << g[i]; }
-*/
+
 		// Before performing line-search decide whether only a subset of parameters are worth examining
 		// This is decided when there are very large gradients relative to all other gradients.
 		double GOOD_IMPROVE = 0.5;

@@ -148,6 +148,7 @@ public:
 	virtual double TransRateFrom(int From) { return 0.0; };					// Returns the overall transition rate from a hidden state
 	virtual double TransRateTo(int To) { return 0.0; };						// Returns the overall transition rate to a hidden state
 	virtual void ScaleQ(double Rate);												// Scale the Q matrix to the overall rate Rate
+	string Name() { return m_sName; }
 
 	// Parameter application functions
 	void InitQ(double Val);								// Initialise Q matrix to a particular value
@@ -231,6 +232,8 @@ public:
 	void SetDoBasicNonReversibleCovarion(bool Val) { DoBasicNonReversibleCovarion = Val; }
 	virtual void Shuffle()	{};										// Blank shuffle routine for when there are multiple eqms
 	virtual void ResetEqm(vector <double> Eqm, bool RandomFactor) { Error("Empty CBaseEqm::ResetEqm function...\n"); };// Resets the eqm parameters to the values in the vector
+	/* New for Ding's work */
+	CPar * EqmPar(int i) { assert(InRange(i,0,(int)m_vpEqmPar.size())); return m_vpEqmPar[i]; }
 protected:
 	// Variables
 	int m_iChar;											// Number of character states in the equilibrium
@@ -321,7 +324,7 @@ public:
 	virtual ~CSite();								// Basic destructor
 	// Interaction functions
 	inline void Overwrite(CSite &Site,int SiteNum);	// Function that makes a site a copy of another
-	inline void CopyVals(CSite *Site, bool ForceReal = false);	// Copies values in Site->m_pSpacePointer and Site->m_pScalePointer to this
+	void CopyVals(CSite *Site, bool ForceReal = false);	// Copies values in Site->m_pSpacePointer and Site->m_pScalePointer to this
 	inline bool IsReal()	{ return m_bReal; }		// Whether computations should be performed for a site
 	inline double *Sp() { return m_pSpacePointer;}	// Returns the space for the site
 	inline double *RealSp() { return m_ardSpace; }	// Returns the real space regardless (for derivative calculations)
@@ -390,7 +393,7 @@ public:
 
 	// Functions for getting branch derivatives
 	virtual void PrepareBraDer();						// Prepare the process for get branch derivatives function
-	bool GetBraDer(CProb *ModelL);                          // Gets the branch derivatives. ModelL = array of partial likelihoods for whole model
+	virtual bool GetBraDer(CProb *ModelL);                          // Gets the branch derivatives. ModelL = array of partial likelihoods for whole model
 
 
 	// Parameter access functions
@@ -484,15 +487,19 @@ public:
 	// Space updating routines
 	virtual bool Make_PT(int Branch, bool RedoRate = false);				// Makes the P(t) matrix for the likelihood function
 	void ScaleQ() { int i; FOR(i,(int) m_vpQMat.size()) { m_vpQMat[i]->ScaleQ(m_pRate->Val()); } };	// Scale Q matrices ready for calcs
-	void LeafNode_Update(int NTo, int NFr, int Br, CTree *T, int First, bool DoCompleteUpdate = false);
-	void BranNode_Update(int NTo, int NFr, int Br, CTree *T, int First, bool DoNTo = true, bool DoNFr = true, bool DoCompleteUpdate = false);
+	virtual void LeafNode_Update(int NTo, int NFr, int Br, CTree *T, int First, bool DoCompleteUpdate = false);
+	virtual void BranNode_Update(int NTo, int NFr, int Br, CTree *T, int First, bool DoNTo = true, bool DoNFr = true, bool DoCompleteUpdate = false);
+	// False space update functions used in PfamModel
+	virtual void FullLeafNode_Update(int NTo, int NFr, int Br, CTree *pTree, int First, bool DoCompleteUpdate = false)			{ CBaseProcess::LeafNode_Update(NTo,NFr,Br,pTree,First,DoCompleteUpdate); }
+	virtual void FullBranNode_Update(int NTo, int NFr, int Br, CTree *T, int First, bool DoNTo = true, bool DoNFr = true, bool DoCompleteUpdate = false) { CBaseProcess::BranNode_Update(NTo,NFr,Br,T,First,DoNTo,DoNFr,DoCompleteUpdate); }
+
 	// Space functions that calculate partial likelihoods from a centre point from SNAP paper
 	void PreparePartialL(int Node, int NodeFrom,int Node2Trans=-1);	// Prepare a partial likelihood: if(Node2Trans != -1) { transfer space info to Node2Trans space; }
 	// Function for FastBranchCalc
-	void GetBranchPartL(CProb **P, int NTo, int NFr, int Br);	// Get the sitewise likelihoods
+	virtual void GetBranchPartL(CProb **P, int NTo, int NFr, int Br);	// Get the sitewise likelihoods
 	// Reset the calculation space...
 	void ResetCalcSpace();
-protected:
+//protected:
 	// Critical variables
 	int m_iChar;						// Number of characters in the process
 	int m_iHiddenChar;					// Number of hidden states in the process (only matters for THMMs)
@@ -615,9 +622,9 @@ protected:
 	inline int *QkForceRealBkSc(int NodePos) { return m_vBackSp[NodePos].RealSc(); }
 
 	void CopyNode(int NodeFr, int NTo);										// Copy all space in NodeFr to NTo
-	void CleanScale(int NodeNum, bool ForceAll = true);						// Removes all scales in a node
-	void TransScale(int NodeTo,int NodeFr,bool First, bool Partial = true, bool ForceReal = false);	// Transfer (sum) values from NodeFr to NodeTo
-	void DoScale(int Node, bool ForceRealScale = false);					// Performs scaling on the fly; ForceRealScale = true will treat all nodes as real
+	virtual void CleanScale(int NodeNum, bool ForceAll = true);						// Removes all scales in a node
+	virtual void TransScale(int NodeTo,int NodeFr,bool First, bool Partial = true, bool ForceReal = false);	// Transfer (sum) values from NodeFr to NodeTo
+	virtual void DoScale(int Node, bool ForceRealScale = false);					// Performs scaling on the fly; ForceRealScale = true will treat all nodes as real
 
 	inline int *LScale(int Site) { return FdScale(PartLNode(),Site); }		// Final node and m_ardPerSitelnL scaling factor
 	inline double *PartL(int Site) { return Fd(PartLNode(),Site); };		// The Partial likelihoods
@@ -635,17 +642,17 @@ protected:
 	// These are more complicated than neccessary, but at least they work!
 
 	// Normal calculations
-	void PartialL(CTree *pTree, int iNoTo, int iNoFr, int Branch, bool LeafFirst = true, bool BlockWriteback = false);
-	void BranchNodePartialL(int SpFrom, int SpTo, double *PT, bool First);
-	void LeafNodePartialL(CTree *pTree, int LeafNode, int Branch, int SpFlag, double *PT,bool First);		// Usual leaf node calculation
-	void MakeZeroRateLikelihood();				// Makes likelihood for Rate = 0 models
-	void MakeMaxRateLikelihood();				// Makes likelihood for Rate = inf model (garbage collector models)
+	virtual void PartialL(CTree *pTree, int iNoTo, int iNoFr, int Branch, bool LeafFirst = true, bool BlockWriteback = false);
+	virtual void BranchNodePartialL(int SpFrom, int SpTo, double *PT, bool First);
+	virtual void LeafNodePartialL(CTree *pTree, int LeafNode, int Branch, int SpFlag, double *PT,bool First);		// Usual leaf node calculation
+	virtual void MakeZeroRateLikelihood();				// Makes likelihood for Rate = 0 models
+	virtual void MakeMaxRateLikelihood();				// Makes likelihood for Rate = inf model (garbage collector models)
 
 	// Branch derivative calculations
-	void Branch_dT(int NTo, int NFr, int Branch, CTree *pTree, int First, int *BrError);
-	void LeafNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First, int *BrError);
-	void BranNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First, int *BrError);
-	double PartialGrad(int site,double Total,int SiteScale);
+	virtual void Branch_dT(int NTo, int NFr, int Branch, CTree *pTree, int First, int *BrError);
+	virtual void LeafNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First, int *BrError);
+	virtual void BranNode_dT(int NTo, int NFr, int Br, CTree *pTree, int First, int *BrError);
+	virtual double PartialGrad(int site,double Total,int SiteScale);
 
 	// Some pointers to other data based other stuff
 	CTree *m_pTree;				// Pointer to the tree the model should be using

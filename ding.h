@@ -8,6 +8,8 @@
 #ifndef DING_H_
 #define DING_H_
 
+#include "PfamModel.h"
+
 int GetRoot(CTree * T, vector <int> RootSeqs);		// Get root branch
 
 // Heterogeneous empirical amino acid model
@@ -15,6 +17,10 @@ class CHeteroEMP : public CBaseModel	{
 public:
 	CHeteroEMP(CData *Data, CTree *Tree, string Name, double *S_ij, vector <vector <int> > SubTrees, vector <int> Root);	// Constructor
 	~CHeteroEMP();																						// Destructor
+	// Implementation
+	vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
+					// Needs parameters from the frequencies to be done correctly here
+
 };
 
 class CHeteroEmpProc : public CBaseProcess {
@@ -37,6 +43,7 @@ private:
 	vector <CQMat *> m_vpHeteroQMat;																	// Vector of the heterogeneous Q matrices
 	int m_iHeteroRootEqm;																				// Identified that states what the root equilibrium is
 	int m_iRootEquilibrium;																				// The number of the process that the root belongs to
+
 };
 
 #endif /* DING_H_ */

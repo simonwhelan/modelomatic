@@ -56,11 +56,13 @@ public:
 	// Some calculation based functions
 	void CreateProcessSpace(bool force = false);	// Function that creates space for all the sub functions
 	void FinalInitialisation();			// Function that does any extra initialisations required before calculations
-	void PrepareFastCalc();				// Prepare for fast computation
+	virtual void PrepareFastCalc();				// Prepare for fast computation (Virtual to allow simple overrides)
 	void CleanFastCalc(bool Force = false);				// Clean the fast calc stuff
 	virtual void PreparelnL(bool ForceRemake = false);			// Prepares the Q matrices in the model and sets the rate
 	virtual double lnL(bool ForceReal = false);	// perform a likelihood calculation (if over-ridden, be careful other likelihood functions are too e.g. DoBralnL(...) )
+	void OutputSitelnL(string File);
 	double CalculateL(CBaseProcess *Process = NULL, bool DoFulllnL = true);			// Calculate the overall log-likelihood from a single process
+	bool FormMixtureSitewiseL();													// Calculate likelihoods as though they are from a mixture model
 	vector <double> SitewiseL(CBaseProcess *Process = NULL, bool DoFulllnL = true);	// Calculate the per site log-likelihood from a single process
 	vector <double> BranchDerivatives();
 	SBestModel ModelScores(double BestlnL);				// Outputs the best model
@@ -73,8 +75,8 @@ public:
 	void SingleBranchOpt(int Br, double *BestlnL, double tol);				// Do a branch optimise for a single branch, calculates partial likelihoods so inefficient when traversing a tree
 	void SetFastBranchOpt(bool NewVal) { m_bAllowFastBranchOpt = NewVal; }
 	// Space update functions for model (used in stepwise addition routines
-	void Leaf_update(int NTo, int NFr, int Br, CTree *T, int First, bool DoFullUpdate = false);
-	void Bran_update(int NTo, int NFr, int Br, CTree *T, int First, bool DoNTo = true, bool DoNFr = true, bool DoFullUpdate = false);
+	virtual void Leaf_update(int NTo, int NFr, int Br, CTree *T, int First, bool DoFullUpdate = false);
+	virtual void Bran_update(int NTo, int NFr, int Br, CTree *T, int First, bool DoNTo = true, bool DoNFr = true, bool DoFullUpdate = false);
 
 	////////////////////////////////////////////////////////////
 	// Functions required for tree rearrangement
@@ -97,7 +99,7 @@ public:
 	vector <int> NodesCovered()	{ return m_viCPNodesCovered; }
 	vector <int> NodesBelow(int N) { return m_vviNodesBelow[N]; }
 	vector <vector <int> > NodesBelow() { return m_vviNodesBelow; }
-	void PreparePT(int Br);												// Prepare PT matrix for a specific branch
+	virtual void PreparePT(int Br);												// Prepare PT matrix for a specific branch
 	// Pairwise preperation
 	void PreparePairwiseCalc(int Seq1, int Seq2, CTree *T);				// Prepare for a pairwise calculation
 	// Triplet calc preperation
@@ -188,6 +190,7 @@ public:
 	////////////////////////////////////////////////////////////////
 	// General function for altering likelihood calculations
 	double (*pLikelihood)(CBaseModel *M);			// Function that can be used to adjust the likelihood
+
 protected:
 	bool m_bDoSepParOpt;							// Whether the model insists that it needs extra optimisations
 	vector <bool> m_vbDoBranchDer;					// Whether processes require branch derivative calculations
@@ -206,6 +209,7 @@ protected:
 	int m_iFastBralnL;								// Number of times FastBranchlnL is run;
 	int m_iFastBralnL_Bracket;						// Number of those runs that are associated with bracketing
 	int m_iFastBralnL_Calls;						// Number of DoBraOpt calls
+	bool m_bAllowFastBranchOpt;						// Whether or not to allow FastBranchOpt calls
 private:
 	//////////////////////////// Private variables ////////////////////////////////////
 	// Models associated with this model
@@ -220,7 +224,6 @@ private:
 	ECalcType m_CalcType;							// The type of calculation to be performed
 	bool m_bOptReady;								// Whether the model is ready for optimisation
 	bool m_bLockModel;								// Whether parameter values will ever be optimised
-	bool m_bAllowFastBranchOpt;						// Whether or not to allow FastBranchOpt calls
 
 	// Variables relating to centre point mapping
 	vector <int> m_viCPNodesCovered;				// Internal nodes created by the centre point
@@ -240,8 +243,6 @@ private:
 	//////////////////////////// Private functions ////////////////////////////////////
 	void CleanPar();						// Clean the parameter vector
 	void CleanMemory();						// Clean the memory
-	// Calculation functions
-	bool FormMixtureSitewiseL();													// Calculate likelihoods as though they are from a mixture model
 	// Functions relating to centrepointing and partial likelihood computations
 	void ApplyCPMapping(vector <int> LeafMapping, vector <int> NodeFrom);	// Applies the leaf mapping to all processes
 	// Output functions
@@ -585,7 +586,7 @@ public:
 	// Interaction functions
 	vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);
 	double lnL(bool ForceReal = false);				// Over-ride of the virtual function. Basically just calls NormaliseParameters, then calculates the likelihood as normal
-	vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
+	virtual vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
 				// Override to get the parameters for the different components of the model
 	// Branch optimisation routines need to be stored separately because subsets of data need to be optimised separately
 	double FastBranchOpt(double CurlnL, double Tol = 1.0E-7, bool *Conv = NULL, int NoIter = 5, bool CheckPars = true);	// Controller function

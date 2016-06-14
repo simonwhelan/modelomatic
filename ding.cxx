@@ -31,26 +31,15 @@ extern CMemChecker memory_check;
 #include "interface.h"
 #include "Leaphy.h"
 #include "ding.h"
+#include "PfamModel.h"
 
 ////////////////////////////////////////////////////////////////
 // External variables
 extern vector <STabuTree> TabuTrees;
 extern vector <double> PWDists;
 extern int TABU_RADIUS;
-/////////////// DING FUNCTIONS //////////////////
-vector <int> ReadNameFile(string NameFile, CData *D);	// Read a set of names and return a vector of indexes specifying those names
-template <class TVecCon> vector <TVecCon> VecCon(vector <TVecCon> A, vector <TVecCon> B) {
-	vector <TVecCon> Ret;
-	Ret.reserve(A.size() + B.size());
-	Ret.insert(Ret.end(),A.begin(),A.end());
-	Ret.insert(Ret.end(),B.begin(),B.end());
-	return Ret;
-}
-// Finds the branch in the tree that specifies the novel branch of that hypothesis
-int FindSpecialSplit(CTree *T,vector <int> S1,vector <int> S2,vector <int> S3,vector <int> S4,vector <int> S5,vector <int> S6);
-// Adds branch labels onto the tree such that 0 is the novel branch, and (1,4) are the subclades provides by (S1,S4);
-void PaintTree(CTree *T, int KeyBra, vector <int> S1, vector <int> S2, vector <int> S3, vector <int> S4);
-void PaintTree(CTree *T, vector <vector <int> > Subtrees);
+
+#define DO_PFAM 0		// Whether to do the Pfam analysis in PfamModel.cxx
 
 int ding()	{
 		int Ret = 0;
@@ -61,6 +50,11 @@ int ding()	{
 		long RandomSeed = 0;
 		string temp_string, Name, outfilestring;
 		vector <string> Toks;
+
+#if DO_PFAM == 1
+		PfamModelAnalysis();
+		exit(-1);
+#endif
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Stuff for Ding's work on tree support
@@ -81,7 +75,7 @@ int ding()	{
 
 	// Input
 	//   Data
-	CData DingDat("mito55_exRog.phy",AA);
+	CData DingDat("MitoData.phy",AA);
 	cout << "\nData read successfully ("<<DingDat.m_iNoSeq << " x " << DingDat.m_iSize << ")";
 	// Name files
 	vector <int> EukNames = ReadNameFile("mito55_Euk.names",&DingDat);
@@ -110,7 +104,7 @@ int ding()	{
 
 
 	cout << "\nNames read successfully" << flush;
-	bool DoGamma = false;
+	bool DoGamma = true;
 	// 	 Tree H1
 	cout << "\nReading trees: H1" << flush;
 	CTree OriT_H1("mito55_exRog_H1.tre", true, &DingDat);
@@ -119,7 +113,7 @@ int ding()	{
 	int H1_Split = FindSpecialSplit(&T_H1,EukRik,EukOth,EukPro,RikOth,RikPro,OthPro);	// The number of the unique branch
 //	PaintTree(&T_H1, H1_Split, EukNames, RikNames, OthNames, ProNames);
 	CEMP LG_H1(&DingDat,&T_H1,"LG",true,(double*)dLGVal,(double*)dLGFreq);
-	if(DoGamma) { LG_H1.MakeGammaModel(0,4,0.75); }
+	if(DoGamma) { LG_H1.MakeGammaModel(0,4,0.63); }
 	cout.precision(10);
 	CHeteroEMP LGHet_H1(&DingDat,&T_H1,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
 
@@ -133,7 +127,7 @@ int ding()	{
 	int H2_Split = FindSpecialSplit(&T_H2,EukRik,EukOth,EukPro,RikOth,RikPro,OthPro);	// The number of the unique branch
 //	PaintTree(&T_H2, H2_Split, EukNames, RikNames, OthNames, ProNames);
 	CEMP LG_H2(&DingDat,&T_H2,"LG",true,(double*)dLGVal,(double*)dLGFreq);
-	if(DoGamma) { LG_H2.MakeGammaModel(0,4,0.75); }
+	if(DoGamma) { LG_H2.MakeGammaModel(0,4,0.63); }
 //	CWAG LG_H2(&DingDat,&T_H2);
 	CHeteroEMP LGHet_H2(&DingDat,&T_H2,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
 
@@ -145,7 +139,7 @@ int ding()	{
 	int H3_Split = FindSpecialSplit(&T_H3,EukRik,EukOth,EukPro,RikOth,RikPro,OthPro);	// The number of the unique branch
 //	PaintTree(&T_H3, H3_Split, EukNames, RikNames, OthNames, ProNames);
 	CEMP LG_H3(&DingDat,&T_H3,"LG",true,(double*)dLGVal,(double*)dLGFreq);
-	if(DoGamma) { LG_H3.MakeGammaModel(0,4,0.75); }
+	if(DoGamma) { LG_H3.MakeGammaModel(0,4,0.63); }
 //	CWAG LG_H3(&DingDat,&T_H3);
 	CHeteroEMP LGHet_H3(&DingDat,&T_H3,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
 
@@ -154,7 +148,7 @@ int ding()	{
 
 #define EXAMINE_AA_CONTENT 0
 #if EXAMINE_AA_CONTENT == 1
-	cout << "\nExamining AA content";
+	cout << "\nExamining AA content across the tree";
 	// Branches and splits
 	vector <SSplit> CompSet1;
 	CTree CompTree = OriT_H1;
@@ -279,6 +273,7 @@ int ding()	{
 	bool DoNormalGamma = true;
 	bool DoHet = true;
 	bool DoHetGamma = true;
+	bool DoHetFreq = false;
 
 	cout << "\nInitial Likelihoods"; cout.precision(10);
 
@@ -290,39 +285,42 @@ int ding()	{
 	if(DoNormal)	{
 		cout << "\nStart: " << M->lnL() << flush;
 		cout << "\nOptimising...";
-		FullOpt(M);
+//		FullOpt(M);
 		cout << "\nLikelihood: "<< M->lnL();
 		cout << "\nTree\n" << *M->Tree();
 
 	}
 	if(DoNormalGamma)	{
-		M->MakeGammaModel(0,4,0.63390);
+		M->MakeGammaModel(0,4,0.63);
 		cout << "\n\nAdded gamma";
 		cout << "\nStart+dG: " << M->lnL() << flush;
 		cout << "\nOptimising...";
-		FullOpt(M);
+//		FullOpt(M);
 		cout << "\nLikelihood+dG: "<< M->lnL();
-		cout << "\nModel+dG\n" << *M;
+		cout << "\nTree\n" << *M->Tree();
+//		cout << "\nModel+dG\n" << *M;
 	}
 	if(DoHet)	{
 		cout << "\nStart: " << MH->lnL() << flush;
 		cout << "\nOptimising...";
-		FullOpt(MH);
+//		FullOpt(MH);
 		cout << "\nLikelihood: "<< MH->lnL();
 		cout << "\nTree\n" << *MH->Tree();
-
 	}
 	if(DoHetGamma)	{
-		MH->MakeGammaModel(0,4,0.63390);
-		cout << "\n\nAdded gamma";
+		MH->MakeGammaModel(0,4,0.63);
+		cout << "\n\nAdded gamma" << flush;
 		cout << "\nStart+dG: " << MH->lnL() << flush;
 		cout << "\nOptimising...";
-		FullOpt(MH);
-		cout << "\nLikelihood+dG: "<< MH->lnL();
-		cout << "\nModel+dG\n" << *MH;
+//		FullOpt(MH,true,true,DoHetFreq);
+		cout << "\nLikelihood+dG: "<< MH->lnL() << flush;
+		cout << "\nTree\n" << *M->Tree();
+//		cout << "\nModel+dG\n" << *MH << flush;
 	}
 	M =NULL;
 	MH = NULL;
+
+	exit(-1);
 
 	cout << "\n------------------------- H2------------------------------";
 	M = &LG_H2;
@@ -537,11 +535,18 @@ CHeteroEMP::CHeteroEMP(CData *Data, CTree *Tree, string Name, double *S_ij, vect
 		vdTemp.clear();
 	}
 	Freqs.push_back(Data->m_vFreq);	// Final category has same as global frequencies
+
+	Freqs.clear();
+	FOR(i,5) { Freqs.push_back(Data->m_vFreq); }
+	cout << "\nFrequencies: "; FOR(i,5) { cout << "\nFreq["<<i<<"]: " << Freqs[i]; }
+
+
 	// Build the process with the new equilibriums
 	int RootFreq = 2;
 	cout << "\nRoot Frequency linked to grouping["<<2<<"] = " << SubTrees[RootFreq];
 	HetProc = new CHeteroEmpProc(Data,Tree,"HeteroProcess",S_ij,Freqs, RootFreq);
-	m_vpProc.push_back(HetProc); HetProc = NULL;
+	m_vpProc.push_back(HetProc);
+	HetProc = NULL;
 	Tree->SetStartCalc(GetRoot(Tree,Root));
 	SetFastBranchOpt(false);
 	FinalInitialisation();
@@ -549,15 +554,62 @@ CHeteroEMP::CHeteroEMP(CData *Data, CTree *Tree, string Name, double *S_ij, vect
 }
 
 // Destructor function
-CHeteroEMP::~CHeteroEMP()	{ /* BLANK */ }
+CHeteroEMP::~CHeteroEMP()	{
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// Model parameters for optimisation
+vector <double *> CHeteroEMP::GetOptPar(bool ExtBranch, bool IntBranch, bool Parameters, bool Eqm)	{
+	int i,j;
+	vector <double *> RetVal = CBaseModel::GetOptPar(ExtBranch,IntBranch,Parameters,false);	// Always falsify the eqm for the het models so the correct thing is initialised
+
+	if(Eqm) {
+		cout << "\nAdding frequencies for optimisation -- this is unstable and untested...";
+		FOR(i,m_vpProc[0]->NoPar())	{
+			if(m_vpProc[0]->pPar(i)->Name().find("Freq_") != string::npos && !m_vpProc[0]->pPar(i)->Special()) {
+				RetVal.push_back(m_vpProc[0]->pPar(i)->OptimiserValue());
+				m_vpAllOptPar.push_back(m_vpProc[0]->pPar(i));
+		}	}
+	}
+//	cout << "\nBuilt the original parameters -- size " << RetVal.size();
+//	FOR(i,m_vpAllOptPar.size()) { cout << "\nPar["<<i<<"]: = " << m_vpAllOptPar[i]->Name() << " = " << *RetVal[i]; }
+/*
+	int ParToTest = 118;
+	double OriVal = *RetVal[ParToTest];
+	cout << "\nOriginal lnL for par = " << *RetVal[ParToTest] << " = " << lnL(true);
+	cout << "\n------------------- Varying parameter " << ParToTest <<": " << *m_vpAllOptPar[ParToTest] << " -----------";
+	for(double dodo =0.1;dodo < 1; dodo +=0.05)	{
+		*RetVal[ParToTest] = dodo;
+		cout << "\n" << *RetVal[ParToTest] << " = " << lnL(true);
+	}
+	*RetVal[ParToTest] = OriVal;
+	cout << "\nOriginal lnL for par = " << *RetVal[ParToTest] << " = " << lnL(true);
+	exit(-1);*/
+	return RetVal;
+}
+
+/*
+ * ORIGINAL STUFF
+ * 	// Get values fo optimising parameters
+	if(Parameters == true && !Locked())	{
+		FOR(i,(int)m_vpPar.size())	{
+			if(m_vpPar[i]->Opt() == false || m_vpPar[i]->Special()) { continue; }
+			string::size_type loc = m_vpPar[i]->Name().find("Freq",0);
+			if(Eqm == false && loc != string::npos) { continue; }
+			OptVal.push_back(m_vpPar[i]->OptimiserValue());
+			m_vpAllOptPar.push_back(m_vpPar[i]);
+	}	}
+ *
+ */
 
 //////////////////////////////////////////////////////////////////////////////////
 // Heterogeneous process implementation
 //////////////////////////////////////////////////////////////////////////////////
 CHeteroEmpProc::CHeteroEmpProc(CData *D, CTree *T, string Name, double *S_ij, vector< vector <double> > Freq, int RootFreq) : CBaseProcess(D,T)	{
-	int i;
+	int i,j;
 	CSimpleEqm *Eqm;
 	CQMat *QMat;
+	string fName;
 	// Initialise some basic stuff
 	m_iRootEquilibrium = -1;
 	MakeBasicSpace(AA);
@@ -572,6 +624,11 @@ CHeteroEmpProc::CHeteroEmpProc(CData *D, CTree *T, string Name, double *S_ij, ve
 		// Add Eqm
 		Eqm = new CSimpleEqm(20,&m_vpPar,Freq[i]);
 		Eqm->SetOpt(false);
+		FOR(j,20) {
+			fName = Eqm->EqmPar(j)->Name();
+			fName.insert(fName.find("Freq") +4 ,"_" + int_to_string(i));
+			Eqm->EqmPar(j)->Name(fName);
+		}
 		m_vpHeteroEqm.push_back(Eqm);
 		Eqm = NULL;
 		// Add QMat
@@ -621,8 +678,10 @@ void CHeteroEmpProc::CreateEMPmodel(double *S_ij,vector <double> Freq)	{
 
 CHeteroEmpProc::~CHeteroEmpProc()	{
 	int i;
-	FOR(i,(int)m_vpHeteroEqm.size()) { if(m_vpHeteroEqm[i] != NULL) { delete m_vpHeteroEqm[i]; m_vpHeteroEqm[i] = NULL; } }
-	FOR(i,(int)m_vpHeteroQMat.size()) { if(m_vpHeteroQMat[i] != NULL) { delete m_vpHeteroQMat[i]; m_vpHeteroQMat[i] = NULL; } }
+	if(!m_bPseudoProcess) {
+		FOR(i,(int)m_vpHeteroEqm.size()) { if(m_vpHeteroEqm[i] != NULL) { delete m_vpHeteroEqm[i]; m_vpHeteroEqm[i] = NULL; } }
+		FOR(i,(int)m_vpHeteroQMat.size()) { if(m_vpHeteroQMat[i] != NULL) { delete m_vpHeteroQMat[i]; m_vpHeteroQMat[i] = NULL; } }
+	}
 }
 
 // Makes the heterogeneous Q matrix
@@ -651,7 +710,8 @@ void CHeteroEmpProc::MakeHetQMat(int ProcNum)	{
 bool CHeteroEmpProc::Make_PT(int Branch, bool RedoRate)	{
 	bool RetVal;
 	Tree()->UpdateB(Branch);
-	if(RedoRate) { m_vpHeteroQMat[Tree()->BranchLabel(Branch)]->ScaleQ(m_pRate->Val()); }
+	if(RedoRate) {
+		m_vpHeteroQMat[Tree()->BranchLabel(Branch)]->ScaleQ(m_pRate->Val()); }
 
 	RetVal = m_vpHeteroQMat[Tree()->BranchLabel(Branch)]->MakePT(Tree()->B(Branch),PT(Branch));
 //	OutPT(cout,Branch);
@@ -667,6 +727,11 @@ bool CHeteroEmpProc::Make_PT(int Branch, bool RedoRate)	{
 
 bool CHeteroEmpProc::Likelihood(bool ForceReal)	{
 	int i;
+	// Rebuild the Q matrices (TODO: This needs flagging for efficiency)
+	FOR(i,m_vpHeteroQMat.size()) {
+			m_vpHeteroQMat[i]->Unlock();
+			MakeHetQMat(i);
+	}
 	FOR(i,m_vpHeteroQMat.size()) { m_vpHeteroQMat[i]->ScaleQ(m_pRate->Val()); }
 	return CBaseProcess::Likelihood(ForceReal);
 }
@@ -700,11 +765,19 @@ CBaseProcess * CHeteroEmpProc::RateProcessCopy()	{
 	count = 0 ; FOR(i,(int)m_vpPar.size()) { if(m_vpPar[i]->Name().find("<->") != string::npos) { assert(count < 190); S_ij[count++] = m_vpPar[i]->Val(); } }
 	NewProc = new CHeteroEmpProc(m_pData, m_pTree,Name,S_ij,Freq,m_iRootEquilibrium);
 	// Fill in some stuff
-	NewProc->m_bAllowTreeSearch = m_bAllowTreeSearch;
+	NewProc->CleanPar();
+	NewProc->CleanQ();
+	// Clean up the m_vpQMat and m_viQ2Bra since they need to match the original processes
+	FOR(i,NewProc->m_vpQMat.size()) { delete NewProc->m_vpQMat[i]; } NewProc->m_vpQMat.clear();
+	FOR(i,(int)m_vpQMat.size())	{ NewProc->m_vpQMat.push_back(m_vpQMat[i]); }
+	// New stuff
+	FOR(i,(int)m_vpHeteroEqm.size()) { delete NewProc->m_vpHeteroEqm[i]; NewProc->m_vpHeteroEqm[i] = m_vpHeteroEqm[i]; }
+	FOR(i,(int)m_vpHeteroQMat.size()) { delete NewProc->m_vpHeteroQMat[i]; NewProc->m_vpHeteroQMat[i] = m_vpHeteroQMat[i]; }
 	NewProc->m_bPseudoProcess = true;
 	NewProc->m_iHiddenChar = m_iHiddenChar;
 	NewProc->m_iDataChar = m_iDataChar;
 	FOR(i,(int)m_vpCovProbs.size()) { NewProc->m_vpCovProbs.push_back(m_vpCovProbs[i]); }
+	FOR(i,(int)m_vpEqm.size()) { NewProc->m_vpEqm.push_back(m_vpEqm[i]); }
 	NewProc->m_bMaxRate = m_bMaxRate;
 	NewProc->m_bIsProcessCopy = true;
 
