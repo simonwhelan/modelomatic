@@ -97,23 +97,6 @@ int main(int argc, char *argv[])	{
 	// Some initial verification
 	if(min(LOOSE_RMSD_SUBSET,FULL_RMSD_SUBSET) < 105 && min(LOOSE_PARS_SUBSET,FULL_PARS_SUBSET) < 105) { Error("\nTrying to choose subsets of trees to examine based both on RMSD and parsimony"); }
 
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Stuff for Ding's work on tree support
-	// -----------------
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Final Files expected
-	// Tree files: mito55_Simon_H1.tre, mito55_Simon_H2.tre, mito55_Simon_H3.tre, mito55_Simon_H0.tre
-	// Data file: mito55_exRog.phy
-	// Eukaryote name file: mito55_Euk.names
-	// Rickettsia name file: mito55_Rik.names
-	// Others name file: mito55_Oth.names
-	// Proteobacteria name file: mito55_Pro.names
-
-	// Work in progress files expected
-	// Tree files: mito55_exRog_H1.tre mito55_exRog_H2.tre mito55_exRog_H3.tre
-	ding();	// Head function in ding.cxx
-	cout << "\nCompleted Ding work\n"; exit(-1);
-
 	// Get information
 	if(!InRange(argc,2,8)) {
 		cout << "ModelOMatic <data_file> <tree> <output_file> <genetic_code> <normal/fast/trim> <models_out>\n";

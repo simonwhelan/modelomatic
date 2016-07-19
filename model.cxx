@@ -441,11 +441,11 @@ void CBaseModel::FixSmallBranches()	{
 //		cout << "\nTree: " << *m_vpProc[i]->Tree();
 		FOR(j,m_vpProc[i]->Tree()->NoBra())	{
 //			cout << "\nChecking branch " << j << "/" << m_vpProc[i]->Tree()->NoBra()<< " = " << m_vpProc[i]->Tree()->B(j) << flush;
-			if(m_vpProc[i]->Tree()->B(j) < 100 * DX) { m_vpProc[i]->Tree()->SetB(j,0.01,true); }
+			if(m_vpProc[i]->Tree()->B(j) < 100 * DX) { m_vpProc[i]->Tree()->SetB(j,500 * DX,true); }
 		}
 //		cout << "\nNewTree: " << *m_vpProc[i]->Tree();
 	}
-	FOR(i,(int)TreesDone.size()) { TreesDone[i] = NULL; } TreesDone.~vector();
+	FOR(i,(int)TreesDone.size()) { TreesDone[i] = NULL; } TreesDone.clear();
 }
 
 bool CBaseModel::CheckSameTree()	{
@@ -1287,6 +1287,7 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		DoBraOpt(true,0,1,0,true,&CurlnL,tol,false);
 		return CurlnL;
 	}
+	FixSmallBranches();							// 0. Fix the small branches otherwise optimisation can fail
 	BestlnL = lnL(true);							// 1. Do the first calculation
 	FOR(i,NoIter)	{
 		newlnL = BestlnL;	// new_lnL hold current optimal likelihood
