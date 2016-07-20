@@ -273,7 +273,6 @@ public:
 	ECodonEqm m_EqmType;														// Stores the eqm type
 	int m_iGenCode;																// Store the genetic code
 	vector <double> Eqm();														// Returns eqm distribution
-	void ResetEqm(vector <double> Eqm, bool RandomFactor);					// Resets the equlibrium distribution
 private:
 	ECodonEqm m_CE;
 	void ConstructCodonEqm(vector <double> eqm);								// Construct the eqm
@@ -372,7 +371,7 @@ public:
 	void PrepareFastCalc(vector <int> *C = NULL);					// Prepares the columns for fast calculations from vector (if blank it makes its own
 	void DecompressSpace();																// Reverts to normal memory allocation
 
-	bool PrepareLikelihood(bool DoQ, bool ForceRemake, bool DoScale = true);		// Prepare for the main likelihood function
+	bool PrepareLikelihood(bool DoQ, bool ForceRemake);		// Prepare for the main likelihood function
 	bool CreatePTMats(int Bra = -1);				// Creates the PT matrices ready for for branch [Bra]; if(Bra == -1) Do all branches...
 	bool Likelihood(bool ForceReal = false);		// Main likelihood function
 	virtual double Penalty() { return 0.0; }		// Returns a penalty value for penalized likelihood (if appropriate)
@@ -387,7 +386,7 @@ public:
 
 	// Functions for getting branch derivatives
 	virtual void PrepareBraDer();						// Prepare the process for get branch derivatives function
-	bool GetBraDer(CProb *ModelL);                          // Gets the branch derivatives. ModelL = array of partial likelihoods for whole model
+	bool GetBraDer(CProb *ModelL);				// Gets the branch derivatives. ModelL = array of partial likelihoods for whole model
 
 
 	// Parameter access functions
@@ -395,7 +394,7 @@ public:
 	CQPar * Kappa(EDataType Type);					// Adds kappa to a DNA (4x4) or Codon (64x64) process
 	int Size() { return m_iSize; }						// Returns the size
 	int PatOcc(int i) { assert(m_pData != NULL); assert(InRange(i,0,m_pData->m_iSize)); return m_pData->m_ariPatOcc[i]; }
-	inline string Name(string NewName="")	{ if(NewName.size() == 0) return m_sName; else m_sName = NewName; }
+	inline string Name()	{ return m_sName; }
 	inline int NoPar()		{ return (int)m_vpPar.size(); }			// Returns the number of parameters
 	inline int Char() { return m_iChar; };				// Returns the number of states in the model
 	inline int HiddenChar() { return m_iHiddenChar; }	// Returns the number of hidden states in the process
@@ -404,22 +403,19 @@ public:
 	bool PseudoProcess() { return m_bPseudoProcess; }	// Returns whether process is a pseudoprocess
 	CQPar *RatePar() { return m_pRate; }			// Returns a pointer to the rate parameter
 	CQPar *ProbPar() { return m_pProcProb; }		// Returns a pointer to the probability parameters
-	CPar *pPar(int i){ assert(i<NoPar()); return m_vpPar[i]; }	// Return a parameter when I want a CPar object
-	CQPar *pQPar(int i) { assert(i<NoPar()); return m_vpPar[i]; }	// Return a parameter when I want a CQPar object
+	CPar *pPar(int i){ assert(i<NoPar()); return m_vpPar[i]; }	// Return a parameter
 	CPar *AddQPar(CQPar *P) { assert(P!=NULL); m_vpPar.push_back(P); return P; }	// Adds a parameter
 	CTree *Tree() { if(IsSubTree()) { return m_pSubTree; } return m_pTree; }	// Returns a pointer to the tree
 	vector <CBaseEqm *> EqmPar() { return m_vpEqm; }			// Returns the Eqm parameters
 	vector<double> Eqm(int QMatNum) { return m_vpQMat[QMatNum]->Eqm(); };	// Returns the numerical value of equilibrium
 	virtual vector <double> RootEqm();				// Returns the root equilibrium for likelihood calculations
 	void OutEqm(int QMat = -1, ostream &os = cout);	// Returns the eqm distribution
-	double Rate(double NewRate = -1.0,bool MakeRateOpt = false);// Returns the rate and if NewRate >= 0 sets m_pRate = NewRate; Access to the rate *parameter*
-	double CalcRate(int QMat = 0);								// Calculate the overall rate of a process (sum of pi[i] * Q[i][i])
+	double Rate(double NewRate = -1.0,bool MakeRateOpt = false);// Returns the rate and if NewRate >= 0 sets m_pRate = NewRate
 	bool MaxRate() { return m_bMaxRate;}						// Whether the process is meant to be max rate
 	bool MakeMaxRate() { m_bMaxRate = true; }					// Enforces max rate
 	bool MakeNormalRate() { m_bMaxRate = false;	}  				// Goes back to a 'normal' rate
 	CQPar *AddRatePar2Opt();									// Adds rate parameter to the optimised parameters
-	void RemovePar(string Name, bool AllowFail = false);		// Removes a parameter from the process
-	CQPar *GetPar(string Name, bool AllowFail = false);			// Returns a parameter with a specific name
+	void RemovePar(string Name);						// Removes a parameter from the process
 
 	CTree *MainTree(CTree *T = NULL);							// Pointer to underlying tree
 	CData *MainData() { return m_pData; }						// Pointer to underlying data
@@ -432,10 +428,6 @@ public:
 	// Functions dealing with the processes probability
 	double Prob() { return m_pProcProb->Val() / *m_piProbFactor; }					// Returns the probability of the process
 	void SetProbFactor(int i) { *m_piProbFactor = i; }
-
-	// Place holders for accessing codon model information
-	virtual double SynRate(bool Observed) 	{ return 0.0; }					// Gets the observed rate of synonymous substitutions
-	virtual double NonsynRate(bool Observed)	{ return 0.0; }					// Gets the observed rate of non-synonymous substitutions
 
 	// Functions for shuffling parameters
 	virtual void ShuffleParameters() { cout << "\nDoing an empty shuffle..."; exit(-1); };				// Useful for mixture models where parameters combinations cause problems...
@@ -457,8 +449,8 @@ public:
 	void CleanSubTree();									// Clears subtree from likelihood computation
 	bool OldGetBraDer(CTree *Tree, bool Init = true);			// Calculate branch derivatives (returns whether it was successful)
 	// Function that delivers the likelihood of a site
-	CProb &ModelL(int Site) { return m_arModelL[Site]; }
 	CProb &L(int Site)	{ assert(IsProb(Prob())); return m_ardL[Site].Multiply(Prob(),false); }; 			// The final likelihoods
+	CProb &ModelL(int Site) { return m_arModelL[Site]; }
 	bool LOkay() { if(MATCH_PAML == 1) { return true; } return FlipBool(m_bFailedL); };			// Returns whether the likelihood has computed
 	bool IsGamma() { return m_bIsGamma;	}					// returns whether the process is gamma distributed
 	void MakeGamma() { m_bIsGamma = true; }					// Flags that the process has a gamma distributed rate associated with it
@@ -570,7 +562,7 @@ protected:
 	vector <CSite> m_vBackSp;			// Space used for backwards calculations (for branch derivatives)
 
 	CProb *m_ardL;						// The final likelihoods
-	CProb *m_arModelL;                                      // Pointer to the final model likelihoods (set in PrepareBraDer and calculated in CBaseModel::Sitewise
+	CProb *m_arModelL;					// Pointer to the final model likelihoods (set in PrepareBraDer and calculated in CBaseModel::Sitewise
 	// Space access helpers
 	inline int InitNodePos(int Node)	{ if(!m_bAllowTreeSearch) { assert(Tree()->NoSeq() == m_pData->m_iNoSeq); Node -= m_pData->m_iNoSeq; assert(Node >= 0); } return (Node * m_iSize); }
 	inline int PartLNode()				{ return m_pTree->NoNode(); }
@@ -720,8 +712,8 @@ public:
 	CQPar * AddDrDcOmega(int GenCode, vector <int> RadFile, int Val2Add);
 	void AddMultiChangeZeros(int GenCode);
 	// Functions for getting overall rates of certain types of events
-	double SynRate(bool Observed);					// Gets the observed rate of synonymous substitutions
-	double NonsynRate(bool Observed);					// Gets the observed rate of non-synonymous substitutions
+	double ObsSynRate();					// Gets the observed rate of synonymous substitutions
+	double ObsNonsynRate();					// Gets the observed rate of non-synonymous substitutions
 	// Other interaction functions
 	int GenCode() { return m_iGenCode; }
 	// Output

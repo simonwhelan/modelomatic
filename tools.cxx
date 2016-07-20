@@ -5,6 +5,23 @@
 CMemChecker memory_check;
 #endif
 
+// Implementation of troublesome math functions
+int my_isnan(double x)  {
+#ifdef __INTEL_COMPILER
+  return isnan(x);
+#else
+  return std::isnan(x);
+#endif
+}
+
+int my_isinf(double x) {
+#ifdef __INTEL_COMPILER
+  return isinf(x);
+#else
+  return std::isinf(x);
+#endif
+}
+
 ///////////////////////////////////////////////////////////////////////
 // Some tools
 bool ALLOW_PREDICTLNL = true;	// Whether to allow predicted lnLs in optimisation

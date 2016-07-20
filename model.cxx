@@ -60,6 +60,7 @@ void CBaseModel::CleanMemory()	{
 	// Do public
 	FOR(i,m_vpProc.size()) { if(m_vpProc[i] != NULL) { delete m_vpProc[i]; } }
 	m_vpProc.clear();
+	m_vdProbProc.clear();
 	m_pData = NULL; m_pTree = NULL; m_pSubTree = NULL;
 	DEL_MEM(m_arL); m_sName = "Unassigned";
 	// Do private
@@ -441,7 +442,7 @@ void CBaseModel::FixSmallBranches()	{
 		}
 //		cout << "\nNewTree: " << *m_vpProc[i]->Tree();
 	}
-	FOR(i,(int)TreesDone.size()) { TreesDone[i] = NULL; } TreesDone.~vector();
+	FOR(i,(int)TreesDone.size()) { TreesDone[i] = NULL; } TreesDone.clear();
 }
 
 bool CBaseModel::CheckSameTree()	{
@@ -586,13 +587,11 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 }
 
 
-double CBaseModel::GetNumDerivative(double *x, double Old_lnL, CPar *pPar)      {
+double CBaseModel::GetNumDerivative(double *x, double Old_lnL)	{
 	double grad = 0.0, OldPar = *x, UseDX = max(DX,*x * DX), new_lnL, new_par;
-	bool UpBound = false, LowBound = false, IsProb = false;
+	bool UpBound = false, LowBound = false;
 	Old_lnL = -fabs(Old_lnL);		// Correct the likelihood (may not be necessary...).
 	if(OldPar < 0) { UseDX *= -1; }
-        // If pPar != NULL check whether it's a probability or not^M
-        if(pPar != NULL)        { if(pPar->IsProb()) { IsProb = true; } }
 	// Get the derivative
 #if DERIVATIVE_DEBUG == 1
 	if(fabs(Old_lnL -lnL()) > 1.0E-5)	{ cout << "\nNumerical derivative starting; ori_p: " << OldPar << " == lnL: " << Old_lnL << " != actual lnL: " << lnL() << " diff: " << fabs(Old_lnL - lnL()); Error("Hmm");}
@@ -660,6 +659,9 @@ double CBaseModel::GetNumDerivative(double *x, double Old_lnL, CPar *pPar)      
 // Function that does any extra initialisations required before calculations
 void CBaseModel::FinalInitialisation()		{
 	CreateOptPar();			// Create the optimised parameters
+	// Get the probability vector sorted
+	if(m_vdProbProc.empty()) { m_vdProbProc.assign((int)m_vpProc.size(),1.0 / (double) m_vpProc.size());  }
+	assert(m_vdProbProc.size() == m_vpProc.size());
 	// Create the partial likelihood
 	GET_MEM(m_arL,CProb,m_pData->m_iSize);
 }
@@ -1280,6 +1282,7 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		DoBraOpt(true,0,1,0,true,&CurlnL,tol,false);
 		return CurlnL;
 	}
+	FixSmallBranches();							// 0. Fix the small branches otherwise optimisation can fail
 	BestlnL = lnL(true);							// 1. Do the first calculation
 	FOR(i,NoIter)	{
 		newlnL = BestlnL;	// new_lnL hold current optimal likelihood
@@ -1287,11 +1290,12 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 //#if DEVELOPER_BUILD == 1
 		cout << "\n\n--- Round " << i<< ". " << newlnL << " (tol: "<< working_tol << ") ---";;
 		cout << "\nOriginal branches:  "; int j; FOR(j,Tree()->NoBra()) { cout << Tree()->B(j) << " "; }
+		cout << "\nTree\n" << *Tree();
 		cout << flush;
 #endif
 		BranchOpt(-1,Tree()->StartCalc(),-1, &BestlnL,working_tol);	// 2. Run the fast optimisation routine
 //		double plop = BestlnL; cout << "\nDone branch: BestlnL: " << BestlnL;
-		BestlnL = lnL();
+		BestlnL = lnL(true);			// Calculation must be done here using true space, otherwise the next round of the optimisation fails.
 //		cout << " cf. new: " << BestlnL << " diff = " << fabs(plop - BestlnL);
 		if(working_tol > tol) { working_tol = max(tol,working_tol/100); }
 //#if DEVELOPER_BUILD == 1
@@ -1311,9 +1315,7 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 // Optimise the set of branches
 void CBaseModel::BranchOpt(int First,int NTo, int NFr, double *BestlnL,double tol)	{
 	int i,j,OriFirst = First;
-
 //	cout << "\nInto CBaseModel::BranchOpt(" << First << ", " << NTo << "," << NFr << ", " << *BestlnL << ")";
-
 	if(NFr == -1)	{
 		rFOR(i,Tree()->NoLinks(NTo)) { if(Tree()->NodeLink(NTo,i) == -1) { continue; } BranchOpt(First,Tree()->NodeLink(NTo,i),NTo,BestlnL,tol);
 	}	} else {
@@ -1386,7 +1388,7 @@ void CBaseModel::SingleBranchOpt(int Br, double *BestlnL, double tol) {
 
 // Optimise a single branch providing the partial likelihoods are correctly assigned
 #define RETURN_DOBRAOPT Par = NULL; PreparePT(Br); \
-/*		cout << "\n\tReturning Branch: " << Tree()->B(Br) << "; best_lnL: " << *BestlnL << " (x1: " << x1_lnL << "; x2: " << x2_lnL << "; x3: " << x3_lnL << ")"; */ \
+	/* cout << "\n\tReturning Branch: " << Tree()->B(Br) << "; best_lnL: " << *BestlnL << " (x1: " << x1_lnL << "; x2: " << x2_lnL << "; x3: " << x3_lnL << ")"; */ \
 	if(AllowUpdate) { if(IsExtBra) { FOR(i,(int)m_vpAssociatedModels.size()) { m_vpAssociatedModels[i]->Leaf_update(NTo,NFr,Br,Tree(),First,true); } Leaf_update(NTo,NFr,Br,Tree(),First,true); } \
 	else { FOR(i,(int)m_vpAssociatedModels.size()) { m_vpAssociatedModels[i]->Bran_update(NTo,NFr,Br,Tree(),First,true,false); } Bran_update(NTo,NFr,Br,Tree(),First,true,false); }}  return;
 #define GS_DELTA 5
@@ -1395,7 +1397,9 @@ void CBaseModel::SingleBranchOpt(int Br, double *BestlnL, double tol) {
 const double phi = (1 + sqrt(5)) /2;
 const double resphi = 2 - phi;
 
-
+#if FASTBRANCHOPT_DEBUG == 1
+bool ErrorCheckInBralnL = false;
+#endif
 
 // Brent version of DoBraOpt
 void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, double *BestlnL,double tol, bool AllowUpdate)	{
@@ -1408,19 +1412,24 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	ori_x = x2 = *p_x;	ori_lnL = *BestlnL;
 //	ori_lnL = *BestlnL = DoBralnL(Br,NFr,NTo);
 #if FASTBRANCHOPT_DEBUG == 1
+	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
 	if(fabs(*BestlnL - DoBralnL(Br,NFr,NTo)) > 1.0E-6) {
-
+		cout.precision(16);
 		cout << "\n ===================== ERROR IN BRANCH " << Br << " (" << Tree()->BraLink(Br,0) << "," << Tree()->BraLink(Br,1) << ") ================";
+		cout << "\nTrying DoBralnL again = " << DoBralnL(Br,NFr,NTo);
+//		cout << "\nOtherway round? = " << DoBralnL(Br,NTo,NFr);
+		ErrorCheckInBralnL = true;	// Output from DoBralnL
 		double Counter1 = DoBralnL(Br,NFr,NTo), Counter2 = lnL(true);
 		double Pouncer1 = 0.0, Pouncer2 = 0.0;
 		cout << "\nError in Update... BestlnL:  " << *BestlnL << " != " << Counter1 << " -> diff = " << fabs(*BestlnL - Counter1);
 		cout << "\nReal likeklihood: " << Counter2 << endl;
 		cout << "\nPouncer1: " << Pouncer1 << " cf. " << Pouncer2;
-		cout << "\nTrying DoBralnL again = " << DoBralnL(Br,NFr,NTo);
-		cout << "\nOtherway round? = " << DoBralnL(Br,NTo,NFr);
+//		cout << "\nSitewise likelihoods under full: ";
+//		FOR(i,m_pData->m_iSize) {  i= 215; cout << "\nSite[" << i<< "]: " << m_vpProc[0]->L(i).LogP() << " * " << m_pData->m_ariPatOcc[i] << " = " <<  m_vpProc[0]->L(i).LogP() * m_pData->m_ariPatOcc[i];  break; }
+//		cout << "\nAnd the model: " << *this;
 		exit(-1);
 	}
-	//	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
+
 #endif
 
 	// ------------------------------------- Catch entry into bounds ------------------------------------
@@ -1588,9 +1597,10 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 		else					{ *p_x = xi = x2 - resphi * (x2-x1); }
 		// break condition
 		// if(fabs(x3_lnL - x1_lnL) < tol) { /* cout << "\nBreaking at tol=" << tol << " fabs(" << x3_lnL << " - " << x1_lnL << ")";  */ *p_x = x2 = (x1+x3)/2; break; }
-//		if(fabs(x3_lnL - x1_lnL) < tol) { cout << "\nBreaking at tol=" << tol << " fabs(" << x3_lnL << " - " << x1_lnL << ")";   *p_x = x2; break; }
+		if(fabs(x3_lnL - x1_lnL) < tol) { /* cout << "\nBreaking at tol=" << tol << " fabs(" << x3_lnL << " - " << x1_lnL << ")";  */ *p_x = x2; break; }
 		// Search
 		temp = DoBralnL(Br,NFr,NTo);
+//		cout.precision(10); cout << "\n[" << i << "] x1: " << x1 << ": " << x1_lnL << "; x2: " << x2 << ": " << x2_lnL << "; x3: " << x3 << ": " << x3_lnL;
 //		cout << "\n[i="<<i<<"] xi:" << xi << ": " << temp << " range(" << x1 << "," << x3 << ")=" << x3-x1 << " ; lnL imp: " << fabs(x3_lnL - x1_lnL) << " cf. " << tol;
 //		cout << "\n\tx2 [x1=] " << x2_lnL - x1_lnL << " [x3=] " << x3_lnL - x2_lnL;
 		if(temp > x2_lnL) {
@@ -1602,20 +1612,19 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 		}
 //		cout << "[x1:" << x1 << ", x2:" << x2 << ", x3:" << x3 << ","<< max(x1_lnL,max(x2_lnL,x3_lnL)) << "]" << flush;
 	}
+	*p_x = x2;
 #endif
-
 /*
+	cout.precision(16);
 	cout << "\nFinished search: x: " << *p_x << " = " << temp << " == " << DoBralnL(Br,NFr,NTo);
 	cout << ": tol= " << max(x2_lnL - x1_lnL,x2_lnL - x3_lnL);
 	cout << "\n---\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
 	cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
-	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")"; */
-	// Finish by doing the calculation again to correctly update the partial likelihoods
+	cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
+*/	// Finish by doing the calculation again to correctly update the partial likelihoods
 	m_iFastBralnL_Calls++;
-
 	if(x2_lnL > ori_lnL) { *p_x = x2; *BestlnL = x2_lnL; } else { if(fabs(x2_lnL - ori_lnL) > tol) { cout << "\nWeird... optimiser (tol=" << tol << ") made worse likelihood in CBaseModel::DoBraOpt(...)\n"; cout << " should have: " << ori_lnL << " and have " << DoBralnL(Br,NFr,NTo) << " diff = " << DoBralnL(Br,NFr,NTo) - ori_lnL; } *p_x = ori_x; *BestlnL = ori_lnL;  }
 	Par->StoreOptBounds(x1,x3);
-
 	RETURN_DOBRAOPT;
 }
 
@@ -1660,12 +1669,16 @@ double CBaseModel::DoBralnL(int B, int NF,int NT, bool JustClean)	{
 		if(m_vpProc[i]->Prob() < MIN_PROB) { continue; }
 		m_vpProc[i]->GetBranchPartL(P,NT,NF,B);
 	}
-//	cout << "\n {{{{{{{{{{{{{{{ Doing DoBralnL }}}}}}}}}}}}}}";
 	FOR(i,m_pData->m_iSize) {
-#if DEVELOPER_BUILD == 1
-		if(i<5) { cout << "\n\t\tSite["<<i<<"]:  ";
-		int j; FOR(j,m_pData->m_iNoSeq) { cout << m_pData->m_sABET[m_pData->m_ariSeq[j][i]]; }
-			cout << " " << P[i]->LogP(); }
+#if FASTBRANCHOPT_DEBUG == 1
+		if(ErrorCheckInBralnL) {
+			if(i == 0) { cout << "\nOutputting DoBralnL Sitewise"; }
+			if(i== 215) {
+				cout << "\n\t\tSite["<<i<<"]:  ";
+				int j; FOR(j,m_pData->m_iNoSeq) {  if(m_pData->m_ariSeq[j][i]< m_pData->m_iChar) { cout << m_pData->m_sABET[m_pData->m_ariSeq[j][i]]; } else { cout << "-"; }}
+				cout << " " << P[i]->LogP() << " * " << m_pData->m_ariPatOcc[i] << " = " << P[i]->LogP() * m_pData->m_ariPatOcc[i];
+			}
+		}
 #endif
 		logL += P[i]->LogP() * m_pData->m_ariPatOcc[i]; }
 //	cout << "\nReturning lnL: " << logL; // << " cf. " << lnL(true);

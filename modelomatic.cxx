@@ -18,8 +18,8 @@
 #include <set>
 
 #define CHECK_LNL_OUT 1
-#define VERSION_NUMBER "1.02 (release)"
-#define DEVELOPER_VERSION_MAIN 0
+#define VERSION_NUMBER "1.03 (develop)"
+#define DEVELOPER_VERSION_MAIN 1
 
 #if DO_MEMORY_CHECK == 1
 extern CMemChecker memory_check;
@@ -48,6 +48,16 @@ void DoInstructions();
 bool RunHadError = false;
 
 bool WarningMulD;
+
+
+int STRUCT_COUNTER = 0;
+class CMYTEST {
+public:
+	int number;
+	CMYTEST(int a) { cout << "+"; number = a; STRUCT_COUNTER++; }
+	CMYTEST(const CMYTEST &test) { cout << "="; number = test.number; STRUCT_COUNTER++; }
+	~CMYTEST() { cout << "-"; number = -1; STRUCT_COUNTER--; }
+};
 
 // File specific global variables
 int DebugOutput = 0;
@@ -268,18 +278,6 @@ int main(int argc, char *argv[])	{
 	cout << "\nScanning for modelomatic.ini file ...";
 	GetModels();
 	cout << " done";
-	// 9. Create the other data sets
-	CData NT_Data = *PhyDat.pData();
-	CData AA_Data = *PhyDat.pData();
-	CData AA_Temp = *PhyDat.pData();  AA_Temp.Translate(GeneticCode);	// Error check the translation for stop codons and so on
-	CData COD_Data = *PhyDat.pData(); //COD_Data.MakeCodonData();
-	CData RY_Data = *PhyDat.pData(); //RY_Data.DNA2RY();
-
-//	cout << "\nRY:  \t" << RY_Data.CountMSAChars();
-//	cout << "\nDNA: \t" << PhyDat.pData()->CountMSAChars();
-//	cout << "\nAA:  \t" << AA_Temp.CountMSAChars();
-//	cout << "\nCoD:  \t" << COD_Data.CountMSAChars();
-	// Set output
 	PhyDat.SetOut(outfilestring);
 
 	cout << "\nWorking with genetic code: " << GenCodeName[GeneticCode];
