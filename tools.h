@@ -31,31 +31,13 @@
 #include <ctime>
 #include <vector>
 #include <istream>
-
-#if defined(__APPLE__)
-#if (__GNUC__ >= 4)
-  #include <cmath>
-  #define my_isnan(x) std::isnan(x)
-#else
-  #include <math.h>
-  #define my_isnan(x) __isnand((double)x)
-#endif
-#else
 #include <cmath>
-#ifdef _MSC_VER
-#pragma warning(disable:4786)
-template <class IsNanType> int my_isnan(IsNanType X) {
-	return _isnan(X);
-}
-#else
-template <class IsNanType> int my_isnan(IsNanType X) {
-	if(isinf(X)) { return true; }
-	return isnan(X);
-}
-#endif
-#endif
 
 using namespace std;
+
+// Math functions that have trouble porting
+int my_isnan(double x);
+int my_isinf(double x);
 
 #define DO_MEMORY_CHECK 0
 #if DO_MEMORY_CHECK

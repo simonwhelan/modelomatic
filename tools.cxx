@@ -1,6 +1,24 @@
 //////////////// Implementation of some useful tools //////////////////
 #include "tools.h"
 
+// Implementation of troublesome math functions
+int my_isnan(double x)  {
+#ifdef __INTEL_COMPILER
+  return isnan(x);
+#else
+  return std::isnan(x);
+#endif
+}
+
+int my_isinf(double x) {
+#ifdef __INTEL_COMPILER
+  return isinf(x);
+#else
+  return std::isinf(x);
+#endif
+}
+
+
 #if DO_MEMORY_CHECK
 CMemChecker memory_check;
 #endif
