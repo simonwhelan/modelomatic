@@ -1674,8 +1674,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
 			//if(fold < fp - FULL_LIK_ACC) {
 			if(fp - fold > FULL_LIK_ACC * 100) {
 				cout.precision(12);
-				cout << "\ndiff ("<<fold << "-" << fp << "): " << fabs(fold-fp) << ";";
-				Error(" ... Error... likelihood decreased in value???");
+				cout << "\nWARNING likelihood decreased in value: diff ("<<fold << "-" << fp << "): " << fabs(fold-fp) << ";";
 			}
 			cout << "." << flush;
 		}
