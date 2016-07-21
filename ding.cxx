@@ -39,7 +39,7 @@ extern vector <STabuTree> TabuTrees;
 extern vector <double> PWDists;
 extern int TABU_RADIUS;
 
-#define DO_PFAM 0		// Whether to do the Pfam analysis in PfamModel.cxx
+#define DO_PFAM 1		// Whether to do the Pfam analysis in PfamModel.cxx
 
 int ding()	{
 		int Ret = 0;
@@ -113,7 +113,7 @@ int ding()	{
 	int H1_Split = FindSpecialSplit(&T_H1,EukRik,EukOth,EukPro,RikOth,RikPro,OthPro);	// The number of the unique branch
 //	PaintTree(&T_H1, H1_Split, EukNames, RikNames, OthNames, ProNames);
 	CEMP LG_H1(&DingDat,&T_H1,"LG",true,(double*)dLGVal,(double*)dLGFreq);
-	if(DoGamma) { LG_H1.MakeGammaModel(0,4,0.63); }
+//	if(DoGamma) { LG_H1.MakeGammaModel(0,4,0.63); }
 	cout.precision(10);
 	CHeteroEMP LGHet_H1(&DingDat,&T_H1,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
 
@@ -127,7 +127,7 @@ int ding()	{
 	int H2_Split = FindSpecialSplit(&T_H2,EukRik,EukOth,EukPro,RikOth,RikPro,OthPro);	// The number of the unique branch
 //	PaintTree(&T_H2, H2_Split, EukNames, RikNames, OthNames, ProNames);
 	CEMP LG_H2(&DingDat,&T_H2,"LG",true,(double*)dLGVal,(double*)dLGFreq);
-	if(DoGamma) { LG_H2.MakeGammaModel(0,4,0.63); }
+//	if(DoGamma) { LG_H2.MakeGammaModel(0,4,0.63); }
 //	CWAG LG_H2(&DingDat,&T_H2);
 	CHeteroEMP LGHet_H2(&DingDat,&T_H2,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
 
@@ -139,14 +139,14 @@ int ding()	{
 	int H3_Split = FindSpecialSplit(&T_H3,EukRik,EukOth,EukPro,RikOth,RikPro,OthPro);	// The number of the unique branch
 //	PaintTree(&T_H3, H3_Split, EukNames, RikNames, OthNames, ProNames);
 	CEMP LG_H3(&DingDat,&T_H3,"LG",true,(double*)dLGVal,(double*)dLGFreq);
-	if(DoGamma) { LG_H3.MakeGammaModel(0,4,0.63); }
+//	if(DoGamma) { LG_H3.MakeGammaModel(0,4,0.63); }
 //	CWAG LG_H3(&DingDat,&T_H3);
 	CHeteroEMP LGHet_H3(&DingDat,&T_H3,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
 
 	cout << " ... done" << flush;
 	cout << "\nTrees and data input" << flush;
 
-#define EXAMINE_AA_CONTENT 0
+#define EXAMINE_AA_CONTENT 1
 #if EXAMINE_AA_CONTENT == 1
 	cout << "\nExamining AA content across the tree";
 	// Branches and splits
@@ -283,37 +283,41 @@ int ding()	{
 	M = &LG_H1;
 	MH = &LGHet_H1;
 	if(DoNormal)	{
-		cout << "\nStart: " << M->lnL() << flush;
+		cout << "\nStart " << M->Name() << " " << M->lnL() << flush;
 		cout << "\nOptimising...";
 //		FullOpt(M);
 		cout << "\nLikelihood: "<< M->lnL();
+//		FOR(i,5) { cout << "\nSite["<<i<<"]: " << M->m_arL[i].LogP(); FOR(j,M->m_vpProc.size()) { cout << "  " << M->m_vpProc[j]->m_ardL[i]; } }
 		cout << "\nTree\n" << *M->Tree();
 
 	}
 	if(DoNormalGamma)	{
 		M->MakeGammaModel(0,4,0.63);
 		cout << "\n\nAdded gamma";
-		cout << "\nStart+dG: " << M->lnL() << flush;
+		cout << "\nStart " << M->Name() << ": " << M->lnL() << flush;
 		cout << "\nOptimising...";
 //		FullOpt(M);
 		cout << "\nLikelihood+dG: "<< M->lnL();
+//		FOR(i,5) { cout << "\nSite["<<i<<"]: " << M->m_arL[i].LogP(); FOR(j,M->m_vpProc.size()) { cout << "  " << M->m_vpProc[j]->m_ardL[i]; } }
 		cout << "\nTree\n" << *M->Tree();
 //		cout << "\nModel+dG\n" << *M;
 	}
 	if(DoHet)	{
-		cout << "\nStart: " << MH->lnL() << flush;
+		cout << "\nStart " << MH->Name() << ": " << MH->lnL() << flush;
 		cout << "\nOptimising...";
 //		FullOpt(MH);
 		cout << "\nLikelihood: "<< MH->lnL();
+//		FOR(i,5) { cout << "\nSite["<<i<<"]: " << M->m_arL[i].LogP(); FOR(j,MH->m_vpProc.size()) { cout << "  " << MH->m_vpProc[j]->m_ardL[i]; } }
 		cout << "\nTree\n" << *MH->Tree();
 	}
 	if(DoHetGamma)	{
 		MH->MakeGammaModel(0,4,0.63);
 		cout << "\n\nAdded gamma" << flush;
-		cout << "\nStart+dG: " << MH->lnL() << flush;
+		cout << "\nStart " << MH->Name() << ": " << MH->lnL() << flush;
 		cout << "\nOptimising...";
 //		FullOpt(MH,true,true,DoHetFreq);
 		cout << "\nLikelihood+dG: "<< MH->lnL() << flush;
+//		FOR(i,5) { cout << "\nSite["<<i<<"]: " << M->m_arL[i].LogP(); FOR(j,MH->m_vpProc.size()) { cout << "  " << MH->m_vpProc[j]->m_ardL[i]; } }
 		cout << "\nTree\n" << *M->Tree();
 //		cout << "\nModel+dG\n" << *MH << flush;
 	}
@@ -486,7 +490,7 @@ void PaintTree(CTree *T, vector <vector <int> > Subtrees)	{
 	int i;
 	// Check the Subtree labels are unique, so only one species occurs in each group
 	vector <int> vTemp; FOR(i,(int)Subtrees.size()) { vTemp.insert(vTemp.end(),Subtrees[i].begin(),Subtrees[i].end()); }
-	sort(vTemp.begin(),vTemp.end()); auto last = unique(vTemp.begin(),vTemp.end()); vTemp.erase(last,vTemp.end());
+	sort(vTemp.begin(),vTemp.end()); vector <int>::iterator last = unique(vTemp.begin(),vTemp.end()); vTemp.erase(last,vTemp.end());
 	// Paint the tree with the last label first
 	T->SetLabels((int)Subtrees.size());
 	// Now paint the rest of the tree
@@ -520,6 +524,7 @@ CHeteroEMP::CHeteroEMP(CData *Data, CTree *Tree, string Name, double *S_ij, vect
 	CBaseProcess *HetProc;
 	// Init stuff
 	m_sName = Name;
+
 	// Start by painting the tree (Also checks validity of SubTrees)
 	PaintTree(Tree,SubTrees);
 	// Create the vector of frequencies
@@ -536,9 +541,8 @@ CHeteroEMP::CHeteroEMP(CData *Data, CTree *Tree, string Name, double *S_ij, vect
 	}
 	Freqs.push_back(Data->m_vFreq);	// Final category has same as global frequencies
 
-	Freqs.clear();
-	FOR(i,5) { Freqs.push_back(Data->m_vFreq); }
-	cout << "\nFrequencies: "; FOR(i,5) { cout << "\nFreq["<<i<<"]: " << Freqs[i]; }
+//	Freqs.clear(); FOR(i,5) { Freqs.push_back(Data->m_vFreq); }
+//	cout << "\nFrequencies: "; FOR(i,5) { cout << "\nFreq["<<i<<"]: " << Freqs[i]; }
 
 
 	// Build the process with the new equilibriums
@@ -548,7 +552,7 @@ CHeteroEMP::CHeteroEMP(CData *Data, CTree *Tree, string Name, double *S_ij, vect
 	m_vpProc.push_back(HetProc);
 	HetProc = NULL;
 	Tree->SetStartCalc(GetRoot(Tree,Root));
-	SetFastBranchOpt(false);
+	SetFastBranchOpt(true);
 	FinalInitialisation();
 	cout << "\HetRoot set to " << Tree->StartCalc();
 }
@@ -615,6 +619,7 @@ CHeteroEmpProc::CHeteroEmpProc(CData *D, CTree *T, string Name, double *S_ij, ve
 	MakeBasicSpace(AA);
 	m_DataType = AA;
 	m_sName = Name;
+
 	// Some minor validation. That's mostly done at the model level
 	assert(D != NULL); assert(D->m_DataType == AA);
 	if(D->m_DataType != AA) { Error("Trying to initialise AA model with data that doesn't look like amino acids...\n\n"); }
@@ -697,7 +702,7 @@ void CHeteroEmpProc::MakeHetQMat(int ProcNum)	{
 		m_vpPar[i]->UpdatePar();
 		m_vpHeteroQMat[ProcNum]->ApplyPar2Q(m_vpPar[i]);
 	}
-//	cout << "\nApplied parameters" << flush;
+//	cout << "\nApplied "<< m_vpPar.size() << " parameters" << flush;
 	m_vpHeteroEqm[ProcNum]->ApplyEqm2QMat(m_vpHeteroQMat[ProcNum]->Q(),m_vpHeteroQMat[ProcNum]->ID());
 //	cout << "\nApplied Frequencies\n" << *m_vpHeteroQMat[ProcNum] << endl << flush;
 	m_vpHeteroQMat[ProcNum]->DoQDiag();
@@ -714,7 +719,7 @@ bool CHeteroEmpProc::Make_PT(int Branch, bool RedoRate)	{
 		m_vpHeteroQMat[Tree()->BranchLabel(Branch)]->ScaleQ(m_pRate->Val()); }
 
 	RetVal = m_vpHeteroQMat[Tree()->BranchLabel(Branch)]->MakePT(Tree()->B(Branch),PT(Branch));
-//	OutPT(cout,Branch);
+//	cout << "\nBranch["<<Branch<<"] uses Q["<<Tree()->BranchLabel(Branch)<<"]\n"; OutPT(cout,Branch);
 /*
 	if(Branch < 2) {
 		cout << "\nMaking PT for branch[" << Branch<<"] = " << Tree()->BranchLabel(Branch) << " rate= " << m_pRate->Val() << " ; REDO = " << RedoRate <<" ; PT: ";
@@ -728,10 +733,12 @@ bool CHeteroEmpProc::Make_PT(int Branch, bool RedoRate)	{
 bool CHeteroEmpProc::Likelihood(bool ForceReal)	{
 	int i;
 	// Rebuild the Q matrices (TODO: This needs flagging for efficiency)
-	FOR(i,m_vpHeteroQMat.size()) {
+	if(!m_bIsProcessCopy) {
+		FOR(i,m_vpHeteroQMat.size()) {
 			m_vpHeteroQMat[i]->Unlock();
 			MakeHetQMat(i);
-	}
+	}	}
+//	FOR(i,m_vpHeteroEqm.size()) { cout << "\nEqm["<<i<<"]: " << m_vpHeteroEqm[i]->Eqm(); }
 	FOR(i,m_vpHeteroQMat.size()) { m_vpHeteroQMat[i]->ScaleQ(m_pRate->Val()); }
 	return CBaseProcess::Likelihood(ForceReal);
 }
@@ -763,6 +770,8 @@ CBaseProcess * CHeteroEmpProc::RateProcessCopy()	{
 	FOR(i,m_vpHeteroEqm.size()) { storeFreq = m_vpHeteroEqm[i]->Eqm(); Freq.push_back(storeFreq); }
 
 	count = 0 ; FOR(i,(int)m_vpPar.size()) { if(m_vpPar[i]->Name().find("<->") != string::npos) { assert(count < 190); S_ij[count++] = m_vpPar[i]->Val(); } }
+	assert(count == 190);
+
 	NewProc = new CHeteroEmpProc(m_pData, m_pTree,Name,S_ij,Freq,m_iRootEquilibrium);
 	// Fill in some stuff
 	NewProc->CleanPar();
@@ -780,6 +789,8 @@ CBaseProcess * CHeteroEmpProc::RateProcessCopy()	{
 	FOR(i,(int)m_vpEqm.size()) { NewProc->m_vpEqm.push_back(m_vpEqm[i]); }
 	NewProc->m_bMaxRate = m_bMaxRate;
 	NewProc->m_bIsProcessCopy = true;
+
+
 
 	// Return it
 	return NewProc;

@@ -1667,7 +1667,7 @@ double MulD_Optimise(double OrilnL,double gtol ,double ltol,vector <double *> x,
     }
 	// Iterate
 	FOR(its,NumberIter)	{
-		cout << "\n\t--- Iter: " << its << ": " << fp; //  << " cf. " << Model->lnL(true) << " (" << fabs(fp+Model->lnL(true)) << ")" << flush ;
+		cout << "\n\t--- Iter: " << its << "/" << NumberIter<< ": " << fp; //  << " cf. " << Model->lnL(true) << " (" << fabs(fp+Model->lnL(true)) << ")" << flush ;
 		cout << "\nOutput to <Checkpoint.txt>"; ofstream outcheck("Checkpoint.txt"); outcheck << *Model << flush; outcheck.close();
 		if(DoBasicOutput) {
 //			cout << "\n\t["<<its<<"] " <<fold << " -> " << fp << flush; //  << " cf. " << Model->lnL() << flush;

@@ -56,9 +56,9 @@ public:
     /////////////////////////////////
 
     // Constructor functions
-    CTree(string TREE, int NoSeq, bool AllowFail = false, CData *Data = NULL, bool AllowSubTree = false);			// Basic constructor
-	CTree(string TREE, bool GetTreeFromFile,CData *Data =NULL, bool AllowFail = false, bool AllowSubTree = false);	// Risky constructor (may be wrong tree for data)
-	void CreateTree(string TREE,int NoSeq,bool CheckVar = true, bool AllowFail = false,bool AllowSubTree = false,CData *D = NULL);// Underlying construction function
+    CTree(string TREE, int NoSeq, bool AllowFail = false, CData *Data = NULL, bool UnRoot = true, bool AllowSubTree = false);			// Basic constructor
+	CTree(string TREE, bool GetTreeFromFile,CData *Data =NULL, bool AllowFail = false, bool UnRoot = true, bool AllowSubTree = false);	// Risky constructor (may be wrong tree for data)
+	void CreateTree(string TREE,int NoSeq,bool CheckVar = true, bool AllowFail = false, bool UnRoot = true, bool AllowSubTree = false,CData *D = NULL);// Underlying construction function
     // Blank constructor
     CTree(CData *D = NULL);
 	// Copy Constructor

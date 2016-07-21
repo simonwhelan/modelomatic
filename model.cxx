@@ -441,11 +441,11 @@ void CBaseModel::FixSmallBranches()	{
 //		cout << "\nTree: " << *m_vpProc[i]->Tree();
 		FOR(j,m_vpProc[i]->Tree()->NoBra())	{
 //			cout << "\nChecking branch " << j << "/" << m_vpProc[i]->Tree()->NoBra()<< " = " << m_vpProc[i]->Tree()->B(j) << flush;
-			if(m_vpProc[i]->Tree()->B(j) < 100 * DX) { m_vpProc[i]->Tree()->SetB(j,0.01,true); }
+			if(m_vpProc[i]->Tree()->B(j) < 100 * DX) { m_vpProc[i]->Tree()->SetB(j,500 * DX,true); }
 		}
 //		cout << "\nNewTree: " << *m_vpProc[i]->Tree();
 	}
-	FOR(i,(int)TreesDone.size()) { TreesDone[i] = NULL; } TreesDone.~vector();
+	FOR(i,(int)TreesDone.size()) { TreesDone[i] = NULL; } TreesDone.clear();
 }
 
 bool CBaseModel::CheckSameTree()	{
@@ -806,7 +806,7 @@ void CBaseModel::OutputSitelnL(string File) {
 	int site,i,j;
 	ofstream out(File.c_str());
 	out << "Site\tPattern\tlnL";
-	FOR(site,m_pData->m_iSize)	{
+	FOR(site,m_pData->m_iTrueSize)	{
 		out << "\n" << site << "\t"; FOR(i,m_pData->m_iNoSeq) { out << m_pData->m_vsTrueSeq[i][site]; } out << "\t" << m_arL[m_pData->m_ariPatMap[site]].LogP();
 	}
 	out.close();
@@ -1299,6 +1299,7 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		DoBraOpt(true,0,1,0,true,&CurlnL,tol,false);
 		return CurlnL;
 	}
+    FixSmallBranches();                                                     // 0. Fix the small branches otherwise optimisation can fail
 	BestlnL = lnL(true);							// 1. Do the first calculation
 	FOR(i,NoIter)	{
 		newlnL = BestlnL;	// new_lnL hold current optimal likelihood

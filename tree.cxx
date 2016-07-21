@@ -150,13 +150,13 @@ CNode &CNode::operator=(const CNode & Node) {
 // **********************************************************
 
 // Top level constructors
-CTree::CTree(string TREE, int NoSeq, bool AllowFail, CData *Data, bool AllowSubTree)	{
+CTree::CTree(string TREE, int NoSeq, bool AllowFail, CData *Data, bool DoUnroot, bool AllowSubTree)	{
 #if DO_MEMORY_CHECK
 	memory_check.CountCTree++;
 #endif
-	m_iRootNode = -1; m_bRooted = false; m_bValid = false; m_ariBraLinks = NULL; CreateTree(TREE,NoSeq,true,AllowFail,AllowSubTree, Data); }		// Basic constructor
+	m_iRootNode = -1; m_bRooted = false; m_bValid = false; m_ariBraLinks = NULL; CreateTree(TREE,NoSeq,true,AllowFail,DoUnroot,AllowSubTree, Data); }		// Basic constructor
 
-CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail, bool AllowSubTree)	{		// Risky constructor (may be wrong tree for data)
+CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail, bool DoUnroot, bool AllowSubTree)	{		// Risky constructor (may be wrong tree for data)
 #if DO_MEMORY_CHECK
 	memory_check.CountCTree++;
 #endif
@@ -177,7 +177,7 @@ CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail, bool Al
 		}
 	}
 	else { store = TREE; }
-	CreateTree(store,FileNoSeq,true,AllowFail,AllowSubTree,Data);
+	CreateTree(store,FileNoSeq,true,AllowFail,DoUnroot,AllowSubTree,Data);
 }
 
 int IsTreeGap(char Check)	{
@@ -211,7 +211,7 @@ CTree::CTree(const CTree &Tree)	{
 // NOTE4:  This routine is wasteful of space as it takes an extra node rooted trees regardless of their shape
 // NoSeq is the number of leaf nodes in the tree
 /////////////////////////////////////////////////////
-void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,bool AllowSubTree,CData *D) {
+void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail, bool DoUnroot, bool AllowSubTree,CData *D) {
     int i,j,pRight=0,pLeft=0,NextPointer=0,Parent, IntVal = -1, mem_seq, countBra, SubSeq;
 	size_t pos, pos_e;
     double TempBranch[3];		// Stores branch lengths
@@ -411,6 +411,9 @@ void CTree::CreateTree(string Tree, int NoSeq, bool CheckVar, bool AllowFail,boo
 	temp_l2.assign(temp_l.begin(),temp_l.end());
 	FOR(i,(int)m_viBranchLabels.size()) { FOR(j,(int)temp_l2.size()) { if(temp_l2[j] == m_viBranchLabels[i]) { m_viBranchLabels[i] = j; break; } } }
 	m_iNoBraLabels = (int)temp_l2.size();
+	// Unroot
+	if(DoUnroot) { Unroot(); }
+
 }
 
 // Create the branch links. Also works for sub trees
@@ -1295,6 +1298,7 @@ void CTree::Unroot()	{
 	int i,j, branch = NodeBra(m_iRootNode,0), pLeft = NodeLink(m_iRootNode,0), pRight = NodeLink(m_iRootNode,1);
 	int braLeft = NodeBra(m_iRootNode,0), braRight = NodeBra(m_iRootNode,1);
 	CNode ** ppNodeStore;
+	assert(m_iNoNode == m_iMemNode);		// Checks this equality so that memory management works
 	// Correct the branch length and remove the right hand branch
 	m_vpBra[pLeft]->SetVal(m_vpBra[braLeft]->Val() + m_vpBra[braRight]->Val(), true, true);
 	m_vpBra.erase(m_vpBra.begin() + pRight);
@@ -1320,11 +1324,14 @@ void CTree::Unroot()	{
 		if(i==m_iRootNode) { continue; }
 		ppNodeStore[j++] = m_Node[i];
 	}
-	for(i=0;i<m_iMemNode;i++) { if(m_Node[i] != NULL) { delete m_Node[i]; }}
+	// Clean up m_Node. Pointers to NULL except for the root node to be deleted
+	for(i=0;i<m_iMemNode;i++) { if(i == m_iRootNode) { delete m_Node[i]; } else { m_Node[i] = NULL; } }
 	delete [] m_Node;
+	m_Node = new CNode*[m_iMemNode - 1];		// New m_Node is one smaller
+	// Copy the nodes back
+	j = 0;
+	FOR(i,m_iMemNode) { if(i == m_iRootNode) { continue; } m_Node[j++] = ppNodeStore[i]; } delete [] ppNodeStore;
 	m_iMemNode = m_iNoNode - 1;
-	m_Node = new CNode*[m_iMemNode];
-	FOR(i,m_iMemNode) { m_Node[i] = ppNodeStore[i]; } delete [] ppNodeStore;
 	// Finish up the other stuff
 	m_iRootNode = -1; m_bRooted = false; m_iNoNode--; m_iNoBra--;
 	BuildBraLinks(true); // Get the list of branches links

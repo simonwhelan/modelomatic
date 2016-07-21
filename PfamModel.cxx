@@ -42,13 +42,19 @@ string SmallTree = "mito55_small.tre";
 
 enum RunType { LG,PFAM,HET };
 
+bool SAR11Run = true;		// Whether to run the models an SAR11. Will not accept HET model runs
 bool DoShort = false;
-RunType DoPfamModel = HET;
+RunType DoPfamModel = PFAM;
 bool DoGamma = true;
 bool DoOpt = true;			// Whether to do the optimisation. Used for debug
 bool DoH1 = true;
 bool DoH2 = true;
 bool DoH3 = true;
+bool DoOptHere = false;		// Whether to do optimisation in the H1/H2/H3 and general tree functions
+
+double GammaLG[3] = { 0.636298 , 0.636299 , 0.636508 };
+double GammaPfam[3] = { 0.605827 , 0.606925 , 0.606983 };
+double GammaHet[3] = { 0.633508 , 0.633970 , 0.633941 };
 
 /////////////////////////////////////// Pfam model main code ////////////////////////////////////////////////////////////////
 void PfamModelAnalysis()	{
@@ -65,6 +71,10 @@ void PfamModelAnalysis()	{
 	CPfamModel *PfamLG_H1, *PfamLG_H2,*PfamLG_H3;
 	CEMP *LG_H1, *LG_H2, *LG_H3;
 	CHeteroEMP *LGHet_H1, *LGHet_H2, *LGHet_H3;
+	CPfamModel *PfamM = NULL;
+	CEMP *LGM = NULL;
+	CTree *T = NULL;
+	CData *SarDat;
 
 
 	// Set model header
@@ -75,7 +85,6 @@ void PfamModelAnalysis()	{
 	}
 	if(DoGamma) { Extra = Extra + ".dG"; }
 	cout << "\nDoing " << Extra << " analysis\n------------------------------";
-
 	cout << "\nInitialising data and hypotheses" << flush; cout.precision(10);
 
 	//////////////////////////////// Create smaller data sets ////////////////////////
@@ -179,18 +188,127 @@ void PfamModelAnalysis()	{
 		Model = NULL;
 		exit(-1);
 	}
+	//////////////////////////////// Do SAR 11 run ///////////////////////////////////
+	if(SAR11Run)	{
+/*
+		cout << "\nReached right place";
+		double *P,*R;
+		int NoC = 10; double Alpha = 0.6;
+		GET_MEM(P,double,NoC); GET_MEM(R,double,NoC);
+		// Check some entry conditions
+		// Get the gamma distributed rates
+		DiscreteGamma(P,R,Alpha,Alpha,NoC,0);
+
+		cout << "\nGetting gamma -- alpha ["<<NoC<<"] = " << Alpha << " == { "; FOR(i,NoC) { cout << "\nCat["<<i<<"]: Prob= " << P[i] << ", Rate= " << R[i] << " "; } cout << "}";
+		exit(-1);
+*/
+
+		int run;
+		const int NumTrees = 4;
+		char *Trees[] = {"mito55_H1Sr1.tre","mito55_H1Sr2.tre","mito55_H3Sr1.tre","mito55_H3Sr2.tre" };
+		string DataFile = "SarData.phy";
+		string OutputName;
+
+		CData SDat(DataFile,AA, false,0,true);
+		CTree TT(Trees[0],true,&SDat);
+		CEMP TM(&SDat,&TT,"LG",true,(double*)dLGVal,(double*)dLGFreq);
+
+		switch(DoPfamModel) {
+		case LG:
+			SarDat = new CData(DataFile,AA, false,0,true);
+			break;
+		case HET:
+		case PFAM:
+			SarDat = new CData(DataFile,AA, false,0,true,false); break;
+		}
+		cout << "\nData read successfully ("<<SarDat->m_iNoSeq << " x " << SarDat->m_iSize << ")" << flush;
+		switch(DoPfamModel) {
+		case LG: cout << " ... LG model"; break;
+		case HET:
+		case PFAM: cout << " ... HET/PFAM model"; break;
+		};
+
+		FOR(run,NumTrees) {
+			// Set stuff up
+			switch(DoPfamModel) {
+			case LG:
+				T = new CTree(Trees[run],true,SarDat);
+				LGM = new CEMP(SarDat,T,"LG",true,(double*)dLGVal,(double*)dLGFreq); Model = LGM;
+				break;
+			case PFAM:
+				T = new CTree(Trees[run],true,SarDat);
+				PfamM = new CPfamModel(SarDat,T,freq_file); Model = PfamM;
+				break;
+			case HET: cout << "\nError: General trees not accepted by heterogeneous model"; exit(-1);
+			};
+			if(DoGamma) { Model->MakeGammaModel(0,4,0.630); }
+			// Do the analysis
+			cout << "\n--------------------------------------- Doing analysis: " << Trees[run] << " ---------------------------------------";
+			OutputName = Trees[run];
+			if(DoOptHere)	{
+				cout << "\nStarting optimisation" << flush;
+				if(DoOpt) { curlnL = FullOpt(Model,true, true, false, -BIG_NUMBER,true,DEFAULT_OPTNUM,curlnL,FULL_LIK_ACC,true,true); }
+		//		cout << "\nModel:\n" << *Model;
+			} else {
+				curlnL = Model->lnL(true);
+			}
+			// Output stuff
+			cout << "\n >>>>>>>>>>>>>>>>>>>>>>>>> Done. Final likelihood: " << curlnL << " <<<<<<<<<<<<<<<<<<<<<<<<<<" << flush;
+			Name1 = "ModelDetails." + OutputName + Extra + ".txt";
+			Name2 = "SiteLikelihoods." + OutputName + Extra + ".txt";
+			ofstream poutter(Name1.c_str());
+			poutter << *Model;
+			poutter.close();
+			Model->OutputSitelnL(Name2.c_str());
+			// Clean up
+			Model = NULL;
+			if(LGM != NULL) { delete LGM; LGM = NULL; }
+			if(PfamM != NULL) { delete PfamM; PfamM = NULL; }
+			delete T; T = NULL;
+		}
+		cout << "\nFINISHED...\n";
+		exit(-1);
+	}
 
 	// Input
 	//   Data
 	cout << "\nReading <"<<MainData<<">" << flush;
-	CData DingDat(MainData,AA, false,0,true,false);
-	cout << "\nData read successfully ("<<DingDat.m_iNoSeq << " x " << DingDat.m_iSize << ")" << flush;
+	CData *DingDat;
+//	cout << "\nTest" << flush;
+//	CData *DoDah; DingDat = new CData(MainData,AA,false,0,true,false);
+//	CData DoDah(MainData,AA,false,0,true,false);
+//	cout << "... okay" << flush;
+//	exit(-1);
+
+	CTree *T_H1, *T_H2, *T_H3;
+	// Trees
+	// 	 Tree H1
+	switch(DoPfamModel) {
+	case LG:
+		DingDat = new CData(MainData,AA, false,0,true);
+		T_H1 = new CTree("MitoTree.LG.H1.tre",true,DingDat);
+		T_H2 = new CTree("MitoTree.LG.H2.tre",true,DingDat);
+		T_H3 = new CTree("MitoTree.LG.H3.tre",true,DingDat);
+		break;
+	case PFAM:
+		DingDat = new CData(MainData,AA, false,0,true,false);
+		T_H1 = new CTree("MitoTree.pfam.H1.tre",true,DingDat);
+		T_H2 = new CTree("MitoTree.pfam.H2.tre",true,DingDat);
+		T_H3 = new CTree("MitoTree.pfam.H3.tre",true,DingDat);
+		break;
+	case HET:
+		DingDat = new CData(MainData,AA,false,0,true,false);
+		T_H1 = new CTree("MitoTree.het.H1.tre",true,DingDat);
+		T_H2 = new CTree("MitoTree.het.H2.tre",true,DingDat);
+		T_H3 = new CTree("MitoTree.het.H3.tre",true,DingDat);
+		break;
+	};
+	cout << "\nData read successfully ("<<DingDat->m_iNoSeq << " x " << DingDat->m_iSize << ")" << flush;
 /*	cout << "\nPattern freqs\n---";
 	FOR(i,DingDat.m_iSize) { cout << "\n["<<i<<"] x " << DingDat.m_ariPatOcc[i] << "\t"; FOR(j,DingDat.m_iNoSeq) { cout << DingDat.m_vsTrueSeq[j][i]; } } exit(-1);
 */
-	// Trees
-	// 	 Tree H1
-	cout << "\nReading trees: H1" << flush;
+
+/*	cout << "\nReading trees: H1" << flush;
 	CTree OriT_H1("mito55_exRog_H1.tre", true, &DingDat);
 	OriT_H1.OutBra(); OriT_H1.OutName();
 	CTree T_H1 = OriT_H1;
@@ -203,7 +321,7 @@ void PfamModelAnalysis()	{
 	cout << " ... H3" << flush;
 	CTree OriT_H3("mito55_exRog_H3.tre", true, &DingDat);
 	OriT_H3.OutBra(); OriT_H3.OutName();
-	CTree T_H3 = OriT_H3;
+	CTree T_H3 = OriT_H3;*/
 	// Initialise models
 
 	/*
@@ -211,25 +329,26 @@ void PfamModelAnalysis()	{
 	 *
 	 */
 
+	//////////////////////////// Standard run ////////////////////////////////////////
 	switch(DoPfamModel) {
 	case LG:
-		LG_H1 = new CEMP(&DingDat,&T_H1,"LG",true,(double*)dLGVal,(double*)dLGFreq);
-		LG_H2 = new CEMP(&DingDat,&T_H2,"LG",true,(double*)dLGVal,(double*)dLGFreq);
-		LG_H3 = new CEMP(&DingDat,&T_H3,"LG",true,(double*)dLGVal,(double*)dLGFreq);
+		LG_H1 = new CEMP(DingDat,T_H1,"LG",true,(double*)dLGVal,(double*)dLGFreq);
+		LG_H2 = new CEMP(DingDat,T_H2,"LG",true,(double*)dLGVal,(double*)dLGFreq);
+		LG_H3 = new CEMP(DingDat,T_H3,"LG",true,(double*)dLGVal,(double*)dLGFreq);
 		break;
 	case PFAM:
-		PfamLG_H1 = new CPfamModel(&DingDat,&T_H1,freq_file);
-		PfamLG_H2 = new CPfamModel(&DingDat,&T_H2,freq_file);
-		PfamLG_H3 = new CPfamModel(&DingDat,&T_H3,freq_file);
+		PfamLG_H1 = new CPfamModel(DingDat,T_H1,freq_file);
+		PfamLG_H2 = new CPfamModel(DingDat,T_H2,freq_file);
+		PfamLG_H3 = new CPfamModel(DingDat,T_H3,freq_file);
 		break;
 	case HET:
 		// Organise name files
-		EukNames = ReadNameFile("mito55_Euk.names",&DingDat);
-		RikNames = ReadNameFile("mito55_Rik.names",&DingDat);
-		OthNames = ReadNameFile("mito55_Oth.names",&DingDat);
-		ProNames = ReadNameFile("mito55_Pro.names",&DingDat);
-		RootNames = ReadNameFile("mito55_root.names",&DingDat);
-		assert(EukNames.size() + RikNames.size() + OthNames.size() + ProNames.size() == DingDat.m_vsName.size());
+		EukNames = ReadNameFile("mito55_Euk.names",DingDat);
+		RikNames = ReadNameFile("mito55_Rik.names",DingDat);
+		OthNames = ReadNameFile("mito55_Oth.names",DingDat);
+		ProNames = ReadNameFile("mito55_Pro.names",DingDat);
+		RootNames = ReadNameFile("mito55_root.names",DingDat);
+		assert(EukNames.size() + RikNames.size() + OthNames.size() + ProNames.size() == DingDat->m_vsName.size());
 		SubNames.push_back(EukNames); SubNames.push_back(RikNames); SubNames.push_back(OthNames); SubNames.push_back(ProNames);
 		vector <int> Temp;
 		// Build pairwise sets of these four => 4C2 = 6
@@ -245,13 +364,13 @@ void PfamModelAnalysis()	{
 		vector <int> RikPro = Temp;
 		Temp = VecCon(OthNames,ProNames); sort(Temp.begin(),Temp.end());
 		vector <int> OthPro = Temp;
-		LGHet_H1 = new CHeteroEMP(&DingDat,&T_H1,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
-		cout << "\nLGHet_H1:  "<< LGHet_H1->lnL(true); exit(-1);
-		LGHet_H2 = new CHeteroEMP(&DingDat,&T_H2,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
-		LGHet_H3 = new CHeteroEMP(&DingDat,&T_H3,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
+		LGHet_H1 = new CHeteroEMP(DingDat,T_H1,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
+		LGHet_H2 = new CHeteroEMP(DingDat,T_H2,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
+		LGHet_H3 = new CHeteroEMP(DingDat,T_H3,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
 		break;
 
 	}
+
 /*
 	CHeteroEMP LGHet_H1(&DingDat,&T_H1,"LG_Hetero",(double*)dLGVal,SubNames,RootNames);
 	cout << "\nBuilding model from file: <" << freq_file << ">";
@@ -265,15 +384,22 @@ void PfamModelAnalysis()	{
 */
 //	CEMP LG_H1(&DingDat,&T_H1,"LG",false,(double*)dLGVal,(double*)dLGFreq);
 //	cout << "\nLG model" << LG_H1.lnL(true); exit(-1);
-	bool DoOptHere = true;
 	if(DoH1) {
 		cout << "\n---------------------------------------- Likelihood H1: " << flush;
 		switch(DoPfamModel) {
-		case LG: Model = LG_H1; break;
-		case PFAM: Model = PfamLG_H1; break;
-		case HET: Model = LGHet_H1; break;
+		case LG:
+			Model = LG_H1;
+			Model->MakeGammaModel(0,4,GammaLG[0]);
+		break;
+		case PFAM:
+			Model = PfamLG_H1;
+			Model->MakeGammaModel(0,4,GammaPfam[0]);
+			break;
+		case HET:
+			Model = LGHet_H1;
+			Model->MakeGammaModel(0,4,GammaHet[0]);
+		break;
 		}
-		Model->MakeGammaModel(0,4,0.63);
 		curlnL = Model->lnL(true);
 		cout << curlnL << " ------------------------------------------\n";
 		if(DoOptHere)	{
@@ -294,11 +420,19 @@ void PfamModelAnalysis()	{
 	if(DoH2) {
 		cout << "\n---------------------------------------- Likelihood H2: " << flush;
 		switch(DoPfamModel) {
-		case LG: Model = LG_H1; break;
-		case PFAM: Model = PfamLG_H1; break;
-		case HET: Model = LGHet_H1; break;
+		case LG:
+			Model = LG_H2;
+			Model->MakeGammaModel(0,4,GammaLG[1]);
+		break;
+		case PFAM:
+			Model = PfamLG_H2;
+			Model->MakeGammaModel(0,4,GammaPfam[1]);
+			break;
+		case HET:
+			Model = LGHet_H2;
+			Model->MakeGammaModel(0,4,GammaHet[1]);
+		break;
 		}
-		Model->MakeGammaModel(0,4,0.63);
 		curlnL = Model->lnL(true);
 		cout << curlnL << " ------------------------------------------\n";
 		if(DoOptHere)	{
@@ -318,11 +452,19 @@ void PfamModelAnalysis()	{
 	if(DoH3) {
 		cout << "\n---------------------------------------- Likelihood H3: " << flush;
 		switch(DoPfamModel) {
-		case LG: Model = LG_H1; break;
-		case PFAM: Model = PfamLG_H1; break;
-		case HET: Model = LGHet_H1; break;
+		case LG:
+			Model = LG_H3;
+			Model->MakeGammaModel(0,4,GammaLG[2]);
+		break;
+		case PFAM:
+			Model = PfamLG_H3;
+			Model->MakeGammaModel(0,4,GammaPfam[2]);
+			break;
+		case HET:
+			Model = LGHet_H3;
+			Model->MakeGammaModel(0,4,GammaHet[2]);
+		break;
 		}
-		Model->MakeGammaModel(0,4,0.63);
 		curlnL = Model->lnL(true);
 		cout << curlnL << " ------------------------------------------\n";
 		if(DoOptHere)	{
@@ -339,7 +481,7 @@ void PfamModelAnalysis()	{
 		}
 		delete Model;
 	}
-
+	delete T_H1, T_H2, T_H3, DingDat;
 	cout << "\nDone...\n" << flush;
 
 }
@@ -353,6 +495,8 @@ CPfamModel::CPfamModel(CData *D, CTree *T, string File) : CBaseModel(D,T)	{
 	vector <double> OutFreq;
 	CPfamProcess *TempProc;
 	m_sName = "PfamModel";
+	// Check tree
+	if(T->IsRooted()) { cout << "\nTree cannot be rooted for Pfam Model" << flush; exit(-1); }
 	// Some temporary code to output some frequencies //
 	if(false) 	{
 		ofstream out(File.c_str());

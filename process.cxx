@@ -159,7 +159,7 @@ void CGammaPar::GlobalApply()	{
 	// Get the gamma distributed rates
 	DiscreteGamma(P,R,Val(),Val(),NoCat(),0);
 //	cout << "\nRate: " << Rate;
-
+//	FOR(i,NoCat()) { R[i] = 1.0; }
 	FOR(i,NoCat())	{ R[i] *= Rate; m_arpRates[i]->SetVal(R[i]); }
 //	cout << "\nGetting gamma -- alpha ["<<m_arpRates.size() << ":"<<NoCat()<<"] = " << Val() << " == { "; FOR(i,NoCat()) { cout << R[i] << " "; } cout << "}";
 	// Tidy up
@@ -1063,7 +1063,7 @@ void CBaseProcess::MakeCalcSpace(bool AllowRemake)	{
 	m_iSpaceSize = m_iSize = m_pData->m_iSize;
 	m_iSpaceNoSeq = m_pData->m_iNoSeq;
 	m_iSiCh = m_iChar * m_iSize;
-	// Get space vectors (The last node is the final partial likelihood
+	// Get space vectors (The last node is the final partial likelihood.
 	m_vSpace.assign(m_iSize * (NoNode + 1),CSite(&m_iChar));
 	m_vBackSp.assign(m_iSize * (NoNode + 1),CSite(&m_iChar));
 	GET_MEM(m_ardQP,double,NoBra * m_iChar2);

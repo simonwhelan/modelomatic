@@ -55,6 +55,7 @@ CData::CData(string file, EDataType SpecType, bool AllowFail, streampos FilePos,
    	getline(input,store);
    	input.close();
    	if(input.eof()) { cout << "\nUnexpected end of file at beginning of file......"; if(!AllowFail) { Error(); } }
+   	if(store.empty()) { cout << "\nOpening of file " << file << " is empty. Please check\n" << flush; exit(-1); }
    	Toks = Tokenise(store);
 	if(Toks[0].find("#NEXUS") != string::npos) {
 		InputNexus(file);
