@@ -998,7 +998,9 @@ double CProb::LogP()	{
 #if HARD_DEBUG_PROBS == 1
 	if(my_isnan(m_dValue)) { cout << "\nReturning LogP(): m_dValue= " << m_dValue << "; m_iScale= " << m_iScale; exit(-1); }
 #endif
-	if(IsZero()) { if(MATCH_PAML == 0) { return -BIG_NUMBER; } else { return log(pow((double)10,-80)); }} return (log(m_dValue) + (-LOG10 * m_iScale));
+//	if(IsZero()) { if(MATCH_PAML == 0) { return -BIG_NUMBER; } else { return log(pow((double)10,-80)); }}		// Old code for matching PAML likelihoods in extreme circumstances
+	if(IsZero()) { return -BIG_NUMBER; }
+	return (log(m_dValue) + (-LOG10 * m_iScale));
 }
 bool CProb::IsZero()	{
 #if HARD_DEBUG_PROBS == 1

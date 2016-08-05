@@ -1239,9 +1239,9 @@ void CBaseModel::PrepareProcessProbs(bool OptProbs)	{
 // The first one is to get reasonable sets of branches at a lower tolerance
 double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIter, bool CheckPars)	{
 	int i,j, Branches = 0;
-	double newlnL, BestlnL = 0.0, working_tol;
+	double newlnL, BestlnL = 0.0, working_tol, OrilnL = CurlnL;
 	assert(CurlnL < 0);
-	if(!m_bAllowFastBranchOpt) { return CurlnL; }
+	vector <double> OriB; FOR(i,Tree()->NoBra()) { OriB.push_back(Tree()->B(i)); }
 #if FASTBRANCHOPT_DEBUG == 1
 	cout << "\n\n<<<<<<<<<<<<<<<<<<<<<<<<<<< NEW ROUND OF FAST BRANCH OPT >>>>>>>>>>>>>>>>>>>>" << flush;
 #endif
@@ -1310,6 +1310,11 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		if(fabs(BestlnL - lnL()) > tol) { cout << "\nBig Error..."; exit(-1); }
 #endif
 		if(fabs(BestlnL - newlnL) < tol) { break; }				// 3. Control exit
+		// 4. If the likelihood has gone down then restore the original tree (occurs when branches are fixed)
+		if(BestlnL < OrilnL)	{
+			FOR(i,Tree()->NoBra()) { Tree()->SetB(i,OriB[i],true); }
+			BestlnL = newlnL = lnL(true); // Resets everything
+		}
 	}
 	if(Conv != NULL) { if(i==NoIter) { *Conv = false; } else { *Conv = true; } }
 //	cout << "\nReturning: " << BestlnL << " cf. " << lnL() << " fabs: " << fabs(BestlnL - lnL()); // exit(-1);
