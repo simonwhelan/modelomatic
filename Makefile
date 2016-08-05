@@ -1,9 +1,9 @@
 
 
-CXX     = g++ # STANDARD COMPILER; OSX + LINUX
-CC      = gcc
-#CXX     = x86_64-w64-mingw32-g++ -static        # CROSS PLATFORM COMPILER WINDOWS
-#CC      = x86_64-w64-mingw32-gcc -static        # CROSS PLATFORM COMPILER WINDOWS
+#CXX     = g++ # STANDARD COMPILER; OSX + LINUX
+#CC      = gcc
+CXX     = x86_64-w64-mingw32-g++ -static        # CROSS PLATFORM COMPILER WINDOWS
+CC      = x86_64-w64-mingw32-gcc -static        # CROSS PLATFORM COMPILER WINDOWS
 #CXX      = icpc
 #CC       = icc
 CFLAGS  = -DISUNIX -O3 -w
