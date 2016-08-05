@@ -106,8 +106,8 @@ enum LazyType { fullopt, lazy, randomtree };		// The type of optimisation done w
 #define BOUND_GRAD 0			// Whether gradients should be bounded at GRAD_LIM
 #define GRAD_LIM 1000			// Maximum value allowed in derivative functions
 #define RMSD_GRAD_LIM 10		// Maximum value allowed in RMSD derivative functions
-#define MAX_BRANCH 10			// Maximum branch length
-#define MIN_OMEGA 0.01			// Minimum value of omega in codon models (required to avoid interaction between small omega and long branch lengths)
+#define MAX_BRANCH 25			// Maximum branch length
+#define MIN_OMEGA 0.005			// Minimum value of omega in codon models (required to avoid interaction between small omega and long branch lengths)
 #define BIG_STEP_MAX 10			// MAX STEP when fewer than 10 iterations
 #define SMALL_STEP_MAX 5		// MAX_STEP when >= 10 iterations
 #define DX_CHECK 0.0001			// Left and right check for optima when gradients are playing up

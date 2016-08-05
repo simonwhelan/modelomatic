@@ -18,7 +18,7 @@
 #include <set>
 
 #define CHECK_LNL_OUT 1
-#define VERSION_NUMBER "1.03 (develop)"
+#define VERSION_NUMBER "1.04 (develop)"
 #define DEVELOPER_VERSION_MAIN 1
 
 #if DO_MEMORY_CHECK == 1
