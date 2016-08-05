@@ -17,6 +17,7 @@ Pay attention to the output and use your own judgements when performing analysis
 
 ##Version history
 Modelomatic will be periodically updated and changes that may affect the outcome of your analyses will be announced here. Minor fixes that address bugs that are not expected to change results are not included here.  
+* v1.03 -> v1.04 (5Aug16): There was a critical error where likelihoods from large families were not computed correctly (usually for codon models). The symptoms of this bug are lots of weird short branches and unreasonably high likelihoods.
 
 ##Models tested in Modelomatic
 * RY
