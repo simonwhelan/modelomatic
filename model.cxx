@@ -1421,7 +1421,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	CPar *Par  = Tree()->pBra(Br);
 	ori_x = x2 = *p_x;	ori_lnL = *BestlnL;
 //	ori_lnL = *BestlnL = DoBralnL(Br,NFr,NTo);
-//#if FASTBRANCHOPT_DEBUG == 1
+#if FASTBRANCHOPT_DEBUG == 1
 	if(fabs(*BestlnL - DoBralnL(Br,NFr,NTo)) > 1.0E-6) {
 
 		cout << "\n ===================== ERROR IN BRANCH " << Br << " (" << Tree()->BraLink(Br,0) << "," << Tree()->BraLink(Br,1) << ") ================";
@@ -1432,7 +1432,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 		exit(-1);
 	}
 	//	cout << "\nBranch["<<Br<<"]=" << *p_x << " has DoBralnL: "<< DoBralnL(Br,NFr,NTo) << " cf. " << DoBralnL(Br,NFr,NTo) << " and ori_lnL: " << ori_lnL;
-//#endif
+#endif
 
 //	cout << "\nOptimising Br(" << Br << ") = " << Tree()->B(Br) << " = *Best: " << *BestlnL << " == " << DoBralnL(Br,NFr,NTo);
 
