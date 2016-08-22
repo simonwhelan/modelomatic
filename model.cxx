@@ -1465,7 +1465,13 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 //	cout << "\nDoing left";
 	HaveBound = true;
 	if(fabs(Par->LowBound() - Par->OptLow()) < FLT_EPSILON) { HaveBound = false; dx = DX; } else { dx = 0.0; }	 // Set original dx
-	while(x2_lnL < x1_lnL)	{
+
+//	cout << "\n>>>>>>>>>>>>>>>>>>> Into left: "; cout.precision(12);
+
+	while(x2_lnL < x1_lnL + tol)	{
+//		cout << "\n---\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
+//		cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
+//		cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
 		if(HaveBound) {
 			*p_x = x1 = max(Par->LowBound(),Par->OptLow() - (dx * 10));
 		} else {
@@ -1495,13 +1501,18 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 		}
 		if(fabs(dx) < FLT_EPSILON) { dx = DX; } else { dx *= GS_DELTA; }
 	}
-//	cout << "\n\tafter left: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+//	cout << "\n\tafter left:  (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
 //	cout << "\nDoing right";
 	// Get right bracketing
 	HaveBound = true;
+//	cout << "\n>>>>>>>>>>>>>>>>>>>>> Into right";
 	if(fabs(Par->UpBound() - Par->OptUp()) < FLT_EPSILON) { dx = DX; HaveBound = false; } else { dx = 0.0; }	// Set original dx
 	if(x3_lnL > 0.0)	{		// Search for right bound if it's needed
-		while(x2_lnL < x3_lnL)	{
+//		cout << "\nx1: " << x1 << " == " << x1_lnL << " (diff="<<x2_lnL - x1_lnL << ")";
+//		cout << "\nx2: " << x2 << " == " << x2_lnL << " (diff="<<x2_lnL - x2_lnL << ")";
+//		cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
+
+		while(x2_lnL < x3_lnL + tol)	{
 			if(HaveBound) {
 				*p_x = x3 = max(Par->LowBound(),Par->OptUp() + (dx * 10));
 			} else {
