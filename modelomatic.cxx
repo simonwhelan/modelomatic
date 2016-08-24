@@ -315,11 +315,15 @@ int main(int argc, char *argv[])	{
 //		cout << "\n\nDone";
 
 
+	double CurlnL;
 	double cVal,rVal;
 	CCodonM0 *M0Test = NULL;
 	CData Cod1 = *PhyDat.pData();
 	M0Test = new CCodonM0(&Cod1,&Tree);
-	FullOpt(M0Test,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+	if(M0Test->FixLongBranches()) { cout << "\nWARNING: Fixed long branch lengths"; }
+	CurlnL = FullOpt(M0Test,true,true,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true);
+	cout << "\nRerun";
+	CurlnL = FullOpt(M0Test,true,true,false,CurlnL,true,100,-BIG_NUMBER,FULL_LIK_ACC,true);
 //	FullOpt(M0Test);
 	cout << "\nRun M0: " << M0Test->lnL(true);
 	cout << "\nModel: " << *M0Test;
@@ -345,6 +349,7 @@ int main(int argc, char *argv[])	{
 	CCodonDrDc *M0New = NULL;
 	CData Cod2 = *PhyDat.pData();
 	M0New = new CCodonDrDc(&Cod2,&Tree);
+	if(M0New->FixLongBranches()) { cout << "\nWARNING: Fixed long branch lengths"; }
 	// Set starting values as those from previous model
 	M0New->m_vpPar[0]->SetVal(M0Test->m_vpPar[0]->Val()+0.001);
 	M0New->m_vpPar[1]->SetVal(M0Test->m_vpPar[0]->Val());
@@ -354,7 +359,9 @@ int main(int argc, char *argv[])	{
 //	exit(-1);
 	//exit(-1);
 //	FullOpt(M0New);
-	FullOpt(M0New,true,true,false,-BIG_NUMBER,true,50,-BIG_NUMBER,FULL_LIK_ACC,true);
+	CurlnL = FullOpt(M0New,true,true,false,-BIG_NUMBER,true,100,-BIG_NUMBER,FULL_LIK_ACC,true);
+	cout << "\nRerun";
+	CurlnL = FullOpt(M0New,true,true,false,CurlnL,true,100,-BIG_NUMBER,FULL_LIK_ACC,true);
 	cout << "\nRun M0: " << M0New->lnL(true);
 	cout << "\nModel: " << *M0New;
 

@@ -84,6 +84,7 @@ public:
 	int NumLeafCP();										// Returns the number of the CP has produced
 	void ApplySubTree(CTree *Tree, bool UseExtBra = true, bool Overwrite = false);	// Once correct leaf mapping is done, this will apply a new sub-tree to all processes FOR CALCULATIONS ONLY. Will overwrite the tree if Overwrite == true
 	void FixSmallBranches();				// Resets zero branches in trees to a small number
+	bool FixLongBranches(double MaxBranch = 0.75);	// Resets long branches to a maximum of MaxBranch
 	bool CheckSameTree();					// Checks whether all processes are using the same tree
 	void CleanCPMapping();					// Goes through all the processes and removes the centre-point mapping
 	void BuildOriSubTree(CTree *);			// Construct the original subtree and return it;

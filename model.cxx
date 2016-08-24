@@ -445,6 +445,26 @@ void CBaseModel::FixSmallBranches()	{
 	FOR(i,(int)TreesDone.size()) { TreesDone[i] = NULL; } TreesDone.clear();
 }
 
+// Function to fix long branches to ensure reasonable computation - should only be called at beginning
+bool CBaseModel::FixLongBranches(double MaxBranch) {
+	int i,j;
+	bool RetVal = false;
+	vector <CTree *> TreesDone;
+	FOR(i,(int)m_vpProc.size())	{
+		if(!IsIn(m_vpProc[i]->Tree(),TreesDone)) { TreesDone.push_back(m_vpProc[i]->Tree()); } else { continue; }
+//		cout << "\nTrying fix small branches (<"<<100*DX<<")...";
+//		cout << "\nTree: " << *m_vpProc[i]->Tree();
+		FOR(j,m_vpProc[i]->Tree()->NoBra())	{
+//			cout << "\nChecking branch " << j << "/" << m_vpProc[i]->Tree()->NoBra()<< " = " << m_vpProc[i]->Tree()->B(j) << flush;
+			 if(m_vpProc[i]->Tree()->B(j) > MaxBranch) { m_vpProc[i]->Tree()->SetB(j,MaxBranch,true); RetVal = true; }
+		}
+//		cout << "\nNewTree: " << *m_vpProc[i]->Tree();
+	}
+	FOR(i,(int)TreesDone.size()) { TreesDone[i] = NULL; } TreesDone.clear();
+	return RetVal;
+}
+
+
 bool CBaseModel::CheckSameTree()	{
 	int i;
 	FOR(i,(int)m_vpProc.size()) { if(m_vpProc[i]->Tree() != m_vpProc[0]->Tree()) { return false; } }
