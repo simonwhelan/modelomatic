@@ -41,7 +41,7 @@ extern int TABU_RADIUS;
 
 #define DO_PFAM 1		// Whether to do the Pfam analysis in PfamModel.cxx
 
-int ding()	{
+int ding(string InFile)	{
 		int Ret = 0;
 		int GeneticCode = 0;
 		int count = 0;
@@ -52,7 +52,7 @@ int ding()	{
 		vector <string> Toks;
 
 #if DO_PFAM == 1
-		PfamModelAnalysis();
+		PfamModelAnalysis(InFile);
 		exit(-1);
 #endif
 

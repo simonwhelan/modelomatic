@@ -320,16 +320,16 @@ void CQMat::Decompose(vector <double> Eqm,bool Scale,bool REV,double Rate)	{
 }
 // Makes the P(t)
 bool CQMat::MakePT(double T, double *PT)	{
-//	cout << "\nMaking P(T="<<T<<")";
+//	cout << "\nMaking P(T="<<T<<") with MAX_BRANCH = "<< MAX_BRANCH;
    int i,j,k,Char2 = m_iChar * m_iChar;
     double e1, e2, *P;
 	const double *pdV,*pdU;
 	if(T < -FLT_EPSILON) { T = 0; }
-	if(T < DX || m_bAlwaysI)		{ // Small branch lengths create identity matrix regardless of reversibility
+	if(T < FLT_EPSILON || m_bAlwaysI)		{ // Small branch lengths create identity matrix regardless of reversibility
 		IMat(PT,m_iChar);
 		return true;
 	}
-	else if(T > MAX_BRANCH)	{
+	else if(T + FLT_EPSILON > MAX_BRANCH)	{
 		FOR(i,m_iChar) { FOR(j,m_iChar) { PT[(i*m_iChar)+j] = m_ardEqm[j]; } }
 		return true;
 	}

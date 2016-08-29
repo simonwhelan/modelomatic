@@ -36,15 +36,15 @@ void PaintTree(CTree *T, int KeyBra, vector <int> S1, vector <int> S2, vector <i
 void PaintTree(CTree *T, vector <vector <int> > Subtrees);
 
 
-void PfamModelAnalysis();
+void PfamModelAnalysis(string RunFile);
 
 class CPfamModel : public CBaseModel	{
 public:
-	CPfamModel(CData *Data, CTree *Tree, string ProbFileName);		// Data/Tree/File name of frequencies
+	CPfamModel(CData *Data, CTree *Tree, string ProbFileName, bool DoExt = false);		// Data/Tree/File name of frequencies
 	~CPfamModel();
 	// Variables
 	vector <vector <double> > m_vvdSiteFreq;						// The storage of the sitewise probability vectors from the ProbFileName (derived from pfam)
-
+	CQPar *m_pFreqFactor;			// The frequency factor	(used in experimental Pfam model
 	// Implementation
 	double lnL(bool ForceReal = false);	// perform a likelihood calculation (if over-ridden, be careful other likelihood functions are too e.g. DoBralnL(...) )
 	vector <double> GetDerivatives(double CurlnL = -BIG_NUMBER, bool *OK = NULL);		// Calculate the processes derivatives
@@ -93,5 +93,36 @@ public:
 	// Variables
 	int m_iCurSite;		// Used in partial likelihood computations
 };
+
+
+////////////////////////////////////////// Models with an additional parameter that fits the frequencies to the data //////////////////////////////////////////////////////
+class CExpPfamModel : public CPfamModel {
+public:
+	CExpPfamModel(CData *Data, CTree *Tree, string ProbFileName, double StartE = 1.0);
+	~CExpPfamModel() { /* BLANK */ };
+	vector <vector <double> > m_vvdSiteFreq;	// Store of original pfam frequencies
+	// Functions
+	vector <double *> GetOptPar(bool ExtBranch = true, bool IntBranch = true, bool Parameters = true, bool Eqm = false);
+};
+
+class CExpPfamProcess : public CPfamProcess {
+public:
+	CExpPfamProcess(CData *Data, CTree *Tree, vector <vector <double> >*Freqs, double StartE = 1.0);
+	~CExpPfamProcess();
+	CBaseProcess *RateProcessCopy();								// Returns a pseudoprocess with a seperate rate category
+	// Likelihood function that updates the frequencies as well
+	bool Likelihood(bool ForceReal = false);
+	// Variables
+	CQPar *m_pFreqFactor;
+	vector <vector <double> > m_vvdOriSiteFreq;
+	vector <double> m_vdBackgroundFreq;
+	vector <vector <double> > m_vvdFreqFact;
+	// The frequencies used in the model are m_vdBackgroundFreq[i] * exp(m_vvdFreqFact[site][i] * m_pFreqFactor->Val());
+	//  When m_pFreqFactor == 0 -> Background frequencies
+	//  When m_pFreqFactor == 1 -> Pfam frequencies
+
+};
+
+
 
 #endif /* PFAMMODEL_H_ */

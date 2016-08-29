@@ -37,31 +37,51 @@ public:
 #define OUTPUT_BRANCH_OPTIMISE 0
 
 string MainData = "MitoData.phy";
-string SmallName = "mito55_small.phy";
-string SmallTree = "mito55_small.tre";
+//string SmallName = "mito55_small.phy";
+string SmallName = "test.phy";
+string SmallTree = "mito55_small.tre";	// Redundant. Trees usually given as text input
+string freq_file = "PfamFreqFile.txt";	// Pfam frequency file
 
-enum RunType { LG,PFAM,HET };
+enum RunType { LG,PFAM,PFAM_EXT, HET };
 
-bool SAR11Run = true;		// Whether to run the models an SAR11. Will not accept HET model runs
+bool SAR11Run = false;		// Whether to run the models an SAR11. Will not accept HET model runs
 bool DoShort = false;
-RunType DoPfamModel = PFAM;
+RunType DoPfamModel = HET;
 bool DoGamma = true;
 bool DoOpt = true;			// Whether to do the optimisation. Used for debug
 bool DoH1 = true;
 bool DoH2 = true;
 bool DoH3 = true;
-bool DoOptHere = false;		// Whether to do optimisation in the H1/H2/H3 and general tree functions
+bool DoOptHere = true;		// Whether to do optimisation in the H1/H2/H3 and general tree functions
 
+/* Old stuff
 double GammaLG[3] = { 0.636298 , 0.636299 , 0.636508 };
+double GammaPfam[3] = { 0.605827 , 0.606925 , 0.606983 };
+double GammaHet[3] = { 0.633508 , 0.633970 , 0.633941 }; */
+
+double GammaLG[3] = { 0.624685 , 0.624761 , 0.624767 };
 double GammaPfam[3] = { 0.605827 , 0.606925 , 0.606983 };
 double GammaHet[3] = { 0.633508 , 0.633970 , 0.633941 };
 
+////////
+// Function to run a Pfam analysis based on the tree and data provided and output it to an appropriately named file
+bool RunOpt = true;
+bool RunDoGamma = true;
+double PFAM_INIT_GAMMA = 0.60;	// Initial gamma value used below
+void RunPfamAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma);
+void RunPfamExtAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma);
+void RunLGAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma);
+
+////////
+// Function that reads a file where each line is <DataFile	TreeFile> and runs analysis on it
+void RunFileModels(string InputFile = "RunFile.txt",bool Optimise = RunOpt, RunType ModelType = PFAM_EXT);
+
 /////////////////////////////////////// Pfam model main code ////////////////////////////////////////////////////////////////
-void PfamModelAnalysis()	{
+void PfamModelAnalysis(string RunFile)	{
 	int i,j;
 	double curlnL;
 	CBaseModel *Model= NULL;
-	string freq_file = "PfamFreqFile.txt", Name1,Name2, Extra;
+	string Name1,Name2, Extra;
 	vector <int> EukNames;
 	vector <int> RikNames;
 	vector <int> OthNames;
@@ -76,6 +96,9 @@ void PfamModelAnalysis()	{
 	CTree *T = NULL;
 	CData *SarDat;
 
+	cout << "\nRunning new file analysis type: ";
+	RunFileModels(RunFile);
+	exit(-1);
 
 	// Set model header
 	switch(DoPfamModel) {
@@ -119,9 +142,13 @@ void PfamModelAnalysis()	{
 		// Tree
 		cout << "\nMaking tree" << flush;
 //		CTree TT("((1:0.1,2:0.1):0.1,3:0.1,(4:0.1,5:0.1):0.1);",5);
-		CTree TT("(((1:0.1,2:0.1):0.1,(3:0.1,4:0.1):0.1):0.1,(5:0.1,6:0.1):0.1,(7:0.1,8:0.1):0.1);",8);
+		CTree TT("(((1:0.11,2:0.12):0.19,(3:0.13,4:0.14):0.20):0.21,(5:0.15,6:0.16):0.22,(7:0.17,8:0.18):0.23);",8);
 //		CTree TT("(1:10,2:1.273048672,((3:1.448444937,4:10):0,((5:10,6:10):10,(7:10,8:10):10):10):0);",8);
 		cout << " ... done" << flush;
+
+//		TT.SetOptB(12,false);
+//		TT.SetB(12,1000);
+
 		// Model
 		cout << "\nMaking model " << flush;
 		CBaseModel *Model;
@@ -172,7 +199,7 @@ void PfamModelAnalysis()	{
 */
 		// Optimisation
 		cout << "\nOptimisation of " << Model->Name() << " ... " << flush;
-		FullOpt(Model,true, true, false, -BIG_NUMBER,true,DEFAULT_OPTNUM,curlnL,FULL_LIK_ACC,true,true);
+//		FullOpt(Model,true, true, false, -BIG_NUMBER,true,DEFAULT_OPTNUM,curlnL,FULL_LIK_ACC,true,true);
 		cout << "\nFinished opt... Likelihood: " << flush;
 		curlnL = Model->lnL(true);
 		cout << " = " << curlnL << flush;
@@ -343,11 +370,11 @@ void PfamModelAnalysis()	{
 		break;
 	case HET:
 		// Organise name files
-		EukNames = ReadNameFile("mito55_Euk.names",DingDat);
-		RikNames = ReadNameFile("mito55_Rik.names",DingDat);
-		OthNames = ReadNameFile("mito55_Oth.names",DingDat);
-		ProNames = ReadNameFile("mito55_Pro.names",DingDat);
-		RootNames = ReadNameFile("mito55_root.names",DingDat);
+		EukNames = ReadNameFile("Euk.names",DingDat);
+		RikNames = ReadNameFile("Rik.names",DingDat);
+		OthNames = ReadNameFile("Oth.names",DingDat);
+		ProNames = ReadNameFile("Pro.names",DingDat);
+		RootNames = ReadNameFile("Root.names",DingDat);		// Specifies the branch where the root is. Usually the same as Oth.names
 		assert(EukNames.size() + RikNames.size() + OthNames.size() + ProNames.size() == DingDat->m_vsName.size());
 		SubNames.push_back(EukNames); SubNames.push_back(RikNames); SubNames.push_back(OthNames); SubNames.push_back(ProNames);
 		vector <int> Temp;
@@ -488,12 +515,13 @@ void PfamModelAnalysis()	{
 
 //////////////////////////////////////////// Definition of the Pfam model class ////////////////////////////////////////////////////////////////////////////////////////
 
-CPfamModel::CPfamModel(CData *D, CTree *T, string File) : CBaseModel(D,T)	{
+CPfamModel::CPfamModel(CData *D, CTree *T, string File, bool DoExt) : CBaseModel(D,T)	{
 	int i,j;
 	string store;
 	vector <string> Toks;
 	vector <double> OutFreq;
 	CPfamProcess *TempProc;
+	CExpPfamProcess *TempProc2;
 	m_sName = "PfamModel";
 	// Check tree
 	if(T->IsRooted()) { cout << "\nTree cannot be rooted for Pfam Model" << flush; exit(-1); }
@@ -524,22 +552,32 @@ CPfamModel::CPfamModel(CData *D, CTree *T, string File) : CBaseModel(D,T)	{
 	FOR(i,D->m_iSize)	{
 		getline(in,store);	// Can add delim here
 		assert(!in.eof());
-		Toks = Tokenise(store); assert(Toks.size()==20);
+		Toks = Tokenise(store); if(Toks.size() != 20) { cout << "\nERROR: Line " << i << " of frequency file <" << File << "> doesn't have 20 characters: "<< store; exit(-1); }
 		OutFreq.clear(); FOR(j,20) { OutFreq.push_back(atof(Toks[j].c_str())); }
 		if(fabs(Sum(&OutFreq) - 1) > 1.0E-4)  { cout << "\nError: Frequency line ["<<i<<"] sums to " << Sum(&OutFreq) << "\n" << Toks; }
 		m_vvdSiteFreq.push_back(OutFreq);
 	}
 	// Initialise the model processes
-	TempProc = new CPfamProcess(D,T,&m_vvdSiteFreq);
-	m_vpProc.push_back(TempProc);
-	TempProc = NULL;
+	if(DoExt) {
+		TempProc2 = new CExpPfamProcess(D,T,&m_vvdSiteFreq);
+		m_vpProc.push_back(TempProc2);
+		m_pFreqFactor = TempProc2->m_pFreqFactor;
+	} else {
+		TempProc = new CPfamProcess(D,T,&m_vvdSiteFreq);
+		m_vpProc.push_back(TempProc);
+		TempProc = NULL;
+	}
+
 	// Final initialisation
 //	SetFastBranchOpt(false);		// Initially won't use fast branch calculations
 	FinalInitialisation();
+	// Add the m_pFreqFactor
+	if(DoExt)	{ m_vpPar.push_back(TempProc2->m_pFreqFactor); }
+	TempProc2 = NULL;
 }
 
 CPfamModel::~CPfamModel()	{
-
+	m_pFreqFactor = NULL;
 }
 
 bool BoolAllowBranchAnalytics = true;
@@ -800,6 +838,13 @@ bool CPfamProcess::Likelihood(bool ForceReal) {
 		assert(m_vpQMat.empty()); m_vpQMat.push_back(m_vpSiteQ[site]);
 		// Prepare the P(t) matrices for each site
 		FOR(i,Tree()->NoBra()) { Tree()->UpdateB(i); Make_PT(i); }
+//		if(InRange(site,9,15)) {
+//			cout << "\nSite["<<site<<"] = " << m_vpQMat[0]->OverallSubRate() << ": " << m_vpQMat[0]->Eqm();
+//			cout << "\nModel had " << m_vpPar.size() << " parameters";
+//			vector <double> tPT = GetPT(0); cout << "\nP(t="<<Tree()->B(0) <<"): "; FOR(i,5) { cout << "\t" << tPT[i]; }
+//			cout << "\nQ:\t"; FOR(i,5) { cout << "\t" << *m_vpQMat[0]->Q(0,i); }
+//			cout << "\n  \t"; FOR(i,5) { cout << "\t" << *m_vpQMat[0]->Q(1,i); }
+//		}
 //		cout << "\nP(t)[0]"; OutPT(cout,0); cout << " done" << flush;
 		// Adjust m_bCompressedSpace if required
 		if(ForceReal == true) { m_bCompressedSpace = false; }
@@ -817,7 +862,7 @@ bool CPfamProcess::Likelihood(bool ForceReal) {
 	}
 //	cout << "\nHave likelihood";
 	// Get the final likelihoods for the process
-//	FOR(i,10) { cout << "\nSite["<< i<< "]: " << m_ardL[i].LogP(); }
+//	FOR(i,6) { cout << "\nSite["<< i+9<< "]: " << m_ardL[i+9].LogP(); }
 	// Return if okay
 	m_bCompressedSpace = OldComp;
 	return RetVal;
@@ -1781,9 +1826,9 @@ double CPfamModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 	double newlnL, BestlnL = 0.0, working_tol;
 	assert(CurlnL < 0);
 	if(!m_bAllowFastBranchOpt) { return CurlnL; }
-//#if FASTBRANCHOPT_DEBUG == 1
+#if FASTBRANCHOPT_DEBUG == 1
 	cout << "\n\n<<<<<<<<<<<<<<<<<<<<<<<<<<< NEW ROUND OF FAST BRANCH OPT >>>>>>>>>>>>>>>>>>>>" << flush;
-//#endif
+#endif
 	// This is a fairly meaningless piece of code for trapping errors for multiple trees
 	if(m_vbDoBranchDer.empty()) { Error("CBaseModel::FastBranchOpt(...) error. The vector m_vbDoBranchDer is empty. Try called GetOptPar(...) first\n\n"); }
 	FOR(i,(int)m_vpProc.size())	{ ;
@@ -1819,12 +1864,12 @@ double CPfamModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 	BestlnL = lnL(true);							// 1. Do the first calculation and initialise things
 	FOR(i,NoIter)	{
 		newlnL = BestlnL;	// new_lnL hold current optimal likelihood
-//#if FASTBRANCHOPT_DEBUG == 1
+#if FASTBRANCHOPT_DEBUG == 1
 //#if DEVELOPER_BUILD == 1
 //		cout << "\n\n--- Round " << i<< ". " << newlnL << " (tol: "<< working_tol << ") ---";;
 //		cout << "\nOriginal branches:  "; int j; FOR(j,Tree()->NoBra()) { cout << Tree()->B(j) << " "; }
 		Tree()->OutBra(); cout << "\n["<<i<<"]" << *Tree() << " == " << newlnL << flush;
-//#endif
+#endif
 		BranchOpt(-1,Tree()->StartCalc(),-1, &BestlnL,working_tol);	// 2. Run the fast optimisation routine
 //		double plop = BestlnL; cout << "\nDone branch: BestlnL: " << BestlnL;
 		BestlnL = lnL(true);			// Calculation must be done here using true space, otherwise the next round of the optimisation fails.
@@ -2056,7 +2101,291 @@ void CPfamProcess::FullBranNode_Update(int NTo, int NFr, int Br, CTree *T, int F
 	}
 }
 
+////////////////////// CODE FOR EXPERIMENTAL AND ADVANCED PFAM MODEL ///////////////////////
+/*
+ * class CExpPfamModel : public CPfamModel {
+public:
+	CExpPfamModel(CData *Data, CTree *Tree, string ProbFileName, double StartE = 1.0);
+	~CExpPfamModel() ;
+};
 
+class CExpPfamProcess : public CPfamProcess {
+	CExpPfamProcess(CData *Data, CTree *Tree, vector <vector <double> >*Freqs, double StartE = 1.0);
+	~CExpPfamProcess() { if(FreqFactor != NULL) { delete m_pFreqFactor; } }
+	// Likelihood function that updates the frequencies as well
+	bool Likelihood(bool ForceReal = false);
+	// Variables
+	CQPar *m_pFreqFactor;
+	vector <vector <double> > m_vvdOriSiteFreq;
+	vector <double> m_vdBackgroundFreq;
+
+};
+CQPar(string Name, int Char, double Value, bool Optimise=true, double Lowbound = 0.0, double Upbound=MAX_PAR_VALUE,ParOp Oper=MULTIPLY);	// Core parameter construction routine
+
+ *
+ */
+// Model part -- Identical to CPfamModel, but used to create the CExpPfamProcess rather than CPfamProcess
+CExpPfamModel::CExpPfamModel(CData *D,CTree *T,string File, double StartE) : CPfamModel(D,T,File,true)	{
+	// Rest of the model is sorted by passing true to CPfamModel
+	m_sName = "PfamModelExtra";		// Rename
+}
+
+vector <double *> CExpPfamModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Parameters, bool Eqm)	{
+	int i,j, grad_pointer = 0;
+	vector <double *> OptVal;
+	cout << "\nOkay to here" << flush;
+	OptVal = CBaseModel::GetOptPar(ExtBranch,IntBranch,Parameters,Eqm);
+	OptVal.push_back(m_pFreqFactor->OptimiserValue());
+	m_vpAllOptPar.push_back(m_pFreqFactor);
+	return OptVal;
+}
+
+
+// Process part
+double bg[] = {0.0957562, 0.0542919, 0.0304211, 0.0491907, 0.011608, 0.029413, 0.0584327, 0.0896843, 0.0227179, 0.0688806, 0.095671, 0.0466417, 0.030912, 0.045037, 0.041777, 0.0519279, 0.053194, 0.010676, 0.031151, 0.0826145};
+
+CExpPfamProcess::CExpPfamProcess(CData *Data, CTree *Tree, vector <vector <double> > *Freqs, double StartE) : CPfamProcess(Data,Tree,Freqs) {
+	int i,j;
+	vector <double> Vals(20,0);
+	m_vvdOriSiteFreq = *Freqs;
+	FOR(i,20) { m_vdBackgroundFreq.push_back(bg[i]); }
+	FOR(i,m_vvdOriSiteFreq.size()) {
+//		if(i < 15) { cout << "\nm_vvdOriSiteFreq: " << m_vvdOriSiteFreq[i]; }
+		FOR(j,20)	{
+			Vals[j] = log(m_vvdOriSiteFreq[i][j]/m_vdBackgroundFreq[j]);
+//			if(i < 15) { cout << "\nTaking log("<< m_vvdOriSiteFreq[i][j] << "/" <<m_vdBackgroundFreq[j] << ")"; }
+			assert(!my_isnan(Vals[j]));
+		}
+//		if(i  < 15) { cout << "\nVals: " << Vals; }
+		m_vvdFreqFact.push_back(Vals);
+	}
+	m_pFreqFactor = NULL;
+	StartE = 1.5;
+	m_pFreqFactor = new CQPar("FreqFactor",20,StartE);
+}
+
+CExpPfamProcess::~CExpPfamProcess() {
+	int i;
+	if(m_bIsProcessCopy) {
+		m_pFreqFactor = NULL;
+		FOR(i,m_vpPar.size()) { m_vpPar[i] = NULL; }
+	}			// Only delete the m_pFreqFactor and the parametrs for the head process
+	if(m_pFreqFactor != NULL) { delete m_pFreqFactor; }
+}
+
+bool CExpPfamProcess::Likelihood(bool ForceReal) {
+	int i,j,k,l;
+	vector <double> Freq(20,0);
+	double *tQMat = NULL;
+	CQMat *tQ = NULL;
+	/* REDO FREQUENCIES */
+//	cout << "\nUsing FreqFactor: " << m_pFreqFactor->Val();
+	assert(m_vvdOriSiteFreq.size() == m_vpSiteQ.size());
+//	if(!m_bIsProcessCopy)	{
+		FOR(i,m_vvdOriSiteFreq.size()) {
+//			if(i<15) { cout << "\n<<<<<<< SITE " << i << " >>>>>>>>>>>"; cout << "\nm_pFreqFact["<<i<<"]: " << m_vvdFreqFact[i]; }
+			// Calculate new frequency vector
+			FOR(j,20) { Freq[j] = m_vdBackgroundFreq[j] * exp(m_pFreqFactor->Val() * m_vvdFreqFact[i][j]); }
+//			if(i<15) { cout << "\nFreqs before: "<< Freq << flush; }
+			Freq = NormaliseVector(Freq);
+	//		if(i<15) { cout << "\nFreqs after:  "<< Freq << flush; }
+			// Apply to appropriate Q matrix
+			tQ = m_vpSiteQ[i];
+			m_vpSiteQ[i]->Unlock();
+			tQ->InitQ(m_dBaseVal);
+			FOR(k,m_vpPar.size()) {	m_vpPar[k]->UpdatePar(); tQ->ApplyPar2Q(m_vpPar[k]); }
+			tQMat = tQ->Q();
+			FOR(k,m_iChar) { // By *row*
+				FOR(l,m_iChar) { // By column
+					if(k==l) { continue; }
+					tQMat[(k*m_iChar)+l] *= Freq[l];
+				}
+			}
+			tQ->DoQDiag();
+			tQ->Decompose(Freq,true,true,m_pRate->Val());
+			tQ->Lock();
+			tQ = NULL; tQMat = NULL;
+	} 	// }
+	// Do the original likelihood
+	return CPfamProcess::Likelihood(ForceReal);
+}
+CBaseProcess * CExpPfamProcess::RateProcessCopy()	{
+	CExpPfamProcess *NewProc;
+	static int CopyNum = 0;
+	string Name;
+	int i;
+	vector <vector <double> > Freqs;
+	FOR(i,m_vpSiteQ.size()) { Freqs.push_back(m_vpSiteQ[i]->Eqm()); }
+	// Do naming and initialise
+	Name = "Pseudo" + m_sName + "(CopyID=" + int_to_string(CopyNum++) + ")";
+	NewProc = new CExpPfamProcess(m_pData, m_pTree,&Freqs);
+	NewProc->m_sName = Name;
+	NewProc->MakeBasicSpace(m_iChar);
+	NewProc->m_DataType = m_DataType;
+	NewProc->m_bAllowTreeSearch = m_bAllowTreeSearch;
+	// Do the copy
+	NewProc->CleanPar();
+	NewProc->CleanQ();
+	FOR(i,(int)m_vpQMat.size())	{ NewProc->m_vpQMat.push_back(m_vpQMat[i]); }
+	FOR(i,(int)m_viQ2Bra.size())	{ NewProc->m_viQ2Bra.push_back(m_viQ2Bra[i]); }
+	NewProc->m_bPseudoProcess = true;
+	NewProc->m_iHiddenChar = m_iHiddenChar;
+	NewProc->m_iDataChar = m_iDataChar;
+	FOR(i,(int)m_vpCovProbs.size()) { NewProc->m_vpCovProbs.push_back(m_vpCovProbs[i]); }
+	FOR(i,(int)m_vpEqm.size()) { NewProc->m_vpEqm.push_back(m_vpEqm[i]); }
+	NewProc->m_bMaxRate = m_bMaxRate;
+	NewProc->m_bIsProcessCopy = true;
+	// Need the parameters from the model here
+	FOR(i,(int)m_vpPar.size()) {
+		NewProc->m_vpPar.push_back(m_vpPar[i]);
+	}
+	// Take the parameter pointer
+	delete NewProc->m_pFreqFactor;
+	NewProc->m_pFreqFactor = m_pFreqFactor;
+	// Return it
+	return NewProc;
+}
+
+
+////////////////////// CODE FOR RUNNING ANALYSES //////////////////////////
+void RunPfamAnalysis(string TreeFile, string DataFile, bool Optimise, bool DoGamma) {
+	cout << "\n--------- Running Pfam analysis: data = " << DataFile << " : Tree = " << TreeFile << " ---------" << flush;
+	// Some object initiation
+	CPfamModel *RunModel = NULL;
+	CData Data(DataFile,AA,false,0,true,false);
+	CTree Tree(TreeFile,true,&Data);
+	RunModel = new CPfamModel(&Data,&Tree,freq_file);
+	if(DoGamma) { RunModel->MakeGammaModel(0,4,PFAM_INIT_GAMMA); }
+	cout << "\nData and model initialised..." << flush; cout.precision(12);
+	// Other variables
+	string OutModelFile = DataFile + "_" + TreeFile + ".pfam.model.txt", OutSiteFile = DataFile + "_" + TreeFile + ".sitelnL.txt";
+
+	double curlnL = RunModel->lnL(true);
+	cout << "\nInitial likelihood: " << curlnL;
+	// Optimise
+	if(Optimise) {
+		curlnL = FullOpt(RunModel,true,true,false,-BIG_NUMBER,true,DEFAULT_OPTNUM,curlnL,FULL_LIK_ACC,true,true);
+	}
+	// Do the report to file
+	ofstream out(OutModelFile.c_str());
+	out << *RunModel;
+	out.close();
+	RunModel->OutputSitelnL(OutSiteFile.c_str());
+	// Clean up and return
+	cout << "\nModel output to <" << OutModelFile << ">";
+	cout << "\nSitewise likelihoods output to <" << OutSiteFile << ">";
+	cout << "\n>>>>>>>>>> Done. Final likelihood: "<< curlnL << " <<<<<<<<<" << flush;
+	delete RunModel;
+}
+
+void RunPfamExtAnalysis(string TreeFile, string DataFile, bool Optimise, bool DoGamma) {
+	cout << "\n--------- Running Pfam Ext analysis: data = " << DataFile << " : Tree = " << TreeFile << " ---------" << flush;
+	// Some object initiation
+	CExpPfamModel *RunModel = NULL;
+	CData Data(DataFile,AA,false,0,true,false);
+	CTree Tree(TreeFile,true,&Data);
+	RunModel = new CExpPfamModel(&Data,&Tree,freq_file);
+	if(DoGamma) { RunModel->MakeGammaModel(0,4,PFAM_INIT_GAMMA); }
+	cout << "\nData and model initialised..." << flush; cout.precision(12);
+	// Other variables
+	string OutModelFile = DataFile + "_" + TreeFile + ".pfam_ext.model.txt", OutSiteFile = DataFile + "_" + TreeFile + ".sitelnL.txt";
+
+	double curlnL = RunModel->lnL(true);
+	cout << "\nInitial likelihood: " << curlnL;
+	// Optimise
+	if(Optimise) {
+		curlnL = FullOpt(RunModel,true,true,false,-BIG_NUMBER,true,DEFAULT_OPTNUM,curlnL,FULL_LIK_ACC,true,true);
+	}
+	// Do the report to file
+	ofstream out(OutModelFile.c_str());
+	out << *RunModel;
+	out.close();
+	RunModel->OutputSitelnL(OutSiteFile.c_str());
+	// Clean up and return
+	cout << "\nModel output to <" << OutModelFile << ">";
+	cout << "\nSitewise likelihoods output to <" << OutSiteFile << ">";
+	cout << "\n>>>>>>>>>> Done. Final likelihood: "<< curlnL << " <<<<<<<<<" << flush;
+	delete RunModel;
+}
+
+
+void RunLGAnalysis(string TreeFile, string DataFile, bool Optimise, bool DoGamma) {
+	cout << "\n--------- Running LG analysis: data = " << DataFile << " : Tree = " << TreeFile << " ---------" << flush;
+	// Some object initiation
+	CEMP *RunModel = NULL;
+	CData Data(DataFile,AA,false,0,true);
+	CTree Tree(TreeFile,true,&Data);
+	RunModel = new CEMP(&Data,&Tree,"LG",true,(double*)dLGVal,(double*)dLGFreq);
+
+	if(DoGamma) { RunModel->MakeGammaModel(0,4,PFAM_INIT_GAMMA); }
+	cout << "\nData and model initialised..." << flush; cout.precision(12);
+	// Other variables
+	string OutModelFile = DataFile + "_" + TreeFile + ".LG.model.txt", OutSiteFile = DataFile + "_" + TreeFile + ".sitelnL.txt";
+
+	double curlnL = RunModel->lnL(true);
+	cout << "\nInitial likelihood: " << curlnL;
+	// Optimise
+	if(Optimise) {
+		curlnL = FullOpt(RunModel,true,true,false,-BIG_NUMBER,true,DEFAULT_OPTNUM,curlnL,FULL_LIK_ACC,true,true);
+	}
+	// Do the report to file
+	ofstream out(OutModelFile.c_str());
+	out << *RunModel;
+	out.close();
+	RunModel->OutputSitelnL(OutSiteFile.c_str());
+	// Clean up and return
+	cout << "\nModel output to <" << OutModelFile << ">";
+	cout << "\nSitewise likelihoods output to <" << OutSiteFile << ">";
+	cout << "\n>>>>>>>>>> Done. Final likelihood: "<< curlnL << " <<<<<<<<<" << flush;
+	delete RunModel;
+
+}
+
+
+// Function that reads a file where each line is <DataFile	TreeFile> and runs analysis on it
+void RunFileModels(string InputFile,bool Optimise,RunType ModelType)	{
+	int i;
+	string store;
+	vector <string> Toks, DataFiles, TreeFiles;
+	// Read input files
+    ifstream in(InputFile.c_str());
+    if(!in.good()) { cout << "\nInput file " << InputFile << " failed"; exit(-1); }
+    getline(in,store);
+	while(!in.eof()) {
+		Toks = Tokenise(store);
+		if(Toks.size() != 2) { cout << "\nError in <"<<InputFile<<">: " << store; exit(-1); }
+		DataFiles.push_back(Toks[0]); TreeFiles.push_back(Toks[1]);
+		getline(in,store);
+	}
+	in.close();
+	// Touch files to check they're okay
+	FOR(i,DataFiles.size()) {
+		ifstream file1(DataFiles[i].c_str());
+		if(!file1.good()) { cout << "\nFile["<<i<<"] <" << DataFiles[i] << "> does not exist"; exit(-1); }
+		file1.close();
+		ifstream file2(TreeFiles[i].c_str());
+		if(!file2.good()) { cout << "\nFile["<<i<<"] <" << TreeFiles[i] << "> does not exist"; exit(-1); }
+		file2.close();
+	}
+	cout << "\nData and tree files established. There are " << DataFiles.size() << " files in " << InputFile;
+	// Run the files
+	switch(ModelType) {
+	case PFAM:
+		FOR(i,DataFiles.size()) { RunPfamAnalysis(TreeFiles[i],DataFiles[i],Optimise); }
+		break;
+	case PFAM_EXT:
+		cout << "\nRunning new models";
+		FOR(i,DataFiles.size()) { RunPfamExtAnalysis(TreeFiles[i],DataFiles[i],Optimise); }
+		break;
+	case LG:
+		FOR(i,DataFiles.size()) { RunLGAnalysis(TreeFiles[i],DataFiles[i],Optimise); }
+		break;
+	case HET:
+	default:
+		cout << "\nUnknown model call to RunFileModels"; exit(-1);
+	}
+	cout << "\nAnalysis from file <" << InputFile << "> finished";
+}
 
 
 

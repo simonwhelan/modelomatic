@@ -168,7 +168,7 @@ CTree::CTree(string TREE, bool GetFromFile, CData *Data, bool AllowFail, bool Do
 	// If to get from file
 	if(GetFromFile == true)	{
 		ifstream input(TREE.c_str());
-		if(input.fail())	{ cout << "\nCouldn't open treefile\n\n"; if(AllowFail) { return; } else { Error(); } }
+		if(input.fail())	{ cout << "\nCouldn't open treefile <" << TREE <<">\n\n"; if(AllowFail) { return; } else { Error(); } }
 		getline(input,store,';'); 		store += ";\0";
 		input.close();
 		if(store[0] != '(') { // First line might include the number of sequences

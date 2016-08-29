@@ -110,8 +110,9 @@ int main(int argc, char *argv[])	{
 	// Proteobacteria name file: mito55_Pro.names
 
 	// Work in progress files expected
-	// Tree files: mito55_exRog_H1.tre mito55_exRog_H2.tre mito55_exRog_H3.tre
-	ding();	// Head function in ding.cxx
+
+	assert(argc == 2);
+	ding(argv[1]);	// Head function in ding.cxx
 	cout << "\nCompleted Ding work\n"; exit(-1);
 
 	// Get information

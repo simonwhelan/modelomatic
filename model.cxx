@@ -316,6 +316,9 @@ void CBaseModel::ZeroSpace()	{
 
 ///////////////////////////////////////////////////
 // Function returning values for optimisation
+//////////////////////////////////////////////////
+// Note that the function only controls access to what can and cannot be optimised
+// Hard settings of CPar::m_bOpt override the settings in this function
 vector <double *> CBaseModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Parameters, bool Eqm)	{
 	int i,j, grad_pointer = 0;
 	vector <double *> OptVal;
@@ -333,11 +336,10 @@ vector <double *> CBaseModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 			if(i > 0 && m_vpProc[i]->Tree() == m_vpProc[0]->Tree()) { continue; }
 			if(m_vpProc[i]->NoSeq() >2) {
 				FOR(j,m_vpProc[i]->Tree()->NoSeq()) {
-					m_vpProc[i]->Tree()->SetOptB(j,true);
+					if(!m_vpProc[i]->Tree()->OptB(j)) { continue; }
 					m_vpAllOptPar.push_back(m_vpProc[i]->Tree()->pBra(j));
 					OptVal.push_back(m_vpProc[i]->Tree()->OptimiserB(j));
 			}	} else { // If 2 sequences always branch zero
-				m_vpProc[i]->Tree()->SetOptB(0,true);
 				m_vpAllOptPar.push_back(m_vpProc[i]->Tree()->pBra(0));
 				OptVal.push_back(m_vpProc[i]->Tree()->OptimiserB(0));
 			}
@@ -349,7 +351,7 @@ vector <double *> CBaseModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 			// Skip adding extra parameters when trees are the same in different processes
 			if(i > 0 && m_vpProc[i]->Tree() == m_vpProc[0]->Tree()) { continue; }
 			for(j=m_vpProc[i]->Tree()->NoSeq();j<m_vpProc[i]->Tree()->NoBra();j++)	{
-				m_vpProc[i]->Tree()->SetOptB(j,true);
+				if(!m_vpProc[i]->Tree()->OptB(j)) { continue; }
 				OptVal.push_back(m_vpProc[i]->Tree()->OptimiserB(j));
 				m_vpAllOptPar.push_back(m_vpProc[i]->Tree()->pBra(j));
 	}	}	}
@@ -382,6 +384,7 @@ int CBaseModel::CountOptPar(bool ExtBranch, bool IntBranch, bool Parameters, boo
 			// Skip when trees are the same in different processes
 			if(i > 0 && m_vpProc[i]->Tree() == m_vpProc[0]->Tree()) { continue; }
 			FOR(j,m_vpProc[i]->Tree()->NoSeq()) {
+				if(!m_vpProc[i]->Tree()->OptB(j)) { continue; }
 				NoPar++;
 				if(m_vpProc[i]->Tree()->NoSeq() == 2) { break; }
 	}	}	}
@@ -390,6 +393,7 @@ int CBaseModel::CountOptPar(bool ExtBranch, bool IntBranch, bool Parameters, boo
 			// Skip when trees are the same in different processes
 			if(i > 0 && m_vpProc[i]->Tree() == m_vpProc[0]->Tree()) { continue; }
 			for(j=m_vpProc[i]->Tree()->NoSeq();j<m_vpProc[i]->Tree()->NoBra();j++)	{
+				if(!m_vpProc[i]->Tree()->OptB(j)) { continue; }
 				NoPar++;
 	}	}	}
 	// Get values fo optimising parameters
@@ -441,13 +445,12 @@ void CBaseModel::FixSmallBranches()	{
 //		cout << "\nTree: " << *m_vpProc[i]->Tree();
 		FOR(j,m_vpProc[i]->Tree()->NoBra())	{
 //			cout << "\nChecking branch " << j << "/" << m_vpProc[i]->Tree()->NoBra()<< " = " << m_vpProc[i]->Tree()->B(j) << flush;
-			if(m_vpProc[i]->Tree()->B(j) < 100 * DX) { m_vpProc[i]->Tree()->SetB(j,500 * DX,true); }
+			 if(m_vpProc[i]->Tree()->B(j) < 10 * DX) { m_vpProc[i]->Tree()->SetB(j,10*DX,true); }
 		}
 //		cout << "\nNewTree: " << *m_vpProc[i]->Tree();
 	}
 	FOR(i,(int)TreesDone.size()) { TreesDone[i] = NULL; } TreesDone.clear();
 }
-
 bool CBaseModel::CheckSameTree()	{
 	int i;
 	FOR(i,(int)m_vpProc.size()) { if(m_vpProc[i]->Tree() != m_vpProc[0]->Tree()) { return false; } }
@@ -472,7 +475,7 @@ void CBaseModel::RedoScale(bool Force)	{
 /////////////////////////////////////////////////////////////////////////
 // Derivative calculations
 vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
-	int i;
+	int i, j, count;
 	bool OK = true, ForceNumBra = false;
 	vector <double> Grads;
 	vector <double> temp;
@@ -498,7 +501,6 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 #if ALLOW_ANALYTICAL_BRANCH_DERIVATIVES
 //		cout << "\nTrying analytical derivatives...";
 		if((int)m_vpAllOptPar.size() > 1) {
-			int j;
 			// Get the derivatives by process
 			temp.assign((int)m_vpAllOptPar.size(),0.0);
 			// Initialise
@@ -520,25 +522,32 @@ vector <double> CBaseModel::GetDerivatives(double CurlnL, bool *pOK)	{
 				if(m_vbDoBranchDer[i] == true) {
 //					cout << "\nInto GetBraDer, likelihood: " << lnL(true) << flush;
 					if(!m_vpProc[i]->GetBraDer(m_arL)) { ForceNumBra = true; break; }
-					FOR(j,m_vpProc[i]->Tree()->NoBra())	{ temp[j] += m_vpAllOptPar[j]->grad(); }
+					// Only store the branch parameters that are being optimised
+					count = 0; FOR(j,m_vpProc[i]->Tree()->NoBra())	{ if(m_vpProc[i]->Tree()->OptB(j)) { temp[count] += m_vpAllOptPar[count]->grad(); count++; } }
 			}	}
 			if(ForceNumBra == true)	{
 				assert(CheckSameTree());
 //				if(Tree()->NoSeq() > 2) { cout << "\n <<<<<<<<<<<<<<< DOING NUMERICAL DERIVATIVES: CurlnL = " << CurlnL << "; diff: "<< fabs(CurlnL-lnL()) <<" >>>>>>>>>>>>>>>>>>>>>>>>>>>>"; }
+				count = 0;
 				FOR(i,m_vpProc[0]->Tree()->NoBra()) {
-					assert(m_vpAllOptPar[i]->IsBranch());
-//					cout << "\nGetting branch derivative for ["<<i<<"]: " << *m_vpAllOptPar[i];
-					temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
-//					cout << " ... have " << m_vpAllOptPar[i]->grad() << " = " << temp[i];
+					if(!m_vpProc[0]->Tree()->OptB(i)) { continue; }
+					assert(m_vpAllOptPar[count]->IsBranch());
+//					cout << "\nGetting branch derivative for ["<<count<<"]: " << *m_vpAllOptPar[count];
+					temp[count] = m_vpAllOptPar[count]->grad(GetNumDerivative(m_vpAllOptPar[count]->OptimiserValue(),CurlnL));
+//					cout << " ... have " << m_vpAllOptPar[count]->grad() << " = " << temp[count];
+					count++;
 				}
 				// Error check here
 				temp_lnL = lnL(true);
 				if(fabs(temp_lnL - CurlnL) > 0.00001) {
 					// If there's an error try one more time
 					CurlnL = temp_lnL;
+					count = 0;
 					FOR(i,m_vpProc[0]->Tree()->NoBra()) {
-						assert(m_vpAllOptPar[i]->IsBranch());
-						temp[i] = m_vpAllOptPar[i]->grad(GetNumDerivative(m_vpAllOptPar[i]->OptimiserValue(),CurlnL));
+						if(!m_vpProc[0]->Tree()->OptB(i)) { continue; }
+						assert(m_vpAllOptPar[count]->IsBranch());
+						temp[count] = m_vpAllOptPar[count]->grad(GetNumDerivative(m_vpAllOptPar[count]->OptimiserValue(),CurlnL));
+						count ++;
 					}
 					// I shouldn't let it continue, but I'll try...
 					if(fabs(temp_lnL - CurlnL) > 0.001) { cout.precision(10); cout << "\nError in CModel::GetDerivatives(...): likelihoods don't match lnL()= " << CurlnL << " cf. "<< lnL() << " cf. " << lnL(true); exit(-1); }
@@ -1251,12 +1260,12 @@ void CBaseModel::PrepareProcessProbs(bool OptProbs)	{
 // The first one is to get reasonable sets of branches at a lower tolerance
 double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIter, bool CheckPars)	{
 	int i,j, Branches = 0;
-	double newlnL, BestlnL = 0.0, working_tol;
+	double newlnL, BestlnL = 0.0, working_tol, OrilnL = CurlnL;
 	assert(CurlnL < 0);
-	if(!m_bAllowFastBranchOpt) { return CurlnL; }
-//#if FASTBRANCHOPT_DEBUG == 1
+	vector <double> OriB; FOR(i,Tree()->NoBra()) { OriB.push_back(Tree()->B(i)); }
+#if FASTBRANCHOPT_DEBUG == 1
 	cout << "\n\n<<<<<<<<<<<<<<<<<<<<<<<<<<< NEW ROUND OF FAST BRANCH OPT >>>>>>>>>>>>>>>>>>>>" << flush;
-//#endif
+#endif
 	// This is a fairly meaningless piece of code for trapping errors for multiple trees
 	if(m_vbDoBranchDer.empty()) { Error("CBaseModel::FastBranchOpt(...) error. The vector m_vbDoBranchDer is empty. Try called GetOptPar(...) first\n\n"); }
 	FOR(i,(int)m_vpProc.size())	{ ;
@@ -1299,16 +1308,17 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		DoBraOpt(true,0,1,0,true,&CurlnL,tol,false);
 		return CurlnL;
 	}
-    FixSmallBranches();                                                     // 0. Fix the small branches otherwise optimisation can fail
+	FixSmallBranches();							// 0. Fix the small branches otherwise optimisation can fail
 	BestlnL = lnL(true);							// 1. Do the first calculation
 	FOR(i,NoIter)	{
 		newlnL = BestlnL;	// new_lnL hold current optimal likelihood
-//#if FASTBRANCHOPT_DEBUG == 1
+#if FASTBRANCHOPT_DEBUG == 1
 //#if DEVELOPER_BUILD == 1
-//		cout << "\n\n--- Round " << i<< ". " << newlnL << " (tol: "<< working_tol << ") ---";;
-//		cout << "\nOriginal branches:  "; int j; FOR(j,Tree()->NoBra()) { cout << Tree()->B(j) << " "; }
-		Tree()->OutBra(); cout << "\n["<<i<<"]" << *Tree() << " == " << newlnL << flush;
-//#endif
+		cout << "\n\n--- Round " << i<< ". " << newlnL << " (tol: "<< working_tol << ") ---";;
+		cout << "\nOriginal branches:  "; int j; FOR(j,Tree()->NoBra()) { cout << Tree()->B(j) << " "; }
+		cout << "\nTree\n" << *Tree();
+		cout << flush;
+#endif
 		BranchOpt(-1,Tree()->StartCalc(),-1, &BestlnL,working_tol);	// 2. Run the fast optimisation routine
 //		double plop = BestlnL; cout << "\nDone branch: BestlnL: " << BestlnL;
 		BestlnL = lnL(true);			// Calculation must be done here using true space, otherwise the next round of the optimisation fails.
@@ -1321,11 +1331,14 @@ double CBaseModel::FastBranchOpt(double CurlnL, double tol, bool *Conv, int NoIt
 		if(fabs(BestlnL - lnL()) > tol) { cout << "\nBig Error..."; exit(-1); }
 #endif
 		if(fabs(BestlnL - newlnL) < tol) { break; }				// 3. Control exit
+		// 4. If the likelihood has gone down then restore the original tree (occurs when branches are fixed)
+		if(BestlnL < OrilnL)	{
+			FOR(i,Tree()->NoBra()) { Tree()->SetB(i,OriB[i],true); }
+			BestlnL = newlnL = lnL(true); // Resets everything
+		}
 	}
 	if(Conv != NULL) { if(i==NoIter) { *Conv = false; } else { *Conv = true; } }
-	if(ALLOW_BRANCH_OPTIMISE == 0) {
-		cout << "\nReturning: " << BestlnL << " cf. " << lnL() << " fabs: " << fabs(BestlnL - lnL()); exit(-1);
-	}
+//	cout << "\nReturning: " << BestlnL << " cf. " << lnL() << " fabs: " << fabs(BestlnL - lnL()); // exit(-1);
 	assert(BestlnL < 0);
 	return BestlnL;
 }
@@ -1427,6 +1440,10 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	double dx = max(DX,tol);	// For looser optimisation have slightly larger bounds
 	CPar *Par  = Tree()->pBra(Br);
 	ori_x = x2 = *p_x;	ori_lnL = *BestlnL;
+
+	// Return if branch is not meant to be optimised
+	if(!Tree()->pBra(Br)->Opt()) { RETURN_DOBRAOPT; }
+
 //	ori_lnL = *BestlnL = DoBralnL(Br,NFr,NTo);
 #if FASTBRANCHOPT_DEBUG == 1
 	if(fabs(*BestlnL - DoBralnL(Br,NFr,NTo)) > 1.0E-6) {
@@ -1539,7 +1556,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 			if(fabs(dx) < FLT_EPSILON) { dx = DX; } else { dx *= GS_DELTA; }
 	}	}
 //	cout << "\n\tafter Right: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
-	if((x1_lnL > x2_lnL || x3_lnL > x2_lnL) || (x1 > x2 || x2 > x3)) {
+	if((x1_lnL - x2_lnL > tol || x3_lnL - x2_lnL > tol) || (x1 - x2 > DX || x2 > x3 > DX)) {
 		cout.precision(10);
 		cout << "\nBounding failed in DoBraOpt(...)... ";
 		cout << "\n\tafter Right: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
