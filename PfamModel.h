@@ -36,7 +36,7 @@ void PaintTree(CTree *T, int KeyBra, vector <int> S1, vector <int> S2, vector <i
 void PaintTree(CTree *T, vector <vector <int> > Subtrees);
 
 
-void PfamModelAnalysis(string RunFile);
+void PfamModelAnalysis(int argc, char *argv[]);
 
 class CPfamModel : public CBaseModel	{
 public:

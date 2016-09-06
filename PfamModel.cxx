@@ -65,9 +65,14 @@ double GammaHet[3] = { 0.633508 , 0.633970 , 0.633941 };
 
 ////////
 // Function to run a Pfam analysis based on the tree and data provided and output it to an appropriately named file
-bool RunOpt = true;
+bool RunOpt = false;
 bool RunDoGamma = true;
+bool DoLGOpt = false;			// Whether to optimise the LG model
+bool DoFreqFactOpt = false;		// Whether to optimise the Frequency factors in the extended model
+double ExhangeabilityVal[190], FreqVal[20]; 	// The exchangeability values and the frequencies of the empirical model
+string MyModelName;
 double PFAM_INIT_GAMMA = 0.60;	// Initial gamma value used below
+double PFAM_STARTE = 1.1;		// Initial value in PFAM_EXT model
 void RunPfamAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma);
 void RunPfamExtAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma);
 void RunLGAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma);
@@ -76,8 +81,24 @@ void RunLGAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, boo
 // Function that reads a file where each line is <DataFile	TreeFile> and runs analysis on it
 void RunFileModels(string InputFile = "RunFile.txt",bool Optimise = RunOpt, RunType ModelType = PFAM_EXT);
 
+// Pfam model
+double Local_dDAWVal[190] = { 0.489731,0.434096,0.689151,0.745458,0.157701,3.799768,2.997164,0.561225,0.593582,0.209865,1.096826,2.033985,1.568734,0.510314,0.169244,1.218607,0.203518,0.492350,4.624133,0.023176,2.775728,3.286121,0.283118,1.583660,0.878525,0.619727,0.266363,0.297458,0.480069,1.534185,3.855901,0.811161,0.649066,3.393983,0.358328,0.414048,0.322122,0.152373,0.194213,0.037690,0.326077,0.296890,0.008628,0.101660,0.107969,0.603662,0.420390,0.161805,0.055205,0.615331,0.820649,0.138056,0.149001,0.375308,4.235619,0.793960,5.091351,1.447175,0.210430,0.000000,2.286322,0.813732,0.387497,0.685727,0.236181,0.329431,1.154565,0.396559,0.389370,0.150038,0.948068,1.846502,0.069728,0.285749,0.484311,4.226910,7.171656,0.697476,0.539851,0.117019,0.130957,0.037625,1.076099,0.089122,0.061151,0.336796,0.817382,1.114589,2.754458,0.045835,2.035893,1.793694,0.254545,0.149861,0.398937,0.067232,0.491389,0.428482,0.186234,0.379495,0.082229,0.193493,0.437518,0.316372,0.131798,6.980949,0.680428,3.626996,0.987155,3.135412,1.065524,0.453900,2.303206,0.994255,0.176459,0.161823,0.710384,0.414420,0.322600,1.059385,2.038858,0.596206,1.534471,0.374507,1.162644,1.055418,0.538049,0.319113,0.550645,0.956048,0.537779,0.940649,1.621433,0.283705,0.526717,6.022523,0.455034,0.623611,0.062928,0.092758,0.654004,0.263813,0.050811,0.313616,0.659500,0.229113,0.693450,0.172323,0.790414,2.603355,0.193525,0.248857,0.239847,0.279629,0.340810,0.718183,0.189206,1.041260,0.188069,0.063562,0.148904,5.086127,0.251108,0.350935,0.192288,0.573306,9.706728,0.077341,0.327038,0.152992,3.085822,2.657484,0.264363,0.229550,0.022429,2.177563,0.295656,0.419175,0.107436,0.173843,11.068979,1.716229,0.359832,1.826273,0.769416,0.396602,0.199695,2.591614,0.252636,0.220997 };
+double Local_dDAWFreq[20] = { 0.07906592093407908,0.05594094405905594,0.04197695802304198,0.053051946948053055,0.012936987063012939,0.040766959233040766,0.07158592841407159,0.05733694266305734,0.022354977645022357,0.06215693784306216,0.09908090091909909,0.0645999354000646,0.022950977049022953,0.042301957698042306,0.04403995596004404,0.0611969388030612,0.05328694671305329,0.012065987934012068,0.034154965845034156,0.06914693085306915 };
+double Local_dLGVal[190] = {0.425093,0.276818,0.751878,0.395144,0.123954,5.076149,2.489084,0.534551,0.528768,0.062556,0.969894,2.807908,1.695752,0.523386,0.084808,1.038545,0.363970,0.541712,5.243870,0.003499,4.128591,2.066040,0.390192,1.437645,0.844926,0.569265,0.267959,0.348847,0.358858,2.426601,4.509238,0.927114,0.640543,4.813505,0.423881,0.311484,0.149830,0.126991,0.191503,0.010690,0.320627,0.072854,0.044265,0.008705,0.108882,0.395337,0.301848,0.068427,0.015076,0.594007,0.582457,0.069673,0.044261,0.366317,4.145067,0.536518,6.326067,2.145078,0.282959,0.013266,3.234294,1.807177,0.296636,0.697264,0.159069,0.137500,1.124035,0.484133,0.371004,0.025548,0.893680,1.672569,0.173735,0.139538,0.442472,4.273607,6.312358,0.656604,0.253701,0.052722,0.089525,0.017416,1.105251,0.035855,0.018811,0.089586,0.682139,1.112727,2.592692,0.023918,1.798853,1.177651,0.332533,0.161787,0.394456,0.075382,0.624294,0.419409,0.196961,0.508851,0.078281,0.249060,0.390322,0.099849,0.094464,4.727182,0.858151,4.008358,1.240275,2.784478,1.223828,0.611973,1.739990,0.990012,0.064105,0.182287,0.748683,0.346960,0.361819,1.338132,2.139501,0.578987,2.000679,0.425860,1.143480,1.080136,0.604545,0.129836,0.584262,1.033739,0.302936,1.136863,2.020366,0.165001,0.571468,6.472279,0.180717,0.593607,0.045376,0.029890,0.670128,0.236199,0.077852,0.268491,0.597054,0.111660,0.619632,0.049906,0.696175,2.457121,0.095131,0.248862,0.140825,0.218959,0.314440,0.612025,0.135107,1.165532,0.257336,0.120037,0.054679,5.306834,0.232523,0.299648,0.131932,0.481306,7.803902,0.089613,0.400547,0.245841,3.151815,2.547870,0.170887,0.083688,0.037967,1.959291,0.210332,0.245034,0.076701,0.119013,10.649107,1.702745,0.185202,1.898718,0.654683,0.296501,0.098369,2.188158,0.189510,0.249313};
+double Local_dLGFreq[20] = {0.07906592093407908,0.05594094405905594,0.04197695802304198,0.053051946948053055,0.012936987063012939,0.040766959233040766,0.07158592841407159,0.05733694266305734,0.022354977645022357,0.06215693784306216,0.09908090091909909,0.0645999354000646,0.022950977049022953,0.042301957698042306,0.04403995596004404,0.0611969388030612,0.05328694671305329,0.012065987934012068,0.034154965845034156,0.06914693085306915}; // renormalised
+
 /////////////////////////////////////// Pfam model main code ////////////////////////////////////////////////////////////////
-void PfamModelAnalysis(string RunFile)	{
+// Current model choices
+// "EMP" = Standard empirical model
+// "PFAM" = Pfam model
+// "HET" = Heterogeneous model
+// "PFAM_EXT" = The experimental pfam extending model with frequency fudge factor
+// "PFAM_OPT" = Re-estimate
+/////
+// Switch of "+dG" to chose a gamma version
+/////
+// Switch of "+LG" or "+HAW" for the two variants of the model
+void PfamModelAnalysis(int argc, char *argv[])	{
 	int i,j;
 	double curlnL;
 	CBaseModel *Model= NULL;
@@ -95,9 +116,65 @@ void PfamModelAnalysis(string RunFile)	{
 	CEMP *LGM = NULL;
 	CTree *T = NULL;
 	CData *SarDat;
+	string RunFile,ModelString;
+	RunType ModelRun;
 
-	cout << "\nRunning new file analysis type: ";
-	RunFileModels(RunFile);
+	// Do command line initiation
+	///////////////////////////////////////
+	if(argc != 3) { cout << "\nModelomatic <RunFile.txt> Model\n"; exit(-1); }
+	RunFile = argv[1];
+	ModelString = argv[2];
+	cout << "\nModelString: " << ModelString;
+	// 1. Model name
+	if(ModelString.find("EMP") != string::npos) {
+		MyModelName = "EMP";
+		ModelRun = LG;
+		ModelString = find_and_replace(ModelString,"EMP","");	// Replace the name
+	} else if(ModelString.find("PFAM_EXT") != string::npos) {
+		MyModelName = "PFAM_EXT";
+		ModelRun = PFAM_EXT;
+		ModelString = find_and_replace(ModelString,"PFAM_EXT","");	// Replace the name
+	} else if(ModelString.find("PFAM") != string::npos) {
+		MyModelName = "PFAM";
+		ModelRun = PFAM;
+		ModelString = find_and_replace(ModelString,"PFAM","");	// Replace the name
+	}  else if(ModelString.find("HET") != string::npos) {
+		MyModelName = "HET";
+		ModelRun = HET;
+		ModelString = find_and_replace(ModelString,"HET","");	// Replace the name
+	} else if(ModelString.find("PFAM_OPT") != string::npos) {
+		MyModelName = "EMPGTR";
+		ModelRun = PFAM_EXT;
+		DoLGOpt = true;
+		ModelString = find_and_replace(ModelString,"PFAM_EXT","");	// Replace the name
+	} else {
+		cout << "\nUnknown model type [EMP/PFAM/PFAM_EXT/HET/PFAM_OPT]: "<< ModelString; exit(-1);
+	}
+	// 2. Empirical model type
+	if(ModelString.find("+LG") != string::npos) {
+		MyModelName = MyModelName + "+LG";
+		ModelString = find_and_replace(ModelString,"+LG","");	// Replace the name
+		FOR(i,190) { ExhangeabilityVal[i] = Local_dLGVal[i]; } FOR(i,20) { FreqVal[i] = Local_dLGFreq[i]; }
+	} else if(ModelString.find("+DAW") != string::npos) {
+		MyModelName = MyModelName + "+DAW";
+		ModelString = find_and_replace(ModelString,"+DAW","");	// Replace the name
+		FOR(i,190) { ExhangeabilityVal[i] = Local_dDAWVal[i]; } FOR(i,20) { FreqVal[i] = Local_dDAWFreq[i]; }
+	} else {
+			cout << "\nUnknown empircal type [LG/DAW]: "<< ModelString; exit(-1);
+	}
+	// 3. Sort gamma
+	if(ModelString.find("+dG") != string::npos) {
+		MyModelName = MyModelName + "+dG";
+		ModelString = find_and_replace(ModelString,"+dG","");	// Replace the +dG
+		RunDoGamma = true;
+	} else { RunDoGamma = false; }
+	if(!ModelString.empty()) {
+		cout << "\nLeft over text in model line: <" << ModelString << ">"; exit(-1);
+	}
+
+	// Run the analysis
+	cout << "\nRunning file-based analysis on model: " << MyModelName;
+	RunFileModels(RunFile,RunOpt,ModelRun);
 	exit(-1);
 
 	// Set model header
@@ -153,7 +230,7 @@ void PfamModelAnalysis(string RunFile)	{
 		cout << "\nMaking model " << flush;
 		CBaseModel *Model;
 		CPfamModel TPfam(&TDat,&TT,freq_file);
-		CEMP LG_Model(&TDat,&TT,"LG",true,(double*)dLGVal,(double*)dLGFreq);		// Set for +F
+		CEMP LG_Model(&TDat,&TT,MyModelName,true,(double*)ExhangeabilityVal,(double*)FreqVal);		// Set for +F
 		switch(DoPfamModel) {
 		case LG: Model = &LG_Model; break;
 		case PFAM: Model = &TPfam; break;
@@ -713,7 +790,7 @@ double CPfamModel::lnL(bool ForceReal){
 	if(pLikelihood != NULL) {
 		logL -= pLikelihood(NULL); // Called as blank. Other arguments intended to allow functionality
 	}
-//	cout << "\n\tReturning likelihood: " << logL << endl;  // exit(-1);
+//	cout << "\n\tReturning likelihood: " << logL << endl; // exit(-1);
 	return logL;
 }
 
@@ -726,7 +803,7 @@ CPfamProcess::CPfamProcess(CData *D, CTree *T, vector <vector <double> > *Freqs)
 	CQPar *Par = NULL;
 	CQMat *tQMat = NULL;
 	CBaseEqm *tEqm = NULL;
-	double *S_ij = (double*) dLGVal,*pdQMat;
+	double *S_ij = (double*) ExhangeabilityVal,*pdQMat;
 	// Some basic error checking on input
 	assert(D->m_iSize == D->m_iTrueSize && D->m_iSize == (int) Freqs->size());
 	m_sName = "PfamProcess";
@@ -740,7 +817,7 @@ CPfamProcess::CPfamProcess(CData *D, CTree *T, vector <vector <double> > *Freqs)
 			Name = GetPos(m_sABET,i,m_iABET_length/m_iChar) + " <-> " + GetPos(m_sABET,j,m_iABET_length/m_iChar);
 			Par = new CQPar(Name,m_iChar,S_ij[count++],false,0.0,BIG_NUMBER);
 			Par->AddQij(i,j);
-			Par->SetOptimise(false);
+			Par->SetOptimise(DoLGOpt);		// Whether to optimiser the LG parameters
 			m_vpPar.push_back(Par);
 			Par = NULL;
 	}	}
@@ -2127,16 +2204,20 @@ CQPar(string Name, int Char, double Value, bool Optimise=true, double Lowbound =
 // Model part -- Identical to CPfamModel, but used to create the CExpPfamProcess rather than CPfamProcess
 CExpPfamModel::CExpPfamModel(CData *D,CTree *T,string File, double StartE) : CPfamModel(D,T,File,true)	{
 	// Rest of the model is sorted by passing true to CPfamModel
-	m_sName = "PfamModelExtra";		// Rename
+	// Rename
+	if(DoLGOpt) { m_sName = "PfamModelExtra+GTR"; }
+	else { m_sName = "PfamModelExtra";		 }
 }
 
 vector <double *> CExpPfamModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Parameters, bool Eqm)	{
 	int i,j, grad_pointer = 0;
 	vector <double *> OptVal;
-	cout << "\nOkay to here" << flush;
 	OptVal = CBaseModel::GetOptPar(ExtBranch,IntBranch,Parameters,Eqm);
-	OptVal.push_back(m_pFreqFactor->OptimiserValue());
-	m_vpAllOptPar.push_back(m_pFreqFactor);
+	if(DoFreqFactOpt) {
+		OptVal.push_back(m_pFreqFactor->OptimiserValue());
+		m_vpAllOptPar.push_back(m_pFreqFactor);
+	}
+//	cout << "\nOptimised Par:"; FOR(i,m_vpAllOptPar.size()) { cout << "\n["<<i<<"]: " << *m_vpAllOptPar[i]; } exit(-1);
 	return OptVal;
 }
 
@@ -2160,8 +2241,9 @@ CExpPfamProcess::CExpPfamProcess(CData *Data, CTree *Tree, vector <vector <doubl
 		m_vvdFreqFact.push_back(Vals);
 	}
 	m_pFreqFactor = NULL;
-	StartE = 1.5;
+	StartE = PFAM_STARTE;
 	m_pFreqFactor = new CQPar("FreqFactor",20,StartE);
+	m_pFreqFactor->SetOptimise(DoFreqFactOpt);
 }
 
 CExpPfamProcess::~CExpPfamProcess() {
@@ -2181,31 +2263,34 @@ bool CExpPfamProcess::Likelihood(bool ForceReal) {
 	/* REDO FREQUENCIES */
 //	cout << "\nUsing FreqFactor: " << m_pFreqFactor->Val();
 	assert(m_vvdOriSiteFreq.size() == m_vpSiteQ.size());
-//	if(!m_bIsProcessCopy)	{
-		FOR(i,m_vvdOriSiteFreq.size()) {
-//			if(i<15) { cout << "\n<<<<<<< SITE " << i << " >>>>>>>>>>>"; cout << "\nm_pFreqFact["<<i<<"]: " << m_vvdFreqFact[i]; }
-			// Calculate new frequency vector
-			FOR(j,20) { Freq[j] = m_vdBackgroundFreq[j] * exp(m_pFreqFactor->Val() * m_vvdFreqFact[i][j]); }
+//	if(!m_bIsProcessCopy)	{ m_vpPar[0]->SetVal(0.5); } // Test for parameters
+
+	FOR(i,m_vvdOriSiteFreq.size()) {
+//		if(i == 0) { cout << "\n<<<<<<< SITE " << i << " >>>>>>>>>>> " << this; cout << "\nm_pFreqFact["<<i<<"]: " << m_vvdFreqFact[i]; }
+		// Calculate new frequency vector
+		FOR(j,20) { Freq[j] = m_vdBackgroundFreq[j] * exp(m_pFreqFactor->Val() * m_vvdFreqFact[i][j]); }
 //			if(i<15) { cout << "\nFreqs before: "<< Freq << flush; }
-			Freq = NormaliseVector(Freq);
-	//		if(i<15) { cout << "\nFreqs after:  "<< Freq << flush; }
-			// Apply to appropriate Q matrix
-			tQ = m_vpSiteQ[i];
-			m_vpSiteQ[i]->Unlock();
-			tQ->InitQ(m_dBaseVal);
-			FOR(k,m_vpPar.size()) {	m_vpPar[k]->UpdatePar(); tQ->ApplyPar2Q(m_vpPar[k]); }
-			tQMat = tQ->Q();
-			FOR(k,m_iChar) { // By *row*
-				FOR(l,m_iChar) { // By column
-					if(k==l) { continue; }
-					tQMat[(k*m_iChar)+l] *= Freq[l];
-				}
+		Freq = NormaliseVector(Freq);
+//		if(i<15) { cout << "\nFreqs after:  "<< Freq << flush; }
+		// Apply to appropriate Q matrix
+		tQ = m_vpSiteQ[i];
+		m_vpSiteQ[i]->Unlock();
+		tQ->InitQ(m_dBaseVal);
+		FOR(k,m_vpPar.size()) {
+//			if(i == 0 && InRange(k,0,5)) { cout << "\nParameter["<<k<<"]: " << m_vpPar[k] << " = " << *m_vpPar[k]; }
+			m_vpPar[k]->UpdatePar(); tQ->ApplyPar2Q(m_vpPar[k]); }
+		tQMat = tQ->Q();
+		FOR(k,m_iChar) { // By *row*
+			FOR(l,m_iChar) { // By column
+				if(k==l) { continue; }
+				tQMat[(k*m_iChar)+l] *= Freq[l];
 			}
-			tQ->DoQDiag();
-			tQ->Decompose(Freq,true,true,m_pRate->Val());
-			tQ->Lock();
-			tQ = NULL; tQMat = NULL;
-	} 	// }
+		}
+		tQ->DoQDiag();
+		tQ->Decompose(Freq,true,true,m_pRate->Val());
+		tQ->Lock();
+		tQ = NULL; tQMat = NULL;
+	}
 	// Do the original likelihood
 	return CPfamProcess::Likelihood(ForceReal);
 }
@@ -2258,7 +2343,7 @@ void RunPfamAnalysis(string TreeFile, string DataFile, bool Optimise, bool DoGam
 	if(DoGamma) { RunModel->MakeGammaModel(0,4,PFAM_INIT_GAMMA); }
 	cout << "\nData and model initialised..." << flush; cout.precision(12);
 	// Other variables
-	string OutModelFile = DataFile + "_" + TreeFile + ".pfam.model.txt", OutSiteFile = DataFile + "_" + TreeFile + ".sitelnL.txt";
+	string OutModelFile = DataFile + "_" + TreeFile + "." + MyModelName + ".model.txt", OutSiteFile = DataFile + "_" + TreeFile + "." + MyModelName + ".sitelnL.txt";
 
 	double curlnL = RunModel->lnL(true);
 	cout << "\nInitial likelihood: " << curlnL;
@@ -2288,7 +2373,7 @@ void RunPfamExtAnalysis(string TreeFile, string DataFile, bool Optimise, bool Do
 	if(DoGamma) { RunModel->MakeGammaModel(0,4,PFAM_INIT_GAMMA); }
 	cout << "\nData and model initialised..." << flush; cout.precision(12);
 	// Other variables
-	string OutModelFile = DataFile + "_" + TreeFile + ".pfam_ext.model.txt", OutSiteFile = DataFile + "_" + TreeFile + ".sitelnL.txt";
+	string OutModelFile = DataFile + "_" + TreeFile + "." + MyModelName + ".model.txt", OutSiteFile = DataFile + "_" + TreeFile + "." + MyModelName + ".sitelnL.txt";
 
 	double curlnL = RunModel->lnL(true);
 	cout << "\nInitial likelihood: " << curlnL;
@@ -2310,17 +2395,17 @@ void RunPfamExtAnalysis(string TreeFile, string DataFile, bool Optimise, bool Do
 
 
 void RunLGAnalysis(string TreeFile, string DataFile, bool Optimise, bool DoGamma) {
-	cout << "\n--------- Running LG analysis: data = " << DataFile << " : Tree = " << TreeFile << " ---------" << flush;
+	cout << "\n--------- Running " << MyModelName << " analysis: data = " << DataFile << " : Tree = " << TreeFile << " ---------" << flush;
 	// Some object initiation
 	CEMP *RunModel = NULL;
 	CData Data(DataFile,AA,false,0,true);
 	CTree Tree(TreeFile,true,&Data);
-	RunModel = new CEMP(&Data,&Tree,"LG",true,(double*)dLGVal,(double*)dLGFreq);
+	RunModel = new CEMP(&Data,&Tree,MyModelName,true,(double*)ExhangeabilityVal,(double*)dLGFreq);
 
 	if(DoGamma) { RunModel->MakeGammaModel(0,4,PFAM_INIT_GAMMA); }
 	cout << "\nData and model initialised..." << flush; cout.precision(12);
 	// Other variables
-	string OutModelFile = DataFile + "_" + TreeFile + ".LG.model.txt", OutSiteFile = DataFile + "_" + TreeFile + ".sitelnL.txt";
+	string OutModelFile = DataFile + "_" + TreeFile + "." + MyModelName + ".model.txt", OutSiteFile = DataFile + "_" + TreeFile + "." + MyModelName + ".sitelnL.txt";
 
 	double curlnL = RunModel->lnL(true);
 	cout << "\nInitial likelihood: " << curlnL;

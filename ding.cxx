@@ -1,3 +1,4 @@
+
 /*	///////////////////////////////////////////////////////////////////////
 		ModelOMatic -- Program for assessing the fit of lots of models
 			Simon Whelan, Uppsala University
@@ -41,7 +42,7 @@ extern int TABU_RADIUS;
 
 #define DO_PFAM 1		// Whether to do the Pfam analysis in PfamModel.cxx
 
-int ding(string InFile)	{
+int ding(int argc, char *argv[])	{
 		int Ret = 0;
 		int GeneticCode = 0;
 		int count = 0;
@@ -52,9 +53,11 @@ int ding(string InFile)	{
 		vector <string> Toks;
 
 #if DO_PFAM == 1
-		PfamModelAnalysis(InFile);
+		PfamModelAnalysis(argc,argv);
 		exit(-1);
 #endif
+
+	cout << "\nDoing old het work... unexpected..." << flush; exit(-1);
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Stuff for Ding's work on tree support

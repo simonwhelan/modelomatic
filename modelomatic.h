@@ -35,7 +35,7 @@ struct SModelDetails {
 SModelDetails DoModelRun(CBaseModel *M, int NoPar, Lcorrection, double Adj = 0.0);
 #define MATIC_BRANCH_ACC 0.01	// Accuracy to which branch lengths are estimated in DoItFast
 
-int ding(string InFile = "RunFile.txt");			// Main function call for ding's work
+int ding(int argc, char *argv[]);			// Main function call for ding's work
 int GetRYModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 int GetNTModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);
 int GetAAModels(bool *BoundOut, CData *Data, CTree *Tree, vector <SModelDetails> *Models, int GeneticCode, ostream &out = cout);

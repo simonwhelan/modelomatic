@@ -111,8 +111,7 @@ int main(int argc, char *argv[])	{
 
 	// Work in progress files expected
 
-	assert(argc == 2);
-	ding(argv[1]);	// Head function in ding.cxx
+	ding(argc,argv);	// Head function in ding.cxx
 	cout << "\nCompleted Ding work\n"; exit(-1);
 
 	// Get information
