@@ -42,7 +42,7 @@ string SmallName = "test.phy";
 string SmallTree = "mito55_small.tre";	// Redundant. Trees usually given as text input
 string freq_file = "PfamFreqFile.txt";	// Pfam frequency file
 
-enum RunType { LG,PFAM,PFAM_EXT, HET };
+enum RunType { LG,LG_OPT, PFAM,PFAM_EXT, HET };
 
 bool SAR11Run = false;		// Whether to run the models an SAR11. Will not accept HET model runs
 bool DoShort = false;
@@ -63,9 +63,11 @@ double GammaLG[3] = { 0.624685 , 0.624761 , 0.624767 };
 double GammaPfam[3] = { 0.605827 , 0.606925 , 0.606983 };
 double GammaHet[3] = { 0.633508 , 0.633970 , 0.633941 };
 
-////////
+/////////////////////////////////
 // Function to run a Pfam analysis based on the tree and data provided and output it to an appropriately named file
-bool RunOpt = false;
+////////////////////////////////
+// All the modern and important stuff is defined here (7Sep16)
+bool RunOpt = true;
 bool RunDoGamma = true;
 bool DoLGOpt = false;			// Whether to optimise the LG model
 bool DoFreqFactOpt = false;		// Whether to optimise the Frequency factors in the extended model
@@ -75,7 +77,7 @@ double PFAM_INIT_GAMMA = 0.60;	// Initial gamma value used below
 double PFAM_STARTE = 1.1;		// Initial value in PFAM_EXT model
 void RunPfamAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma);
 void RunPfamExtAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma);
-void RunLGAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma);
+void RunLGAnalysis(string TreeFile, string DataFile, bool Optimise = RunOpt, bool DoGamma = RunDoGamma, bool DoOptExchangeabilities = false);
 
 ////////
 // Function that reads a file where each line is <DataFile	TreeFile> and runs analysis on it
@@ -126,29 +128,33 @@ void PfamModelAnalysis(int argc, char *argv[])	{
 	ModelString = argv[2];
 	cout << "\nModelString: " << ModelString;
 	// 1. Model name
-	if(ModelString.find("EMP") != string::npos) {
+	if(ModelString.find("EMP_OPT") != string::npos) {	// Optimise a standard empirical model's exchangeabilities
+			MyModelName = "EMP_OPT";
+			ModelRun = LG_OPT;
+			ModelString = find_and_replace(ModelString,"EMP_OPT","");	// Replace the name
+	} else if(ModelString.find("EMP") != string::npos) {		// Standard empirical model
 		MyModelName = "EMP";
 		ModelRun = LG;
 		ModelString = find_and_replace(ModelString,"EMP","");	// Replace the name
-	} else if(ModelString.find("PFAM_EXT") != string::npos) {
+	} else if(ModelString.find("PFAM_EXT") != string::npos) {	// Pfam extended model with fudge factor for frqeuencies
 		MyModelName = "PFAM_EXT";
 		ModelRun = PFAM_EXT;
 		ModelString = find_and_replace(ModelString,"PFAM_EXT","");	// Replace the name
-	} else if(ModelString.find("PFAM") != string::npos) {
-		MyModelName = "PFAM";
-		ModelRun = PFAM;
-		ModelString = find_and_replace(ModelString,"PFAM","");	// Replace the name
-	}  else if(ModelString.find("HET") != string::npos) {
-		MyModelName = "HET";
-		ModelRun = HET;
-		ModelString = find_and_replace(ModelString,"HET","");	// Replace the name
-	} else if(ModelString.find("PFAM_OPT") != string::npos) {
+	} else if(ModelString.find("PFAM_OPT") != string::npos) {	// Pfam extended model used for estimating exchangeabilities in a Pfam model
 		MyModelName = "EMPGTR";
 		ModelRun = PFAM_EXT;
 		DoLGOpt = true;
 		ModelString = find_and_replace(ModelString,"PFAM_EXT","");	// Replace the name
+	} else if(ModelString.find("PFAM") != string::npos) {		// Standard Pfam model
+		MyModelName = "PFAM";
+		ModelRun = PFAM;
+		ModelString = find_and_replace(ModelString,"PFAM","");	// Replace the name
+	}  else if(ModelString.find("HET") != string::npos) {		// Standard Het model (Not really set up properly at the moment
+		MyModelName = "HET";
+		ModelRun = HET;
+		ModelString = find_and_replace(ModelString,"HET","");	// Replace the name
 	} else {
-		cout << "\nUnknown model type [EMP/PFAM/PFAM_EXT/HET/PFAM_OPT]: "<< ModelString; exit(-1);
+		cout << "\nUnknown model type [EMP/PFAM/PFAM_EXT/HET/PFAM_OPT/EMP_OPT]: "<< ModelString; exit(-1);
 	}
 	// 2. Empirical model type
 	if(ModelString.find("+LG") != string::npos) {
@@ -2394,19 +2400,35 @@ void RunPfamExtAnalysis(string TreeFile, string DataFile, bool Optimise, bool Do
 }
 
 
-void RunLGAnalysis(string TreeFile, string DataFile, bool Optimise, bool DoGamma) {
+void RunLGAnalysis(string TreeFile, string DataFile, bool Optimise, bool DoGamma, bool OptExchangeabilities) {
 	cout << "\n--------- Running " << MyModelName << " analysis: data = " << DataFile << " : Tree = " << TreeFile << " ---------" << flush;
 	// Some object initiation
+	int i;
 	CEMP *RunModel = NULL;
 	CData Data(DataFile,AA,false,0,true);
 	CTree Tree(TreeFile,true,&Data);
 	RunModel = new CEMP(&Data,&Tree,MyModelName,true,(double*)ExhangeabilityVal,(double*)dLGFreq);
+	string OutModelFile, OutSiteFile;
 
-	if(DoGamma) { RunModel->MakeGammaModel(0,4,PFAM_INIT_GAMMA); }
 	cout << "\nData and model initialised..." << flush; cout.precision(12);
 	// Other variables
-	string OutModelFile = DataFile + "_" + TreeFile + "." + MyModelName + ".model.txt", OutSiteFile = DataFile + "_" + TreeFile + "." + MyModelName + ".sitelnL.txt";
+	if(OptExchangeabilities) {
+		cout << "\nOptimising exchangeabilities. This will be slow!";
+		OutModelFile = DataFile + "_" + TreeFile + "." + MyModelName + ".optGTR.model.txt"; OutSiteFile = DataFile + "_" + TreeFile + "." + MyModelName + ".optGTR.sitelnL.txt";
+		assert(RunModel->m_vpProc.size() == 1 && RunModel->m_vpProc[0]->m_vpQMat.size() == 1);
+		FOR(i,(int) RunModel->m_vpProc[0]->m_vpPar.size()) {
+			if(RunModel->m_vpProc[0]->m_vpPar[i]->Name().find("<->") != string::npos) {
+				RunModel->m_vpProc[0]->m_vpPar[i]->SetOptimise(true);
+				RunModel->m_vpPar.push_back(RunModel->m_vpProc[0]->m_vpPar[i]);
+			}
 
+			RunModel->m_vpProc[0]->m_vpQMat[0]->Unlock();
+		}
+	} else {
+		OutModelFile = DataFile + "_" + TreeFile + "." + MyModelName + ".model.txt"; OutSiteFile = DataFile + "_" + TreeFile + "." + MyModelName + ".sitelnL.txt";
+	}
+	// Add gamma afterwards so optimisation doesn't get confused
+	if(DoGamma) { RunModel->MakeGammaModel(0,4,PFAM_INIT_GAMMA); }
 	double curlnL = RunModel->lnL(true);
 	cout << "\nInitial likelihood: " << curlnL;
 	// Optimise
@@ -2464,6 +2486,9 @@ void RunFileModels(string InputFile,bool Optimise,RunType ModelType)	{
 		break;
 	case LG:
 		FOR(i,DataFiles.size()) { RunLGAnalysis(TreeFiles[i],DataFiles[i],Optimise); }
+		break;
+	case LG_OPT:
+		FOR(i,DataFiles.size()) { RunLGAnalysis(TreeFiles[i],DataFiles[i],Optimise, RunDoGamma, true); }
 		break;
 	case HET:
 	default:

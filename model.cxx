@@ -371,7 +371,7 @@ vector <double *> CBaseModel::GetOptPar(bool ExtBranch, bool IntBranch, bool Par
 		cout << "\n\tPar["<<i<<"] " << m_vpAllOptPar[i]->Name() << " = " << m_vpAllOptPar[i]->Val() << " == " << *OptVal[i];
 	}
 	cout << "\n---------"; */
-//	exit(-1);
+//		cout << "\nOptimised Par:"; FOR(i,m_vpAllOptPar.size()) { cout << "\n["<<i<<"]: " << *m_vpAllOptPar[i]; } exit(-1);
 	return OptVal;
 }
 
