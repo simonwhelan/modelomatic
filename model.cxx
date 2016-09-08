@@ -1449,7 +1449,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 //			cout << "\n\t\tReturning on low bound: " << *p_x << " = " << *BestlnL << " == " << DoBralnL(Br,NFr,NTo);
 			RETURN_DOBRAOPT;
 	}	}
-	if(!Par->CheckUpBound()) {	// Check upper bound
+	else if(!Par->CheckUpBound()) {	// Check upper bound
 		x3 = x2; x3_lnL = *BestlnL;
 		x2 = *p_x = Par->UpBound() - (DX * 2);
 		x2_lnL = DoBralnL(Br,NFr,NTo); x2 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
@@ -1457,7 +1457,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 			*p_x = x3; *BestlnL = x3_lnL;
 			Par->StoreOptBounds(Par->UpBound() - DX, Par->UpBound());
 			RETURN_DOBRAOPT;
-	}	}
+	}	} else { Par->StoreOptBounds(Par->LowBound(),Par->UpBound()); }
 	// ----------------------------------- Bracketing routine -------------------------------------
 	// Initialise sensible bounds; this is necessary because after other optimisation the original value may fall out of bound
 	Par->StoreOptBounds(min(x2-DX,Par->OptLow()),max(x2+DX,Par->OptUp()));
