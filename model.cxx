@@ -1437,6 +1437,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 //	cout << "\nOptimising Br(" << Br << ") = " << Tree()->B(Br) << " = *Best: " << *BestlnL << " == " << DoBralnL(Br,NFr,NTo);
 
 	// ------------------------------------- Catch entry into bounds ------------------------------------
+	// General: These bounding conditions are poor and need rewriting
 	if(!Par->CheckLowBound()) {	// Check lower bound
 		x1 = x2; x1_lnL = *BestlnL;
 		x2 = *p_x = Par->LowBound() + (DX * 2);
@@ -1462,7 +1463,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 	// Initialise sensible bounds; this is necessary because after other optimisation the original value may fall out of bound
 	Par->StoreOptBounds(min(x2-DX,Par->OptLow()),max(x2+DX,Par->OptUp()));
 	// Get left bracketing
-//	cout << "\nDoing left";
+//	cout << "\nDoing left" << flush;
 	HaveBound = true;
 	if(fabs(Par->LowBound() - Par->OptLow()) < FLT_EPSILON) { HaveBound = false; dx = DX; } else { dx = 0.0; }	 // Set original dx
 
@@ -1502,7 +1503,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 		if(fabs(dx) < FLT_EPSILON) { dx = DX; } else { dx *= GS_DELTA; }
 	}
 //	cout << "\n\tafter left:  (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
-//	cout << "\nDoing right";
+//	cout << "\nDoing right" << flush;
 	// Get right bracketing
 	HaveBound = true;
 //	cout << "\n>>>>>>>>>>>>>>>>>>>>> Into right";
@@ -1513,13 +1514,17 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 //		cout << "\nx3: " << x3 << " == " << x3_lnL << " (diff="<<x2_lnL - x3_lnL << ")";
 
 		while(x2_lnL < x3_lnL + tol)	{
+//			cout << "\nValue = " << Par->Val() << " == Par->LowBound: " << Par->LowBound() << " : " << Par->OptUp();
 			if(HaveBound) {
 				*p_x = x3 = max(Par->LowBound(),Par->OptUp() + (dx * 10));
 			} else {
 				*p_x = x3 = max(Par->LowBound(),x2 + (dx * 100));
 			}
 			x3_lnL = DoBralnL(Br,NFr,NTo); x3 = *p_x; /* catches bound corrections */ m_iFastBralnL_Bracket++;
-//			cout << "\n\tRight: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+//			cout << "\n\tRight dx = " << dx <<": (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")" << flush;
+//			cout << "\nCheckbound: "<< Par->CheckBound();
+			if(fabs(Par->Val() - Par->UpBound()) < 1.0E-6)  {cout << "!?!?!?!?!"; }
+			if(dx > 10000) { exit(-1); }
 			if(!Par->CheckBound())	{
 //				cout << "\nCheck Up bound break";
 				if(x2_lnL > x1_lnL) { break; } // Have curvature around x2. All okay
@@ -1541,7 +1546,7 @@ void CBaseModel::DoBraOpt(int First, int NTo, int NFr, int Br, bool IsExtBra, do
 			}
 			if(fabs(dx) < FLT_EPSILON) { dx = DX; } else { dx *= GS_DELTA; }
 	}	}
-//	cout << "\n\tafter Right: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")";
+//	cout << "\n\tafter Right: (" << x1 << ": " << x1_lnL << "," << x2 << ": " << x2_lnL << "," << x3 << ": " << x3_lnL << ")" << flush;
 	if((x1_lnL - x2_lnL > tol || x3_lnL - x2_lnL > tol) || (x1 - x2 > DX || x2 > x3 > DX)) {
 		cout.precision(10);
 		cout << "\nBounding failed in DoBraOpt(...)... ";

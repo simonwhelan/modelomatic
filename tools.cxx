@@ -500,10 +500,11 @@ bool CPar::CheckBound(bool ForceBounds) {
 	if(CheckOkay == false) { return true; }
 	CheckOkay = false;
 	if(m_dRealValue < m_ardBounds[0] - 1.0E-6) {
+//	if(fabs(m_dRealValue - m_ardBounds[0]) < 1.0E-6) {
 		if(ForceBounds == true) { SetVal(m_ardBounds[0]); }
 		CheckOkay = true;
 		return false;
-	} else if(m_dRealValue > m_ardBounds[1] + 1.0E-6) {
+	} else if(fabs(m_dRealValue - m_ardBounds[1]) < 1.0E-6) {
 		if(ForceBounds == true) { SetVal(m_ardBounds[1]); }
 		CheckOkay = true;
 		return false;
@@ -516,8 +517,7 @@ bool CPar::CheckLowBound(bool ForceBounds)	{
 	static bool CheckOkay = true;
 	if(CheckOkay == false) { return true; }
 	CheckOkay = false;
-//	if(m_dRealValue < m_ardBounds[0] - 1.0E-6) {
-	if(fabs(m_dRealValue - m_ardBounds[0]) < 1.0E-6 || m_dRealValue < m_ardBounds[0] - 1.0E-6) {
+	if(fabs(m_dRealValue - m_ardBounds[0]) < 1.0E-6) {
 //		cout << "\nLow Bound: " << m_dRealValue << " cf. " << m_ardBounds[0];
 		if(ForceBounds == true) { SetVal(m_ardBounds[0]); }
 		CheckOkay = true;
@@ -531,7 +531,7 @@ bool CPar::CheckUpBound(bool ForceBounds)	{
 	if(CheckOkay == false) { return true; }
 	CheckOkay = false;
 //	if(m_dRealValue > m_ardBounds[1] + 1.0E-6) {
-	if(fabs(m_dRealValue - m_ardBounds[1]) < 1.0E-6 || m_dRealValue > m_ardBounds[1] - 1.0E-6) {
+	if(fabs(m_dRealValue - m_ardBounds[1]) < 1.0E-6) {
 		if(ForceBounds == true) { SetVal(m_ardBounds[1]); }
 		CheckOkay = true;
 		return false;
